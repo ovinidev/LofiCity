@@ -197,4 +197,9 @@ export const praca: Scene = {
   update,
   render,
   debug() { return `active  people x${peopleCount()}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
+  // tap the church (façade, tower or spire) and the bell strikes once
+  tap(x, y) {
+    const tower = x >= 220 && x < 260 && y >= -76 && y < 62, facade = x >= 166 && x < 314 && y >= 37 && y < 140;
+    return tower || facade ? { x: CX, y: -14, sfx: 'bell' } : null;
+  },
 };

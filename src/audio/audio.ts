@@ -1,29 +1,35 @@
 /* Generative ambience with Web Audio only; starts on a user gesture.
    Layers: rain hiss + body, vinyl crackle, slow lo-fi pad, wind, summer cicadas,
-   autumn crickets, thunder rumble and firework booms. */
+   autumn crickets, thunder rumble, firework booms and Esperança's church bells.
+   While a radio station is on, the pad goes silent (its chords clashed with the music's key)
+   and the rest of the ambience steps back so the music leads. */
 import { S } from '../sky/state';
 import { radio } from './radio';
 import { inDoy, doyOf } from '../sky/time';
+import { STRIKE_GAP, strike } from './bell-synth';
 
 type G = GainNode;
 const A: {
   ctx: AudioContext | null; on: boolean; master?: G; rain?: G; body?: G; rumble?: G; wind?: G; windF?: BiquadFilterNode;
-  cicada?: G; cricket?: G; pad?: BiquadFilterNode; noise?: AudioBuffer; next: number; ci: number;
+  cicada?: G; cricket?: G; pad?: BiquadFilterNode; padGain?: G; noise?: AudioBuffer; next: number; ci: number;
 } = { ctx: null, on: false, next: 0, ci: 0 };
+/** Ambience level on its own, and while the radio plays. */
+const LEVEL = 0.7, UNDER_RADIO = 0.4;
+const level = () => (radio.isOn() ? UNDER_RADIO : LEVEL);
 
 const CHORDS = [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60, 64], [48, 52, 55, 59, 62]];
 
 function toggle(): boolean {
   if (A.ctx) {
     A.on = !A.on;
-    if (A.on) void A.ctx.resume();
-    A.master!.gain.setTargetAtTime(A.on ? 0.7 : 0, A.ctx.currentTime, 0.4);
+    if (A.on) void A.ctx.resume(); else cancelPeal();
+    A.master!.gain.setTargetAtTime(A.on ? level() : 0, A.ctx.currentTime, 0.4);
     return A.on;
   }
   const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return false;
   const ac = new AC(); A.ctx = ac; A.on = true;
-  const master = ac.createGain(); master.gain.value = 0; master.gain.setTargetAtTime(0.7, ac.currentTime, 1.2); master.connect(ac.destination); A.master = master;
+  const master = ac.createGain(); master.gain.value = 0; master.gain.setTargetAtTime(level(), ac.currentTime, 1.2); master.connect(ac.destination); A.master = master;
   const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), nd = nb.getChannelData(0);
   for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
   A.noise = nb;
@@ -52,7 +58,7 @@ function toggle(): boolean {
   const p2 = gain(0.5), l2 = ac.createOscillator(); l2.type = 'square'; l2.frequency.value = 1.4; l2.connect(gain(0.5)).connect(p2.gain); l2.start();
   A.cricket = gain(); tone.connect(p1).connect(p2).connect(A.cricket).connect(master);
 
-  A.pad = mk('lowpass', 1000, 0.5); A.pad.connect(gain(0.55)).connect(master);
+  A.pad = mk('lowpass', 1000, 0.5); A.padGain = gain(radio.isOn() ? 0 : 0.55); A.pad.connect(A.padGain).connect(master);
   A.next = ac.currentTime + 0.6; A.ci = 0;
   return true;
 }
@@ -84,8 +90,12 @@ function tick() {
   const autumn = br ? 1.4 : inDoy(doy, doyOf(7, 20), doyOf(10, 5)) ? 1 : 0;
   A.cicada!.gain.setTargetAtTime(0.035 * summer * S.dayK * dryness, now, 3);
   A.cricket!.gain.setTargetAtTime(0.012 * autumn * (1 - S.dayK) * dryness, now, 3);
-  // the ambience pad steps aside while a radio station is playing
-  if (now > A.next - 1) { if (!radio.isPlaying()) playChord(A.next, CHORDS[A.ci % 4]); A.ci++; A.next += 8; }
+  // The radio leads: the pad fades out (chords already sounding included) and the rest ducks.
+  // isOn() is true while a track is still loading too, so no chord starts in the gap and clashes.
+  const radioOn = radio.isOn();
+  A.padGain!.gain.setTargetAtTime(radioOn ? 0 : 0.55, now, radioOn ? 0.6 : 3);
+  A.master!.gain.setTargetAtTime(level(), now, 1.5);
+  if (now > A.next - 1) { if (!radioOn) playChord(A.next, CHORDS[A.ci % 4]); A.ci++; A.next += 8; }
 }
 
 function rumble(delay: number, amt: number, dur: number) {
@@ -103,4 +113,31 @@ function boom(delay: number) {
   s.connect(f).connect(g).connect(A.master!); s.start(t); s.stop(t + 1.7);
 }
 
-export const audio = { toggle, tick, rumble, boom };
+// ---------- church bells ----------
+let peal: { nodes: AudioScheduledSourceNode[]; bus: G } | null = null;
+
+/** Ring `strikes` strikes of the hour, a tower-clock gap apart. Replaces any peal still sounding. */
+function ringHour(strikes: number, near: boolean) {
+  if (!A.ctx || !A.on || A.ctx.state !== 'running' || strikes <= 0) return;
+  cancelPeal();
+  const ac = A.ctx, bus = ac.createGain(), t0 = ac.currentTime + 0.1, nodes: AudioScheduledSourceNode[] = [];
+  bus.connect(A.master!);
+  for (let i = 0; i < strikes; i++) nodes.push(...strike(ac, bus, t0 + i * STRIKE_GAP, near, A.noise));
+  peal = { nodes, bus };
+}
+/** Stop a peal in progress (sound switched off, city changed, page hidden for good). */
+function cancelPeal() {
+  if (!peal || !A.ctx) return;
+  const { nodes, bus } = peal, t = A.ctx.currentTime;
+  peal = null;
+  bus.gain.setTargetAtTime(0, t, 0.08);
+  for (const n of nodes) { try { n.stop(t + 0.4); } catch { /* already stopped */ } }
+  setTimeout(() => bus.disconnect(), 600);
+}
+
+export const audio = {
+  toggle, tick, rumble, boom, ringHour, cancelPeal,
+  isOn: () => A.on,
+  /** The AudioContext exists and is running, i.e. it was unlocked by a user gesture. */
+  ready: () => A.ctx?.state === 'running',
+};

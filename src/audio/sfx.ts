@@ -1,6 +1,7 @@
 /* Sound effects for things you tap, synthesized with Web Audio (no recordings): a dog's bark,
    a cat's meow, a bird's chirp, horns from a moto's beep to a bus's air horn, a donkey's
-   bray, the carro de som's jingle and a little "oi!" from people. */
+   bray, the carro de som's jingle, a little "oi!" from people and one strike of the church bell. */
+import { strike } from './bell-synth';
 
 let ctx: AudioContext | null = null, out: GainNode | null = null, noise: AudioBuffer | null = null;
 
@@ -32,7 +33,7 @@ function burst(f: number, q: number, peak: number, dur: number, at = 0) {
   s.connect(fl).connect(g).connect(out!); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
 }
 
-export type Sfx = 'bark' | 'meow' | 'chirp' | 'moto' | 'car' | 'bus' | 'kombi' | 'bray' | 'som' | 'oi' | 'truck';
+export type Sfx = 'bark' | 'meow' | 'chirp' | 'moto' | 'car' | 'bus' | 'kombi' | 'bray' | 'som' | 'oi' | 'truck' | 'bell';
 
 const play: Record<Sfx, () => void> = {
   bark: () => { for (const at of [0, 0.22]) { tone('sawtooth', [[0, 520], [0.05, 380], [0.12, 260]], 0.35, 0.13, { type: 'bandpass', f: 900, q: 2 }, at); burst(1400, 1.5, 0.15, 0.08, at); } },
@@ -51,6 +52,8 @@ const play: Record<Sfx, () => void> = {
     }
   },
   som: () => { [523, 659, 784, 1047, 784, 659].forEach((f, i) => tone('square', [[0, f]], 0.08, 0.14, { type: 'lowpass', f: 2500 }, i * 0.13)); },
+  // the matriz bell, one strike (tap the church in Praça da Matriz)
+  bell: () => { const c = ac(); strike(c, out!, c.currentTime + 0.02, true, noise ?? undefined); },
   oi: () => { const f = 180 + Math.random() * 160; tone('triangle', [[0, f], [0.12, f * 1.35], [0.22, f * 1.1]], 0.16, 0.25, { type: 'bandpass', f: f * 4, q: 1.2 }); },
 };
 
