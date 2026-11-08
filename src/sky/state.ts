@@ -15,7 +15,8 @@ export const S = {
   sunElev: 0, moonElev: 0, moonHA: 0, moonPhase: 0, morning: true,
   dayK: 0, golden: 0, twilight: 0,
   busy: 1, deep: 0, neonOn: true, lampOn: true, stallOpen: true, trains: true,
-  temp: 20, rain: 0, snow: 0, storm: 0, cloud: 0, fog: 0, wind: 0.05,
+  /** °C from a genuine reading (or the #wx= override); null = unknown (no reading). Never defaulted. */
+  temp: null as number | null, rain: 0, snow: 0, storm: 0, cloud: 0, fog: 0, wind: 0.05,
   /** Tokyo's rainy season by the calendar (a season tag, not a weather condition). */
   tsuyu: false,
   wet: 0, snowCover: 0,
@@ -70,10 +71,11 @@ function deriveTime(ms: number, city: City) {
   return cal;
 }
 
-interface Wx { temp: number; precip: number; rain: number; snow: number; storm: number; cloud: number; fog: number; wind: number }
-/** No genuine reading: a neutral scene with no precipitation, fog or storm. The temperature is never
-    shown (the HUD says "clima indisponível"); it only keeps clothing and snow melt neutral. */
-const NEUTRAL: Wx = { temp: 20, precip: 0, rain: 0, snow: 0, storm: 0, cloud: 0, fog: 0, wind: 0.05 };
+interface Wx { temp: number | null; precip: number; rain: number; snow: number; storm: number; cloud: number; fog: number; wind: number }
+/** No genuine reading: a neutral scene with no precipitation, fog or storm. The temperature is
+    unknown (null), not a made-up value: snow cover and melt-wetness stay as they are, people wear
+    the neutral default outfit, and the HUD shows no temperature ("clima indisponível"). */
+const NEUTRAL: Wx = { temp: null, precip: 0, rain: 0, snow: 0, storm: 0, cloud: 0, fog: 0, wind: 0.05 };
 
 /** Test override for previews and screenshots: #wx=clear|cloudy|rain|snow|storm|fog (labelled as a test in the HUD). */
 const FORCE: Record<string, Partial<Wx>> = {
@@ -136,8 +138,10 @@ export function direct(ms: number, city: City, dtSim: number) {
 /** Wetness and snow cover follow precipitation with realistic lag. */
 function integrate(dt: number) {
   const drying = S.rain < 0.05 && S.snow < 0.05 ? (1 + 2 * S.dayK) / 5400 : 0;
-  S.wet = clamp(S.wet + (S.rain * (1 - S.wet)) * dt / 600 - drying * dt + S.snowCover * 0.0002 * dt * (S.temp > 1 ? 1 : 0), 0, 1);
-  const melt = S.temp > 1 ? (S.temp - 1) / 7200 + S.rain / 1200 : 0;
+  // unknown temperature (null): no melting at all, snow cover is left as it is
+  const t = S.temp, thawing = t !== null && t > 1;
+  S.wet = clamp(S.wet + (S.rain * (1 - S.wet)) * dt / 600 - drying * dt + S.snowCover * 0.0002 * dt * (thawing ? 1 : 0), 0, 1);
+  const melt = thawing ? (t - 1) / 7200 + S.rain / 1200 : 0;
   S.snowCover = clamp(S.snowCover + S.snow * dt / 1500 - melt * dt, 0, 1);
 }
 

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   type Feed, LIVE_MAX_AGE, REFRESH_MS, RETRY_MS, STALE_MAX_AGE,
-  createWeatherFeed, decide, hudWeather, isEntry, sampleAt, staleLabel,
+  createWeatherFeed, decide, hudWeather, isEntry, manualLightningAllowed, sampleAt, staleLabel,
 } from '../src/sky/weather-feed.ts';
 
 const T0 = Date.parse('2026-11-08T17:20:00Z'); // 14:20 in Brasília
@@ -101,7 +101,7 @@ test('stored readings for another city are rejected', () => {
     load: () => ({ feed: feedFor('esperanca', T0), fetchedAt: T0 }),
   });
   assert.equal(feed.view('tokyo').kind, 'unavailable');
-  assert.equal(feed.view('esperanca').kind, 'live');
+  assert.equal(feed.view('esperanca').kind, 'stale');
   assert.equal(isEntry({ feed: { city: 'tokyo' }, fetchedAt: T0 }, 'tokyo'), false);
 });
 
@@ -157,11 +157,73 @@ test('a fresh cached reading is not refetched on follow; an old one is', async (
 
 test('decide: ages', () => {
   const e = { feed: feedFor('esperanca', T0), fetchedAt: T0 };
-  assert.equal(decide(e, false, T0 + LIVE_MAX_AGE - 1).kind, 'live');
-  assert.equal(decide(e, false, T0 + LIVE_MAX_AGE + 1).kind, 'stale');
-  assert.equal(decide(e, true, T0 + 1).kind, 'stale');
-  assert.equal(decide(e, true, T0 + STALE_MAX_AGE + 1).kind, 'unavailable');
-  assert.equal(decide(undefined, false, T0).kind, 'unavailable');
+  assert.equal(decide(e, false, T0 + LIVE_MAX_AGE - 1, true).kind, 'live');
+  assert.equal(decide(e, false, T0 + LIVE_MAX_AGE + 1, true).kind, 'stale');
+  assert.equal(decide(e, true, T0 + 1, true).kind, 'stale');
+  assert.equal(decide(e, true, T0 + STALE_MAX_AGE + 1, true).kind, 'unavailable');
+  assert.equal(decide(undefined, false, T0, true).kind, 'unavailable');
+  assert.equal(decide(e, false, T0 + 1, false).kind, 'stale', 'not fetched this session -> never live');
+});
+
+/** A feed whose storage already holds a reading from a previous visit, `ageMs` old. */
+function restored(ageMs: number) {
+  let now = T0, online = true;
+  const calls: string[] = [];
+  let pendingTimer: (() => void) | null = null;
+  const feed = createWeatherFeed({
+    fetch: async (id) => { calls.push(id); if (!online) throw new Error('offline'); return feedFor(id, now, 27); },
+    now: () => now,
+    setTimer: (fn) => { pendingTimer = fn; return 1; },
+    clearTimer: () => { pendingTimer = null; },
+    load: (id) => ({ feed: feedFor(id, T0 - ageMs, 25), fetchedAt: T0 - ageMs }),
+  });
+  const flush = () => new Promise<void>((r) => setImmediate(r));
+  return {
+    feed, calls, flush,
+    setOnline: (v: boolean) => { online = v; },
+    tick: (ms: number) => { now += ms; },
+    fire: async () => { const f = pendingTimer; pendingTimer = null; f?.(); await flush(); },
+  };
+}
+
+test('a reading restored from storage on load is shown as cached (stale), not live, even if recent', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  const feed = createWeatherFeed({
+    fetch: async (id) => { await gate; throw new Error(`offline ${id}`); },
+    now: () => T0, setTimer: () => 1, clearTimer: () => {},
+    load: (id) => ({ feed: feedFor(id, T0 - 60e3, 25), fetchedAt: T0 - 60e3 }), // 1 minute old
+  });
+  feed.follow('esperanca');
+  const v = feed.view('esperanca');
+  assert.ok(v.kind === 'stale' && v.feed.now.temp === 25, 'cached while the first fetch is in flight');
+  const hud = hudWeather({ kind: v.kind, word: 'nublado', now: T0, utc: -3, pinned: false, temp: 25, at: v.feed.at });
+  assert.equal(hud.badge?.cls, 'stale');
+  assert.match(hud.badge!.text, /^● dados de 14:19/);
+  release();
+  await new Promise<void>((r) => setImmediate(r));
+  assert.equal(feed.view('esperanca').kind, 'stale', 'still cached after the fetch fails');
+});
+
+test('a restored reading is refetched at once, and a successful fetch in this session makes it live', async () => {
+  const h = restored(60e3);
+  h.setOnline(false);
+  h.feed.follow('esperanca');
+  await h.flush();
+  assert.deepEqual(h.calls, ['esperanca'], 'refetched immediately despite being recent');
+  assert.equal(h.feed.view('esperanca').kind, 'stale');
+  h.setOnline(true);
+  h.tick(RETRY_MS[0]);
+  await h.fire();
+  const v = h.feed.view('esperanca');
+  assert.ok(v.kind === 'live' && v.feed.now.temp === 27, 'fresh success -> live with the new reading');
+});
+
+test('manual lightning is allowed only in debug / #wx= test mode', () => {
+  assert.equal(manualLightningAllowed({ debug: false, wxOverride: null }), false);
+  assert.equal(manualLightningAllowed({ debug: true, wxOverride: null }), true);
+  assert.equal(manualLightningAllowed({ debug: false, wxOverride: 'storm' }), true);
+  assert.equal(manualLightningAllowed({ debug: true, wxOverride: 'rain' }), true);
 });
 
 test('stale data freezes the scene on the reading instead of the forecast', () => {

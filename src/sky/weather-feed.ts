@@ -1,8 +1,9 @@
 /* What weather to show, decided only from genuine Open-Meteo readings. Pure: no DOM, no
    network, no clock of its own (everything is injected), so it runs under node --test.
 
-   - live: the last fetch for this city succeeded recently
-   - stale: the last fetch failed (or the reading is getting old); the last genuine reading
+   - live: a fetch for this city succeeded in THIS session, recently, and the last one did not fail
+   - stale: the last fetch failed, the reading is getting old, or it was only restored from storage
+     (a previous visit) and no fetch has succeeded yet this session; the last genuine reading
      for THIS city is kept and shown with its time
    - unavailable: no genuine reading for this city (or it is too old to mean anything);
      nothing is invented, the scene falls back to a neutral sky with no precipitation
@@ -27,11 +28,13 @@ export const STALE_MAX_AGE = 12 * 3.6e6;
 /** Retry delays after a failure; once used up, attempts continue only on the refresh interval. */
 export const RETRY_MS = [15e3, 60e3, 3 * 60e3] as const;
 
-/** What to show for a city given its cached reading (if any) and whether the last attempt failed. */
-export function decide(entry: Entry | undefined, lastFailed: boolean, now: number): WxView {
+/** What to show for a city given its cached reading (if any), whether the last attempt failed and
+    whether that reading was fetched in this session (`fresh`). A reading restored from storage is
+    never live, however recent: only a successful fetch in this session makes it live. */
+export function decide(entry: Entry | undefined, lastFailed: boolean, now: number, fresh: boolean): WxView {
   if (!entry) return { kind: 'unavailable' };
   if (now - entry.feed.at > STALE_MAX_AGE || now - entry.fetchedAt > STALE_MAX_AGE) return { kind: 'unavailable' };
-  const kind = lastFailed || now - entry.fetchedAt > LIVE_MAX_AGE ? 'stale' : 'live';
+  const kind = !fresh || lastFailed || now - entry.fetchedAt > LIVE_MAX_AGE ? 'stale' : 'live';
   return { kind, feed: entry.feed, fetchedAt: entry.fetchedAt };
 }
 
@@ -80,6 +83,12 @@ export function staleLabel(at: number, now: number, utcHours: number): string {
   return `dados de ${when} · sem atualização`;
 }
 
+/** Manual lightning (the L key) is a test tool: allowed only with #debug or the #wx= test override.
+    In normal use lightning comes only from real storm data. */
+export function manualLightningAllowed(f: { debug: boolean; wxOverride: string | null }): boolean {
+  return f.debug || f.wxOverride !== null;
+}
+
 export interface HudIn {
   /** Scene state: a weather view kind, or 'override' for #wx=. */
   kind: WxKind | 'override';
@@ -121,6 +130,7 @@ export function createWeatherFeed(d: FeedDeps) {
   const cache = new Map<string, Entry>();
   const failed = new Map<string, boolean>();
   const loaded = new Set<string>(); // storage is read once per city, not every frame
+  const fresh = new Set<string>(); // cities with a successful fetch in this session (only these can be live)
   let current: string | null = null, timer: number | null = null, retry = 0, gen = 0, busy = false;
 
   const entry = (id: string): Entry | undefined => {
@@ -145,7 +155,7 @@ export function createWeatherFeed(d: FeedDeps) {
       const feed = await d.fetch(id);
       if (feed.city !== id) throw new Error('feed for another city');
       const e = { feed, fetchedAt: d.now() };
-      cache.set(id, e); failed.set(id, false); d.save?.(id, e); // genuine data for `id`, kept under `id` only
+      cache.set(id, e); failed.set(id, false); fresh.add(id); d.save?.(id, e); // genuine data for `id`, kept under `id` only
       if (my !== gen) return; // the user moved on to another city meanwhile
       retry = 0;
       schedule(REFRESH_MS);
@@ -159,12 +169,13 @@ export function createWeatherFeed(d: FeedDeps) {
   }
 
   return {
-    /** Start following a city; fetches now unless a fresh reading is already cached. */
+    /** Start following a city; fetches now unless a recent reading from this session is cached
+        (a reading restored from storage is always refetched right away). */
     follow(id: string) {
       current = id; gen++; busy = false; retry = 0;
       if (timer !== null) { d.clearTimer(timer); timer = null; }
       const e = entry(id), age = e ? d.now() - e.fetchedAt : Infinity;
-      if (e && !failed.get(id) && age < REFRESH_MS) schedule(REFRESH_MS - age);
+      if (e && fresh.has(id) && !failed.get(id) && age < REFRESH_MS) schedule(REFRESH_MS - age);
       else void run();
     },
     /** The tab came back: refresh if the regular timer was throttled. Backoff timers are left alone. */
@@ -173,6 +184,6 @@ export function createWeatherFeed(d: FeedDeps) {
       const e = entry(current);
       if (!e || d.now() - e.fetchedAt >= REFRESH_MS) void run();
     },
-    view: (id: string): WxView => decide(entry(id), failed.get(id) ?? false, d.now()),
+    view: (id: string): WxView => decide(entry(id), failed.get(id) ?? false, d.now(), fresh.has(id)),
   };
 }

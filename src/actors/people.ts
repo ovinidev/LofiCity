@@ -74,13 +74,14 @@ function archetypes(): [Archetype, number][] {
     ['owl', peak(0, 5) * 2 + peak(23, 24)],
     // Esperança: joggers at dawn and dusk, sun umbrellas on hot clear days, street vendors
     ['runner', br ? peak(5, 7.5) * 2 + peak(17, 19.5) * 1.5 : 0],
-    ['sombrinha', br && S.temp > 26 && S.dayK > 0.6 && S.cloud < 0.5 ? 1.4 : 0],
+    ['sombrinha', br && S.temp !== null && S.temp > 26 && S.dayK > 0.6 && S.cloud < 0.5 ? 1.4 : 0],
     ['vendor', br ? peak(8, 17) * 0.7 : 0],
   ];
 }
 
 function dress(p: Person, a: Archetype) {
-  const cold = S.temp < 8, cool = S.temp < 17, hot = S.temp > 23;
+  // unknown temperature (no reading): none of these, so the neutral default outfit
+  const t = S.temp, cold = t !== null && t < 8, cool = t !== null && t < 17, hot = t !== null && t > 23;
   const female = r() < 0.5;
   p.H = 15 + ((r() * 3) | 0); p.skin = weighted(S.city.br ? SKINS_BR : SKINS); p.hair = weighted([[HAIR1, 0.62], [HAIR2, 0.3], [CORNG, 0.04], [CBEIGE, 0.04]]);
   p.hairStyle = female ? pick([Hair.Long, Hair.Bob, Hair.Bun, Hair.Long]) : pick([Hair.Short, Hair.Short, Hair.Spiky]);

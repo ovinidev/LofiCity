@@ -18,7 +18,7 @@ import { gradePalette } from './sky/grade';
 import { S, direct, settle, wxOverride } from './sky/state';
 import { CITIES, type City, cityById } from './sky/cities';
 import { followLive, weatherView } from './sky/live';
-import { hudWeather } from './sky/weather-feed';
+import { hudWeather, manualLightningAllowed } from './sky/weather-feed';
 import { updateSky } from './scenes/common';
 import { nextScene, pickScene } from './scenes';
 import { inject, pageview } from '@vercel/analytics';
@@ -114,7 +114,7 @@ function updateHud() {
   const pinned = simOffset !== 0, v = weatherView(city.id), reading = !pinned && v.kind !== 'unavailable' ? v.feed.now : null;
   const h = hudWeather({
     kind: S.wxKind, word: weatherWord(), now: Date.now(), utc: city.utc, pinned, override: wxOverride ?? undefined,
-    temp: reading ? reading.temp : S.temp, feels: reading?.feels, humidity: reading?.humidity, at: reading?.t,
+    temp: reading ? reading.temp : S.temp ?? undefined, feels: reading?.feels, humidity: reading?.humidity, at: reading?.t,
   });
   $('temp').textContent = h.temp;
   $('wx').textContent = h.text;
@@ -154,7 +154,8 @@ const actions: Record<string, () => void> = {
   music: () => radio.toggle(),
   station: () => radio.nextStation(),
   skip: () => radio.skip(),
-  lightning: () => lightning.strike(),
+  // test tool only (#debug or #wx=); in normal use lightning comes only from real storm data
+  lightning: () => { if (manualLightningAllowed({ debug: showDebug, wxOverride })) lightning.strike(); },
   full: () => {
     const d = document;
     if (d.fullscreenElement) void d.exitFullscreen?.().catch(() => {});
@@ -246,7 +247,7 @@ function frame(now: number) {
 time    ${new Date(simNow()).toISOString().slice(0, 16)}Z   ${city.id}   weather ${S.wxKind}
 sun     ${S.sunElev.toFixed(1)}°  day ${S.dayK.toFixed(2)}  gold ${S.golden.toFixed(2)}  moon ${S.moonPhase.toFixed(2)}
 wx      rain ${S.rain.toFixed(2)} snow ${S.snow.toFixed(2)} storm ${S.storm.toFixed(2)} cloud ${S.cloud.toFixed(2)}
-        fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp.toFixed(1)}
+        fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp === null ? 'unknown' : S.temp.toFixed(1)}
 busy    ${S.busy.toFixed(2)}   tree d${S.tree.density.toFixed(2)} p${S.tree.pink.toFixed(2)} r${S.tree.red.toFixed(2)}
 ${scene.debug()}
 fps     ${fps}   work ${workMs.toFixed(1)} ms   ${backend()}
