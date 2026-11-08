@@ -221,6 +221,9 @@ export function tapPeople(x: number, y: number): { x: number; y: number; dog: bo
   return null;
 }
 
+/** Whether anyone (on any lane) is between world x0 and x1: lets traffic yield at a crossing. */
+export const anyoneBetween = (x0: number, x1: number) => P.some((p) => p.on && p.x > x0 && p.x < x1);
+
 export const peopleCount = () => P.reduce((n, p) => n + (p.on ? 1 : 0), 0);
 
 // ---------- drawing ----------

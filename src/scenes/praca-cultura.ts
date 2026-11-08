@@ -1,16 +1,18 @@
 /* PRAÇA DA CULTURA (Praça da Cultura Francisco Souto Neto, Esperança, PB): the town's
-   postcard square, drawn from Google Maps captures (Feb 2025 Street View, Feb 2020 photo).
-   From the street, broad blue tiled steps climb a low white-tiled retaining wall (dark green
-   band on top) to a raised red paved plaza; red steps rise again to the long cream building
-   with red-framed windows and a rounded central gable. Coconut and royal palms, a Norfolk pine
-   and leafy trees, tall LED lamp posts, and the "EU ♥ ESPERANÇA" letters with their big red
-   heart on a red tiled base. Craft fairs fill it with white tents; in Holy Week it hosts the
-   Paixão de Cristo; at Christmas the gable and roofline are outlined with lights. */
+   postcard square, drawn from Google Maps captures (Feb 2025 Street View, Feb 2020 photo) and
+   the owner's own photo of the square, used as reference only. From the street, broad blue
+   tiled steps (left of centre) climb a low white-tiled retaining wall with a dark green band on
+   top to a red paved plaza; red steps with pale nosings rise again to the long cream-yellow
+   building with white trim, coloured window panes and an outlined, arched blue central door
+   under a rounded gable. Royal palms, an araucária and leafy trees, tall LED lamp posts, and on
+   the right the "EU ♥ ESPERANÇA" letters (red and white, patterned) with their big red heart on
+   a red base. Craft fairs fill it with white tents; in Holy Week it hosts the Paixão de Cristo;
+   at Christmas the gable and roofline are outlined with lights. */
 import { L, Lget, Lp, WW, blitLayer, newLayer, put, rect } from '../engine/gfx';
 import { mulberry32 } from '../engine/math';
 import {
-  BARK, BFAR, BNEAR, CBEIGE, CBLUE, CGREEN, CHURCHL, CRED, CYELL, FBLUE, FPINK, LEAFG, LEAFGD, LEDW, LIGHT, AMB, MAG, STEEL,
-  STONE, STONEL, VOID, WHITE, WOOD, WWARM, TILEW, SKIN2, HAIR1,
+  BARK, BFAR, BNEAR, CBEIGE, CBLUE, CGREEN, CHURCH, CHURCHD, CNAVY, CRED, CYELL, FBLUE, FPINK, LEAFG, LEAFGD, LEDW, LIGHT, AMB,
+  MAG, STEEL, STONE, STONEL, VOID, WHITE, WOOD, WWARM, TILEW, SKIN2, HAIR1, CORNG,
 } from '../engine/palette';
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
@@ -26,27 +28,31 @@ import {
 } from './br-kit';
 import type { Scene } from './types';
 
-const HORIZON = 108, STREET = 147, SH = 180 - STREET, CX = 240;
-/** Rows of the layout: building ground, plaza paving, retaining-wall top, sidewalk. */
-const BASE = 112, PLAZA = 116, WALL = 125, WALK = 140;
+const HORIZON = 108, STREET = 147, SH = 180 - STREET;
+/** Rows of the layout: building ground, foot of the red steps, retaining-wall top, sidewalk. */
+const BASE = 112, PLAZA = 119, WALL = 125, WALK = 140;
+/** The building (centre BX) and the two flights of steps, which in the photo sit left of its centre. */
+const BX = 250, B0 = 198, B1 = 302, BTOP = 94;
+const RED0 = 156, RED1 = 250, BLUE0 = 96, BLUE1 = 248;
 const wr = mulberry32(0xc017);
 const far = newLayer(), mid = newLayer(), front = newLayer();
 const street: Street = { y0: STREET, base: new Uint8Array(SH * WW), pud: new Uint8Array(SH * WW), jit: precip.jit };
 const farWins: { x: number; y: number; rank: number }[] = [];
-const LAMPS: Lamp[] = [{ x: 150, top: 56, ground: 124, arms: 2 }, { x: 294, top: 56, ground: 124, arms: 2 }];
+const LAMPS: Lamp[] = [{ x: 142, top: 46, ground: 124, arms: 2 }, { x: 318, top: 40, ground: 124, arms: 2 }];
 const PALMS: Palm[] = [
-  { x: 168, ground: 118, h: 74, lean: 5, ph: 1 }, // coconut palm left of the steps
-  { x: 276, ground: 116, h: 92, lean: -2, ph: 2.4, imperial: true }, // royal palms
-  { x: 404, ground: 116, h: 86, lean: 2, ph: 0.7, imperial: true },
-  { x: 18, ground: 122, h: 64, lean: 4, ph: 3 },
+  { x: 132, ground: 120, h: 86, lean: 2, ph: 1, imperial: true }, // royal palm left of the building
+  { x: 288, ground: 116, h: 104, lean: -2, ph: 2.4, imperial: true }, // the tall one by the araucária
 ];
-// "EU ♥ ESPERANÇA": blocky letters (white with a red flower pattern) and a big red heart on a red tiled base
-const SIGN = { x: 306, y: 108, base: 119 }; // heart stays inside the 240-px portrait view (x 120..360)
-const EU = { x: SIGN.x + 2, w: textW('EU', 2) }, HEART = { x: EU.x + EU.w + 3, y: 102, w: 19, h: 17 };
-const ESP = { x: HEART.x + HEART.w + 3, w: textW('ESPERANÇA', 2) };
+// "EU ♥ ESPERANÇA": blocky letters alternating red and white, each patterned in the other colour,
+// and a big red heart, on a red tiled base standing on the retaining wall right of the blue steps
+const SC = 3, SIGN = { x: 270, base: 119 }, SIGN_Y = SIGN.base - 5 * SC;
+const EU = { x: SIGN.x + 2, w: textW('EU', SC) }, HEART = { x: EU.x + EU.w + 3, y: SIGN.base - 20, w: 24, h: 20 };
+const ESP = { x: HEART.x + HEART.w + 3, w: textW('ESPERANÇA', SC) };
+const SIGN_X1 = ESP.x + ESP.w + 3;
+const letters: { ch: string; x: number }[] = [];
 const heartPx: number[] = [];
 let trees: Tree[] = [], opens: Opening[] = [];
-const bldgWins: { x: number; y: number }[] = [];
+const panes: { x: number; y: number; c: number }[] = [];
 
 function buildFar() {
   for (let x = -4; x < WW;) {
@@ -67,27 +73,38 @@ function araucaria(x: number, ground: number, h: number) {
   L(mid, x - 1, ground - h - 2, 3, 3, LEAFG);
 }
 
-/** The long cream building behind the square: red-framed windows in threes, white trim, rounded central gable. */
+/** Arched shape (semicircular top) into the mid layer. */
+function archL(x: number, y: number, w: number, h: number, c: number) {
+  const r = w / 2;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const dy = j - r; if (j < r && (i + 0.5 - r) ** 2 + dy * dy > r * r) continue; Lp(mid, x + i, y + j, c); }
+}
+
+/** The long cream-yellow building: white cornice and pilasters, windows with coloured panes, a raised
+    central bay with small arched windows, the white-outlined arched blue door and a rounded gable. */
 function buildBuilding() {
-  const x0 = 172, x1 = 308, top = 92;
-  L(mid, x0, top, x1 - x0, BASE - top, CHURCHL);
-  L(mid, x0 - 1, top - 2, x1 - x0 + 2, 2, TILEW); L(mid, x0, BASE - 3, x1 - x0, 3, CRED); L(mid, x0, BASE - 4, x1 - x0, 1, TILEW);
-  for (const px of [x0, x0 + 26, CX - 16, CX + 14, x1 - 28, x1 - 2]) L(mid, px, top, 2, BASE - top - 4, TILEW);
-  // small pediments over the end bays
-  for (const cx of [x0 + 13, x1 - 14]) for (let i = 0; i < 9; i++) { Lp(mid, cx - 8 + i, top - 3 - (i >> 1), TILEW); Lp(mid, cx + 8 - i, top - 3 - (i >> 1), TILEW); L(mid, cx - 7 + i, top - 2 - (i >> 1), 15 - i * 2, 1, CHURCHL); }
-  // central bay rising into a rounded gable with a medallion
-  L(mid, CX - 14, top - 10, 28, 10, CHURCHL);
-  for (let i = -16; i <= 16; i++) { const y = Math.round(top - 10 - Math.sqrt(Math.max(0, 1 - (i / 16) ** 2)) * 8); L(mid, CX + i, y, 1, top - 10 - y + 1, CHURCHL); Lp(mid, CX + i, y, TILEW); }
-  L(mid, CX - 16, top - 10, 32, 1, TILEW);
-  for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) if (i * i + j * j <= 10) Lp(mid, CX + i, top - 12 + j, i * i + j * j > 4 ? TILEW : CRED);
-  // arched entrance with a red frame and white columns
-  for (let j = 0; j < 16; j++) for (let i = 0; i < 12; i++) { const r = 6, dy = j - r; if (j < r && (i + 0.5 - r) ** 2 + dy * dy > r * r) continue; Lp(mid, CX - 6 + i, top - 4 + j, j < 1 || i < 1 || i > 10 ? CRED : WOOD); }
-  L(mid, CX - 9, top - 2, 2, 18, TILEW); L(mid, CX + 7, top - 2, 2, 18, TILEW);
-  // windows in groups of three, red frames
-  for (const gx of [x0 + 7, x0 + 33, CX + 20, x1 - 21]) {
-    L(mid, gx - 1, top + 4, 13, 11, CRED);
-    for (let k = 0; k < 3; k++) bldgWins.push({ x: gx + k * 4, y: top + 5 });
+  L(mid, B0, BTOP, B1 - B0, BASE - BTOP, CHURCH);
+  L(mid, B0 - 1, BTOP - 2, B1 - B0 + 2, 2, TILEW); L(mid, B0, BTOP, B1 - B0, 1, CHURCHD);
+  L(mid, B0, BASE - 2, B1 - B0, 2, TILEW);
+  for (const px of [B0, B1 - 2]) L(mid, px, BTOP, 2, BASE - BTOP, TILEW);
+  // wings: two windows each, panes in blue and red (left) and yellow and red (right), white frames
+  for (const [wx, a, b] of [[B0 + 7, CBLUE, CRED], [B0 + 21, CRED, CBLUE], [BX + 24, CYELL, CRED], [BX + 38, CRED, CYELL]] as const) {
+    L(mid, wx - 1, BTOP + 4, 10, 11, TILEW);
+    for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) panes.push({ x: wx + i * 4, y: BTOP + 5 + j * 5, c: (i + j) % 2 ? b : a });
   }
+  L(mid, B0 + 3, BASE - 9, 3, 7, CORNG); // the small side door
+  // raised central bay with a rounded gable and a medallion
+  const c0 = BX - 18, c1 = BX + 18, ctop = BTOP - 8;
+  L(mid, c0, ctop, c1 - c0, BASE - ctop, CHURCH);
+  L(mid, c0 - 1, ctop - 1, c1 - c0 + 2, 1, TILEW);
+  for (const px of [c0, c1 - 2]) L(mid, px, ctop, 2, BASE - ctop, TILEW);
+  for (let i = -14; i <= 14; i++) { const y = Math.round(ctop - 1 - Math.sqrt(Math.max(0, 1 - (i / 14) ** 2)) * 7); L(mid, BX + i, y, 1, ctop - y, CHURCH); Lp(mid, BX + i, y, TILEW); }
+  for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (i * i + j * j <= 5) Lp(mid, BX + i, ctop - 4 + j, i * i + j * j > 2 ? TILEW : CHURCHD);
+  // two small arched windows each side of the door, in two rows
+  for (const wx of [c0 + 4, c0 + 9, c1 - 12, c1 - 7]) for (const wy of [ctop + 3, ctop + 12]) { archL(wx - 1, wy - 1, 5, 8, TILEW); archL(wx, wy, 3, 6, BNEAR); }
+  // the arched blue door with its white outline and a white step
+  archL(BX - 7, BASE - 18, 14, 18, TILEW); archL(BX - 5, BASE - 16, 10, 16, CBLUE);
+  L(mid, BX - 4, BASE - 10, 3, 1, FBLUE); L(mid, BX + 1, BASE - 10, 3, 1, FBLUE); L(mid, BX, BASE - 13, 1, 13, CNAVY);
+  L(mid, BX - 9, BASE - 1, 18, 1, TILEW);
 }
 
 function buildSides() {
@@ -96,16 +113,19 @@ function buildSides() {
     ...casa(mid, 48, 50, 26, BASE, CBEIGE, CRED, 'frontao', false, wr),
     ...casa(mid, 436, 48, 24, BASE, TILEW, CBLUE, 'deco', false, wr),
   ];
-  araucaria(326, BASE, 66);
 }
 
 function buildPlaza() {
-  // red/pink block paving of the raised plaza, then red steps up to the building
+  // red/pink block paving of the plaza, then red steps with pale nosings up to the building
   for (let y = BASE; y < WALL; y++) for (let x = 0; x < WW; x++) Lp(mid, x, y, y % 3 === 0 && x % 2 === 0 || (x + ((y / 3) | 0) * 3) % 6 === 0 ? FPINK : CRED);
-  for (let k = 0; k < 2; k++) { L(mid, 194 - k * 4, BASE + k * 2, 92 + k * 8, 2, CRED); L(mid, 194 - k * 4, BASE + k * 2, 92 + k * 8, 1, FPINK); }
-  L(mid, 186, PLAZA, 108, 1, BNEAR); // shadow at the foot of the steps
-  // lawn beds edged in white tile at the plaza's corners
-  for (const [x, w] of [[0, 120], [436, 44]] as const) { L(mid, x, BASE + 1, w, 4, LEAFG); L(mid, x, BASE + 4, w, 1, LEAFGD); L(mid, x, BASE + 5, w, 1, TILEW); }
+  for (let k = 0; k < 4; k++) {
+    const y = BASE + k * 2, x0 = RED0 - k * 2, x1 = RED1 + k;
+    L(mid, x0, y, x1 - x0, 2, CRED); L(mid, x0, y, x1 - x0, 1, TILEW);
+  }
+  L(mid, RED0 - 8, PLAZA, RED1 - RED0 + 12, 1, BNEAR); // shadow at the foot of the steps
+  // a low white-tiled wall along the upper level on the left, lawn beds edged in white tile at the corners
+  L(mid, 0, BASE, RED0 - 2, 3, TILEW); for (let x = 1; x < RED0 - 2; x += 3) Lp(mid, x, BASE + 1, STONEL);
+  for (const [x, w] of [[0, 84], [448, 32]] as const) { L(mid, x, BASE + 4, w, 4, LEAFG); L(mid, x, BASE + 7, w, 1, LEAFGD); L(mid, x, BASE + 8, w, 1, TILEW); }
 }
 
 function buildFront() {
@@ -113,26 +133,32 @@ function buildFront() {
   L(front, 0, WALL, WW, WALK - WALL, TILEW);
   for (let y = WALL + 3; y < WALK; y += 3) for (let x = (y % 2) * 2; x < WW; x += 4) Lp(front, x, y, STONEL);
   L(front, 0, WALL, WW, 2, CGREEN); L(front, 0, WALL + 2, WW, 1, STONEL);
-  // broad blue steps from the sidewalk up to the plaza
+  // broad blue steps from the sidewalk up to the plaza, left of centre as in the photo
   for (let k = 0; k < 5; k++) {
-    const y = WALL + k * 3, x0 = 168 - k * 3, x1 = 312 + k * 3;
+    const y = WALL + k * 3, x0 = BLUE0 - k * 3, x1 = BLUE1 + k;
     L(front, x0, y, x1 - x0, 3, CBLUE); L(front, x0, y, x1 - x0, 1, FBLUE);
     L(front, x0 - 2, y, 2, WALK - y, TILEW); L(front, x1, y, 2, WALK - y, TILEW); // tiled cheeks
   }
+  // small yellow steps at the far right corner
+  for (let k = 0; k < 4; k++) { L(front, 462 - k * 3, WALL + 3 + k * 3, 18 + k * 3, 3, CYELL); L(front, 462 - k * 3, WALL + 3 + k * 3, 18 + k * 3, 1, TILEW); }
   // concrete sidewalk with a white kerb
   L(front, 0, WALK, WW, 7, STONEL);
   for (let x = 0; x < WW; x += 12) L(front, x, WALK + 1, 1, 5, STONE);
   L(front, 0, 146, WW, 1, TILEW);
   for (const l of LAMPS) lampPost(front, l);
-  // the sign: red tiled base, letters, heart
-  const bx0 = SIGN.x - 2, bx1 = ESP.x + ESP.w + 3;
-  L(front, bx0, SIGN.base, bx1 - bx0, WALL - SIGN.base, CRED);
-  for (let x = bx0; x < bx1; x += 3) Lp(front, x, SIGN.base + 2, FPINK);
-  L(front, bx0, SIGN.base, bx1 - bx0, 1, FPINK);
-  for (const [s, x] of [['EU', EU.x], ['ESPERANÇA', ESP.x]] as const) {
-    text(front, s, x + 1, SIGN.y + 1, BNEAR, 2); text(front, s, x, SIGN.y, TILEW, 2);
-  }
-  for (let y = SIGN.y; y < SIGN.base; y++) for (let x = EU.x; x < bx1; x++) if (Lget(front, x, y) === TILEW && (x * 3 + y * 5) % 7 === 0) Lp(front, x, y, CRED);
+  // the sign: red tiled base, then the letters (alternating red / white, patterned) and the heart
+  L(front, SIGN.x - 2, SIGN.base, SIGN_X1 - SIGN.x + 2, WALL - SIGN.base, CRED);
+  for (let x = SIGN.x - 2; x < SIGN_X1; x += 3) Lp(front, x, SIGN.base + 3, FPINK);
+  L(front, SIGN.x - 2, SIGN.base, SIGN_X1 - SIGN.x + 2, 1, FPINK);
+  let x = EU.x;
+  for (const ch of 'EU') { letters.push({ ch, x }); x += 4 * SC; }
+  x = ESP.x;
+  for (const ch of 'ESPERANÇA') { letters.push({ ch, x }); x += 4 * SC; }
+  letters.forEach(({ ch, x: lx }, i) => {
+    const fill = i % 2 ? TILEW : CRED, dots = i % 2 ? CRED : TILEW;
+    text(front, ch, lx + 1, SIGN_Y + 1, BNEAR, SC); text(front, ch, lx, SIGN_Y, fill, SC);
+    for (let y = SIGN_Y; y < SIGN.base + SC; y++) for (let xx = lx; xx < lx + 3 * SC; xx++) if (Lget(front, xx, y) === fill && (xx - lx) % SC === 1 && (y - SIGN_Y) % SC === 1 && (xx + y) % 2 === 0) Lp(front, xx, y, dots);
+  });
   const { x: hx, y: hy, w, h } = HEART;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const X = ((i + 0.5 - w / 2) / (w / 2)) * 1.15, Y = ((h * 0.42 - (j + 0.5)) / (h / 2)) * 1.3;
@@ -140,7 +166,7 @@ function buildFront() {
   }
   for (let k = 0; k < heartPx.length; k += 2) Lp(front, heartPx[k] + 1, heartPx[k + 1] + 1, BNEAR);
   for (let k = 0; k < heartPx.length; k += 2) Lp(front, heartPx[k], heartPx[k + 1], CRED);
-  L(front, hx + 4, hy + 3, 2, 2, FPINK); // highlight
+  L(front, hx + 5, hy + 3, 3, 2, FPINK); // highlight
 }
 
 function buildGround() {
@@ -161,19 +187,19 @@ const weekendNight = () => (S.cal.weekday === 5 || S.cal.weekday === 6) && hourI
 function lit() {
   const n = isNight(), t = S.ms / 1000;
   for (const f of farWins) put(f.x, f.y, n && f.rank < 0.45 ? WWARM : BFAR);
-  for (const w of bldgWins) rect(w.x, w.y, 3, 9, n && (w.x * 7 + w.y) % 5 < 2 ? WWARM : BNEAR);
+  for (const p of panes) rect(p.x, p.y, 3, 4, n && (p.x * 7 + p.y) % 5 < 3 ? WWARM : p.c);
   drawOpenings(opens, hourIn(S.cal.hour, 8, 18) && S.cal.weekday !== 0);
   // Christmas: lights along the gable and roofline
   if (S.natal && n) {
-    for (let x = 172; x < 308; x += 3) put(x, 89, ((x + ((t * 3) | 0)) % 9) ? LIGHT : AMB);
-    for (let i = -16; i <= 16; i += 2) put(CX + i, Math.round(82 - Math.sqrt(Math.max(0, 1 - (i / 16) ** 2)) * 8) - 1, LIGHT);
+    for (let x = B0; x < B1; x += 3) put(x, BTOP - 3, ((x + ((t * 3) | 0)) % 9) ? LIGHT : AMB);
+    for (let i = -14; i <= 14; i += 2) put(BX + i, Math.round(BTOP - 9 - Math.sqrt(Math.max(0, 1 - (i / 14) ** 2)) * 7) - 1, LIGHT);
   }
 }
 
 /** The sign glows at night, the heart in pulsing pink neon. */
 function signLights() {
   if (!isNight()) return;
-  text(null, 'EU', EU.x, SIGN.y, LEDW, 2); text(null, 'ESPERANÇA', ESP.x, SIGN.y, LEDW, 2);
+  for (const { ch, x } of letters) text(null, ch, x, SIGN_Y, LEDW, SC);
   const c = Math.sin(S.ms / 500) > -0.7 ? MAG : CRED;
   for (let k = 0; k < heartPx.length; k += 2) put(heartPx[k], heartPx[k + 1], c);
 }
@@ -197,20 +223,20 @@ function fair() {
     rect(x + 3, g - 7, 18, 2, WOOD); for (let i = 0; i < 6; i++) rect(x + 4 + i * 3, g - 9, 2, 2, [CRED, CYELL, CBLUE, CGREEN, FPINK, WHITE][(i + x) % 6]);
   }
   // truss with the fair banner
-  rect(112, 88, 1, 36, STEEL); rect(148, 88, 1, 36, STEEL); rect(112, 88, 37, 9, WHITE);
-  text(null, 'ARTESANATO', 114, 90, CRED);
+  rect(104, 88, 1, 36, STEEL); rect(140, 88, 1, 36, STEEL); rect(104, 88, 37, 9, WHITE);
+  text(null, 'ARTESANATO', 106, 90, CRED);
 }
 
 /** Holy Week: the Paixão de Cristo staged on the plaza in front of the building. */
 function passion() {
   if (!paixao()) return;
-  const n = isNight(), g = PLAZA + 2;
-  rect(CX - 34, g - 6, 68, 6, VOID); rect(CX - 34, g - 6, 68, 1, STONEL);
-  rect(CX - 1, g - 34, 3, 28, WOOD); rect(CX - 9, g - 28, 19, 3, WOOD);
+  const n = isNight(), g = PLAZA + 2, X = RED0 + 46;
+  rect(X - 34, g - 6, 68, 6, VOID); rect(X - 34, g - 6, 68, 1, STONEL);
+  rect(X - 1, g - 34, 3, 28, WOOD); rect(X - 9, g - 28, 19, 3, WOOD);
   for (const [dx, robe] of [[-24, CRED], [-14, WHITE], [12, CBLUE], [22, WHITE]] as const) {
-    rect(CX + dx, g - 18, 4, 12, robe); rect(CX + dx, g - 22, 4, 4, SKIN2); rect(CX + dx, g - 23, 4, 2, HAIR1);
+    rect(X + dx, g - 18, 4, 12, robe); rect(X + dx, g - 22, 4, 4, SKIN2); rect(X + dx, g - 23, 4, 2, HAIR1);
   }
-  if (n) for (let y = g - 34; y < g - 6; y++) for (let x = CX - 30; x < CX + 30; x++) if (((x * 3 + y * 7) & 7) === 0) put(x, y, LIGHT); // stage lights
+  if (n) for (let y = g - 34; y < g - 6; y++) for (let x = X - 30; x < X + 30; x++) if (((x * 3 + y * 7) & 7) === 0) put(x, y, LIGHT); // stage lights
 }
 
 function update(dt: number) {
@@ -230,7 +256,7 @@ function render() {
   blitLayer(front); signLights();
   for (const p of PALMS) drawPalm(p);
   for (const l of LAMPS) lampLight(l);
-  if (S.festa || S.saoJoao) { bandeirolas(150, 58, 310, 58, 12, 2); bulbs(0, 70, 150, 58, 6); bulbs(310, 58, 480, 70, 6); }
+  if (S.festa || S.saoJoao) { bandeirolas(142, 46, 318, 40, 12, 2); bulbs(0, 62, 142, 46, 6); bulbs(318, 40, 480, 62, 6); }
   drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
   drawStreet(street); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
@@ -241,15 +267,15 @@ export const pracaCultura: Scene = {
   name: 'Praça da Cultura',
   build() {
     if (!built) {
-      buildFar(); buildSides(); buildBuilding(); buildPlaza(); buildFront(); buildGround();
-      trees = [makeTree(118, 120, 1.05, wr, 'street'), makeTree(452, 120, 1.0, wr, 'street'), makeTree(56, 118, 0.85, wr, 'street')];
+      buildFar(); buildSides(); buildBuilding(); araucaria(282, BASE + 2, 78); buildPlaza(); buildFront(); buildGround();
+      trees = [makeTree(44, 122, 1.25, wr, 'street'), makeTree(176, 112, 0.75, wr, 'street'), makeTree(352, 120, 1.15, wr, 'street'), makeTree(398, 120, 0.85, wr, 'street')];
       built = true;
     }
     setLanes([{ y: 122 }, { y: 142 }, { y: 144 }, { y: 146 }]);
     setupAnimals({ ground: [142, 146], dogs: 2, sleepSpots: [150], lamps: LAMPS.flatMap((l) => [{ x: l.x - 13, y: l.top }, { x: l.x + 14, y: l.top }]),
-      walls: [{ x0: 0, x1: 160, y: WALL }, { x0: 324, x1: 480, y: WALL }, { x0: 172, x1: 224, y: 90 }, { x0: 256, x1: 308, y: 90 }] });
+      walls: [{ x0: 0, x1: BLUE0 - 16, y: WALL }, { x0: BLUE1 + 8, x1: SIGN.x - 4, y: WALL }, { x0: B0, x1: BX - 20, y: BTOP - 2 }, { x0: BX + 20, x1: B1, y: BTOP - 2 }] });
     setCarLanes(160, 174, 'br');
-    configure({ roofs: [{ x0: 172, x1: 308, y: 90 }], tips: [{ x: 173, y: 91, end: BASE }, { x: 307, y: 91, end: BASE }], lamps: LAMPS.map((l) => ({ x: l.x, y: l.top })), ground0: 140, horizon: HORIZON });
+    configure({ roofs: [{ x0: B0, x1: B1, y: BTOP - 2 }], tips: [{ x: B0 + 1, y: BTOP - 1, end: BASE }, { x: B1 - 1, y: BTOP - 1, end: BASE }], lamps: LAMPS.map((l) => ({ x: l.x, y: l.top })), ground0: 140, horizon: HORIZON });
     for (let i = 0; i < 150; i++) update(1 / 30);
   },
   update,

@@ -1,25 +1,30 @@
-/* PRAÇA DA MATRIZ (Esperança, PB): the ochre church of Nossa Senhora do Bom Conselho (drawn from
-   Google Maps captures, a Jun 2025 photo and Feb 2025 Street View) with its slender central clock
-   tower and pointed spire, cream pilasters lit amber from below at night, white LED lamp posts,
-   palms, the Virgin on her tiled pedestal, wires across the street and motorcycles. */
+/* PRAÇA DA MATRIZ (Esperança, PB): the yellow church of Nossa Senhora do Bom Conselho (drawn from
+   Google Maps captures, a Jun 2025 photo, Feb 2025 Street View and the owner's own photos, used as
+   reference only) with its slender central clock tower and pointed spire, cream pilasters lit amber
+   from below at night. Facing the church as in the street photo: the paved praça with leafy trees,
+   white LED lamp posts and the Virgin on her tiled pedestal fills the left and the front; on the
+   right, R. Manoel Rodrigues de Oliveira (the road toward Campina Grande) runs past the church behind
+   a yellow-painted curb, with shops, poles and wires on its far side. The road is drawn in
+   perspective, receding toward the church, and all traffic stays on it. */
 import { G, L, Lp, WW, blitLayer, getW, newLayer, put, rect, sx, sy } from '../engine/gfx';
 import { bay, mulberry32 } from '../engine/math';
 import {
   AMB, AMBD, ASPH, BARK, BFAR, BMID, BNEAR, CBLUE, CHURCH, CHURCHD, CHURCHL, CYELL, GOLD, HAIR1, HAIR2, HAIR3, LIGHT, MANTO,
-  SKIN1, SKIN2, SKIN3, SKIN4, STONE, STONEL,
+  SKIN1, SKIN2, SKIN3, SKIN4, STEEL, STONE, STONEL, CBEIGE, MAGD, WDIM, HALO,
   TILEW, VOID, WHITE, WOOD, WWARM, WCOOL, FBLUE, FGREEN, FPINK, MAG, CRED,
 } from '../engine/palette';
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
-import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
-import { drawCars, setCarLanes, updateCars } from '../actors/cars';
+import { anyoneBetween, drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
+import { setCarLanes } from '../actors/cars';
+import { type Tree, drawTree, makeTree } from '../actors/trees';
 import { type MassState, massState } from '../sky/rhythm';
 import { S } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
-  type Lamp, type Opening, type Palm, bandeirolas, bulbs, cart, casa, christmasStar, drawOpenings, drawPalm, fogueira,
-  isNight, lampLight, lampPost, pole, wire, wireCurve,
+  type Lamp, type Opening, type Palm, type TowerWin, bandeirolas, bulbs, cart, casa, christmasStar, drawOpenings, drawPalm,
+  drawTowerWins, fogueira, isNight, lampLight, lampPost, pole, wire, wireCurve,
 } from './br-kit';
 import type { Scene } from './types';
 
@@ -29,8 +34,30 @@ const far = newLayer(), mid = newLayer(), front = newLayer();
 const street: Street = { y0: STREET, base: new Uint8Array(SH * WW), pud: new Uint8Array(SH * WW), jit: precip.jit };
 const farWins: { x: number; y: number; rank: number }[] = [];
 let opens: Opening[] = [];
-const LAMPS: Lamp[] = [{ x: 118, top: 66, ground: 140, arms: 2 }, { x: 362, top: 66, ground: 140, arms: 2 }];
-const PALMS: Palm[] = [{ x: 70, ground: 140, h: 78, lean: -6, ph: 0 }, { x: 420, ground: 140, h: 70, lean: 5, ph: 2 }];
+const LAMPS: Lamp[] = [{ x: 82, top: 66, ground: 140, arms: 2 }, { x: 364, top: 66, ground: 140, arms: 2 }];
+const PALMS: Palm[] = [{ x: 4, ground: 140, h: 74, lean: 5, ph: 0 }, { x: 424, ground: 140, h: 70, lean: 5, ph: 2 }];
+let trees: Tree[] = [];
+const hotelWins: TowerWin[] = [];
+
+// The road, in perspective: its left (plaza) curb and right (shops) curb converge just past the church's
+// right corner. Row 140 is the foot of the façade; the road is 28 px wide there and widens to the bottom.
+const ROAD_VY = 133.9; // where the curbs would meet
+const xl = (y: number) => 316 - 1.35 * (y - 140), xr = (y: number) => 344 + 3.25 * (y - 140);
+const laneX = (y: number, u: number) => xl(y) + u * (xr(y) - xl(y));
+const CROSS0 = 141, CROSS1 = 147; // zebra crossing rows: the pedestrian lanes cross the road here
+/** Ground at world (x, y) from row 134 down: plaza pavers, yellow curbs, asphalt with paint, sidewalk. */
+function groundAt(x: number, y: number): number {
+  const a = xl(y), b = xr(y), w = b - a;
+  if (x < a - 2) return y % 3 === 0 || (x + ((y / 3) | 0) * 2) % 5 === 0 ? STONE : STONEL;
+  if (x < a) return CYELL;
+  if (x >= b + 2) return y % 4 === 0 || x % 6 === 0 ? STONE : STONEL;
+  if (x >= b) return CYELL;
+  const u = (x - a) / w, depth = 60 / (y - ROAD_VY);
+  if (y >= CROSS0 && y < CROSS1) return Math.floor(((x - 324) / (y - ROAD_VY)) * 2.2) & 1 ? ASPH : TILEW; // zebra (WHITE would glow at night)
+  if (Math.abs(u - 0.5) * w < Math.max(0.5, w * 0.012) && (depth | 0) % 2 === 0) return TILEW; // dashed centre line
+  if (Math.abs(u - 0.035) * w < Math.max(0.5, w * 0.008)) return TILEW; // edge line by the plaza curb
+  return wr() < 0.08 ? STONE : ASPH;
+}
 
 function buildFar() {
   for (let x = -4; x < WW;) {
@@ -127,35 +154,43 @@ function buildChurch() {
 }
 
 function buildSides() {
+  // left, behind the praça: the white four-storey block with blue bands, then a low white building
+  const hw = 92, htop = 66;
+  L(mid, 0, htop, hw, 140 - htop, TILEW); L(mid, 0, htop - 3, hw, 3, CBLUE); L(mid, 0, htop, hw, 1, FBLUE);
+  for (let fy = htop + 4; fy < 125; fy += 15) {
+    L(mid, 0, fy + 9, hw, 2, CBLUE);
+    for (let wx = 4; wx < hw - 6; wx += 9) { L(mid, wx, fy + 2, 5, 6, BNEAR); L(mid, wx, fy + 8, 5, 1, STONEL); hotelWins.push({ x: wx + 1, y: fy + 4, rank: wr() }); }
+  }
+  L(mid, 0, 128, hw, 12, STONEL); for (let x = 6; x < hw; x += 22) L(mid, x, 129, 14, 11, STEEL); // ground floor with roll-up doors
   opens = [
-    ...casa(mid, 0, 46, 34, 140, FGREEN, WHITE, 'escada', false, wr),
-    ...casa(mid, 48, 54, 40, 140, TILEW, CBLUE, 'reta', true, wr),
-    ...casa(mid, 104, 56, 30, 140, FPINK, WHITE, 'deco', true, wr),
-    ...casa(mid, 318, 60, 46, 140, TILEW, CRED, 'balaustre', true, wr),
-    ...casa(mid, 380, 46, 32, 140, FBLUE, WHITE, 'frontao', false, wr),
-    ...casa(mid, 428, 52, 36, 140, CYELL, WHITE, 'deco', true, wr),
+    ...casa(mid, 96, 56, 36, 140, TILEW, CBLUE, 'reta', true, wr),
+    // right, across the road: a low shop by the church, a taller building with balconies, more shops
+    ...casa(mid, 348, 38, 42, 140, TILEW, CRED, 'balaustre', true, wr),
+    ...casa(mid, 390, 46, 74, 140, CBEIGE, WHITE, 'reta', true, wr),
+    ...casa(mid, 440, 40, 50, 140, FBLUE, WHITE, 'deco', true, wr),
   ];
+  for (const by of [86, 104]) { L(mid, 388, by, 50, 2, TILEW); L(mid, 388, by - 5, 50, 1, STEEL); for (let x = 389; x < 437; x += 3) L(mid, x, by - 4, 1, 4, STEEL); } // balconies
+  // the road between the church and the shops, vanishing past the façade
+  for (let y = 134; y < 140; y++) for (let x = F1 + 1; x < 348; x++) Lp(mid, x, y, groundAt(x, y));
 }
 
 function buildFront() {
-  L(front, 0, 140, WW, 7, STONE);
-  for (let x = 0; x < WW; x += 6) for (let y = 141; y < 146; y += 3) Lp(front, x + (y % 2) * 3, y, STONEL);
-  L(front, 0, 146, WW, 1, STONEL);
+  for (let y = 140; y < STREET; y++) for (let x = 0; x < WW; x++) Lp(front, x, y, groundAt(x, y));
   for (const l of LAMPS) lampPost(front, l);
-  for (const x of [96, 366]) { L(front, x, 136, 18, 2, STONEL); L(front, x + 1, 138, 2, 2, STONE); L(front, x + 15, 138, 2, 2, STONE); } // benches
+  for (const x of [104, 266]) { L(front, x, 136, 18, 2, STONEL); L(front, x + 1, 138, 2, 2, STONE); L(front, x + 15, 138, 2, 2, STONE); } // benches
   // Nossa Senhora on her tiled pedestal
   L(front, 147, 122, 14, 18, TILEW); for (let y = 124; y < 140; y += 3) L(front, 147, y, 14, 1, WHITE);
   L(front, 145, 118, 18, 4, WHITE);
   L(front, 150, 98, 8, 20, MANTO); for (let y = 100; y < 118; y += 3) Lp(front, 151 + (y % 5), y, GOLD);
   L(front, 152, 93, 4, 5, SKIN2); L(front, 151, 92, 6, 2, MANTO); L(front, 155, 101, 3, 3, WHITE);
-  pole(front, 20, 140, 82); pole(front, 456, 140, 82);
-  wire(front, 21, 61, 457, 61, 16); wire(front, 21, 64, 457, 64, 20); wire(front, 21, 68, 457, 68, 13);
+  // poles and wires only on the shops' side of the road
+  pole(front, 352, 140, 82); pole(front, 456, 140, 82);
+  for (const [a, b, c, d, g] of WIRES) wire(front, a, b, c, d, g);
 }
+const WIRES: [number, number, number, number, number][] = [[353, 61, 457, 61, 8], [353, 64, 457, 64, 10], [353, 68, 457, 68, 6], [457, 61, 480, 52, 1]];
 
 function buildGround() {
-  for (let d = 0; d < SH; d++) for (let x = 0; x < WW; x++) street.base[d * WW + x] = wr() < 0.1 ? STONE : ASPH;
-  for (let x = 4; x < WW; x += 20) for (let d = 16; d < 17; d++) for (let i = 0; i < 10; i++) street.base[d * WW + x + i] = CYELL;
-  for (let x = 300; x < 344; x += 6) for (let d = 2; d < SH - 2; d++) for (let i = 0; i < 3; i++) street.base[d * WW + x + i] = TILEW; // crosswalk paint (WHITE would glow at night)
+  for (let d = 0; d < SH; d++) for (let x = 0; x < WW; x++) street.base[d * WW + x] = groundAt(x, STREET + d);
   for (let p = 0; p < 5; p++) {
     const cx = wr() * WW, cy = 3 + wr() * (SH - 6), rx = 8 + wr() * 18, ry = 2 + wr() * 2;
     for (let d = 0; d < SH; d++) for (let x = 0; x < WW; x++) { const a = (x - cx) / rx, b = (d - cy) / ry; if (a * a + b * b < 1) street.pud[d * WW + x] = 1; }
@@ -265,27 +300,109 @@ function drawFiel(f: Fiel) {
   if (f.skirt) put(X - f.dir, y - 13, f.hair);
 }
 
+// ---------- traffic: only on the road right of the church, in perspective ----------
+// Facing the church, Brazilian traffic keeps right: vehicles heading away (toward the church and on
+// past it) use the right lane and show their tail lights; oncoming ones use the left lane, headlights
+// on. Each vehicle is a front/rear view scaled by its row; they stop for anyone on the zebra.
+type RKind = 'moto' | 'car' | 'pickup' | 'bus';
+interface RCar { on: boolean; y: number; dir: 1 | -1; sp: number; kind: RKind; body: number; rider: number; helmet: number }
+const rr = mulberry32(0x7a11);
+const rpick = <T>(a: readonly T[]): T => a[(rr() * a.length) | 0];
+const RC: RCar[] = Array.from({ length: 7 }, () => ({ on: false, y: 0, dir: 1 as const, sp: 1, kind: 'car' as RKind, body: TILEW, rider: CRED, helmet: VOID }));
+const Y_FAR = 136, Y_NEAR = 192; // spawn / despawn rows (192 is below the frame)
+const laneU = (c: RCar) => (c.dir > 0 ? 0.28 : 0.72);
+// 1 at row 146, where a car is about a person's height; damped (^0.7) so near vehicles don't swamp the frame
+const scaleAt = (y: number) => ((xr(y) - xl(y)) / 56) ** 0.7;
+const gapAt = (y: number) => 2 + (y - ROAD_VY) * 0.5;
+let rcT = 0.5;
+
+function spawnCar() {
+  const c = RC.find((o) => !o.on);
+  if (!c) return;
+  const dir = rr() < 0.5 ? 1 : -1, y = dir > 0 ? Y_FAR : Y_NEAR;
+  if (RC.some((o) => o.on && o.dir === dir && Math.abs(o.y - y) < gapAt(y) + 2)) return;
+  const k = rr(), h = S.cal.hour;
+  c.kind = k < 0.45 ? 'moto' : k < 0.85 ? 'car' : k < 0.95 || h < 6 || h > 22 ? 'pickup' : 'bus';
+  c.body = c.kind === 'bus' ? TILEW : c.kind === 'moto' ? rpick([CRED, CRED, VOID, CBLUE, STONEL]) : rpick([TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, STONE]);
+  c.rider = rpick([CRED, CBLUE, VOID, CYELL, TILEW, FGREEN]); c.helmet = rpick([VOID, VOID, TILEW, CRED, CBLUE]);
+  c.sp = (c.kind === 'moto' ? 1.2 : c.kind === 'bus' ? 0.8 : 1) * (0.85 + rr() * 0.3);
+  c.dir = dir; c.y = y; c.on = true;
+}
+
+function updateTraffic(dt: number) {
+  rcT -= dt * (0.06 + 0.6 * S.busy);
+  if (rcT <= 0) { rcT = 0.6 + rr() * 2; spawnCar(); }
+  const crossing = anyoneBetween(xl(144) - 4, xr(144) + 4) || FIEIS.some((f) => f.on && f.x > xl(141) - 4 && f.x < xr(141) + 4);
+  for (const c of RC) {
+    if (!c.on) continue;
+    let v = c.sp * 40 * (0.1 + ((c.y - ROAD_VY) / 46) ** 1.5) * dt; // faster as it nears the viewer
+    for (const o of RC) if (o !== c && o.on && o.dir === c.dir && (o.y - c.y) * c.dir > 0) v = Math.min(v, Math.max(0, Math.abs(o.y - c.y) - gapAt(Math.max(o.y, c.y))));
+    if (crossing) { // stop short of the zebra; a vehicle already on it carries on
+      if (c.dir > 0 && c.y <= CROSS0 - 1) v = Math.min(v, Math.max(0, CROSS0 - 1 - c.y));
+      if (c.dir < 0 && c.y >= CROSS1 + 2) v = Math.min(v, Math.max(0, c.y - CROSS1 - 2));
+    }
+    c.y += c.dir * v;
+    if (c.y > Y_NEAR + 1 || c.y < Y_FAR - 0.5) c.on = false;
+  }
+}
+
+/** One vehicle seen from the front (oncoming) or the back (going away), at its row's scale. */
+function drawRoadCar(c: RCar) {
+  const k = scaleAt(c.y), cx = laneX(c.y, laneU(c)), gy = Math.round(c.y), n = isNight(), front = c.dir > 0;
+  const X = (u: number) => Math.round(cx + u * k), Y = (h: number) => Math.round(gy - h * k);
+  // rect between unit coords: u across (0 = lane centre), h height above the road
+  const R = (u0: number, u1: number, h1: number, h0: number, col: number) => rect(X(u0), Y(h1), Math.max(1, X(u1) - X(u0)), Math.max(1, Y(h0) - Y(h1)), col);
+  const head = n ? WHITE : CBEIGE, tail = n ? MAG : MAGD;
+  if (c.kind === 'moto') {
+    R(-1, 1, 3.5, 0, VOID); R(-1.6, 1.6, 6, 3, c.body);
+    R(-2.2, 2.2, 11, 5.5, c.rider); R(-1.6, 1.6, 13.5, 10.5, c.helmet);
+    R(-0.6, 0.6, 5.5, 4.2, front ? head : tail);
+  } else {
+    const bus = c.kind === 'bus', hw = bus ? 10.5 : 8.5, H = bus ? 20 : c.kind === 'pickup' ? 13.5 : 12.5;
+    R(-hw - 0.5, hw + 0.5, 0.6, -0.4, VOID); // shadow
+    R(-hw + 0.5, -hw + 3, 2.5, 0, VOID); R(hw - 3, hw - 0.5, 2.5, 0, VOID); // tyres
+    R(-hw, hw, bus ? H : 8, 2, c.body);
+    if (bus) { R(-hw + 1.5, hw - 1.5, H - 2, H - 10, n ? LIGHT : WDIM); R(-hw, hw, 9, 8, FGREEN); }
+    else { R(-hw + 2, hw - 2, H, 8, c.body); R(-hw + 3, hw - 3, H - 0.8, 8.2, n ? WDIM : WCOOL); }
+    R(-hw, hw, 3, 2, STEEL); // bumper
+    R(-2, 2, 5, 3.4, front ? BNEAR : TILEW); // grille / number plate
+    R(-hw + 0.5, -hw + 3, 6.5, 5, front ? head : tail); R(hw - 3, hw - 0.5, 6.5, 5, front ? head : tail);
+  }
+  if (!n) return;
+  if (front) { // headlight pool on the road ahead of it (toward the viewer)
+    const len = Math.round(12 * k), hw = (c.kind === 'moto' ? 3 : 9) * k;
+    for (let j = 1; j <= len; j++) for (let x = Math.floor(cx - hw - j * 0.4); x <= cx + hw + j * 0.4; x++)
+      if (bay(sx(x), sy(gy + j)) < 0.3 * (1 - j / (len + 1))) put(x, gy + j, HALO);
+  } else for (let j = 1; j <= Math.round(3 * k); j++) for (let x = X(-8); x <= X(8); x++) if (bay(sx(x), sy(gy + j)) < 0.12) put(x, gy + j, MAGD);
+}
+
+function drawTraffic(near: boolean) {
+  const list = RC.filter((c) => c.on && (c.y >= STREET) === near).sort((a, b) => a.y - b.y);
+  for (const c of list) drawRoadCar(c);
+}
+
 function update(dt: number) {
   updateAnimals(dt); updateMass(dt);
   const crowd = S.procissao ? 5 : S.festa && S.cal.hour >= 18 ? 3 : 1.3;
-  tickSpawns(dt, crowd); updatePeople(dt); updateCars(dt, 1);
+  tickSpawns(dt, crowd); updatePeople(dt); updateTraffic(dt);
 }
 
 const FOG = [{ y: 110, h: 10, sp: 0.5 }, { y: 140, h: 6, sp: -0.4 }];
 function render() {
   drawSky(HORIZON); drawAnimalsSky(); drawLightning();
   blitLayer(far); drawFireworks();
-  blitLayer(mid); drawOpenings(opens, S.cal.hour >= 7 && S.cal.hour < 19 && S.cal.weekday !== 0); windows(); clock(); uplights();
+  blitLayer(mid); drawOpenings(opens, S.cal.hour >= 7 && S.cal.hour < 19 && S.cal.weekday !== 0); drawTowerWins(hotelWins); windows(); clock(); uplights();
   drawFarPrecip();
+  for (const t of trees) drawTree(t);
   blitLayer(front);
   for (const p of PALMS) drawPalm(p);
   for (const l of LAMPS) lampLight(l);
   if (S.natal) for (const l of LAMPS) christmasStar(l.x + 1, l.top - 12, 1);
-  if (S.festa || S.saoJoao) { bandeirolas(118, 70, 222, 58, 8, 0); bandeirolas(258, 58, 362, 70, 8, 3); if (S.festa) { bulbs(0, 74, 118, 70, 6); bulbs(362, 70, 480, 74, 6); } }
+  if (S.festa || S.saoJoao) { bandeirolas(96, 70, 222, 58, 8, 0); bandeirolas(258, 58, 364, 70, 8, 3); if (S.festa) { bulbs(0, 74, 82, 70, 6); bulbs(378, 70, 480, 74, 6); } }
   if (S.saoJoao && S.cal.day >= 22 && S.cal.day <= 24 && S.cal.hour >= 18) fogueira(440, 146);
-  cart(326, 146, S.stallOpen);
-  drawAnimalsPerched(); for (const f of FIEIS) if (f.on) drawFiel(f); drawPeople(); drawAnimalsGround();
-  drawStreet(street); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
+  cart(282, 146, S.stallOpen);
+  drawAnimalsPerched(); drawTraffic(false); for (const f of FIEIS) if (f.on) drawFiel(f); drawPeople(); drawAnimalsGround();
+  drawStreet(street); drawTraffic(true); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
 let built = false;
@@ -293,20 +410,30 @@ export const praca: Scene = {
   id: 'praca-matriz',
   name: 'Praça da Matriz',
   build() {
-    if (!built) { buildFar(); buildChurch(); buildSides(); buildFront(); buildGround(); built = true; }
+    if (!built) {
+      buildFar(); buildChurch(); buildSides(); buildFront(); buildGround();
+      trees = [makeTree(34, 140, 1.0, wr), makeTree(134, 140, 0.85, wr)];
+      built = true;
+    }
     setLanes([{ y: 142 }, { y: 144 }, { y: 146 }]);
-    setupAnimals({ ground: [143, 145], dogs: 2, sleepSpots: [60, 300], lamps: [{ x: 106, y: 66 }, { x: 130, y: 66 }, { x: 350, y: 66 }, { x: 374, y: 66 }],
-      wires: [wireCurve(21, 61, 457, 61, 16), wireCurve(21, 64, 457, 64, 20), wireCurve(21, 68, 457, 68, 13)],
-      walls: [{ x0: 0, x1: 46, y: 101 }, { x0: 104, x1: 160, y: 105 }, { x0: 380, x1: 426, y: 103 }, { x0: F0, x1: 196, y: 45 }, { x0: 284, x1: F1, y: 45 }] });
-    setCarLanes(158, 172, 'br');
+    setupAnimals({ ground: [143, 145], dogs: 2, sleepSpots: [60, 250], lamps: LAMPS.flatMap((l) => [{ x: l.x - 13, y: l.top }, { x: l.x + 14, y: l.top }]),
+      wires: WIRES.slice(0, 3).map(([a, b, c, d, g]) => wireCurve(a, b, c, d, g)),
+      walls: [{ x0: 0, x1: 92, y: 63 }, { x0: 96, x1: 152, y: 104 }, { x0: 390, x1: 436, y: 66 }, { x0: F0, x1: 196, y: 45 }, { x0: 284, x1: F1, y: 45 }] });
+    setCarLanes(158, 172, 'br'); // clears the shared side-on traffic: this scene runs its own, on the road only
+    for (const c of RC) c.on = false;
     configure({ roofs: [{ x0: F0, x1: F1, y: 52 }], tips: [{ x: F0 + 1, y: 54, end: 130 }, { x: F1 - 2, y: 54, end: 130 }], lamps: LAMPS.map((l) => ({ x: l.x, y: l.top })), ground0: 140, horizon: HORIZON });
     for (let i = 0; i < 150; i++) update(1 / 30);
   },
   update,
   render,
-  debug() { return `active  people x${peopleCount()}  fiéis x${FIEIS.filter((f) => f.on).length}  mass ${mass.active ? 'on' : mass.doorsOpen ? 'doors' : 'off'}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
-  // tap the church (façade, tower or spire) and the bell strikes once
+  debug() { return `active  people x${peopleCount()}  road x${RC.filter((c) => c.on).length}  fiéis x${FIEIS.filter((f) => f.on).length}  mass ${mass.active ? 'on' : mass.doorsOpen ? 'doors' : 'off'}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
+  // tap a vehicle and it honks; tap the church (façade, tower or spire) and the bell strikes once
   tap(x, y) {
+    for (const c of RC) {
+      if (!c.on) continue;
+      const k = scaleAt(c.y), cx = laneX(c.y, laneU(c)), hw = (c.kind === 'bus' ? 11 : c.kind === 'moto' ? 3 : 9) * k + 2;
+      if (Math.abs(x - cx) <= hw && y <= c.y + 2 && y >= c.y - (c.kind === 'bus' ? 21 : 14) * k - 2) return { x: cx, y: c.y - 14 * k, sfx: c.kind === 'moto' ? 'moto' : c.kind === 'bus' ? 'bus' : 'car' };
+    }
     const tower = x >= 220 && x < 260 && y >= -76 && y < 62, facade = x >= 166 && x < 314 && y >= 37 && y < 140;
     return tower || facade ? { x: CX, y: -14, sfx: 'bell' } : null;
   },
