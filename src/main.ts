@@ -15,9 +15,10 @@ import { animalsDebug } from './actors/animals';
 import { brTrafficDebug } from './actors/br-traffic';
 import { fireworksStats, updateSkyEvents, lightning } from './fx/sky-events';
 import { gradePalette } from './sky/grade';
-import { S, direct, settle } from './sky/state';
+import { S, direct, settle, wxOverride } from './sky/state';
 import { CITIES, type City, cityById } from './sky/cities';
-import { followLive, liveNow } from './sky/live';
+import { followLive, weatherView } from './sky/live';
+import { hudWeather } from './sky/weather-feed';
 import { updateSky } from './scenes/common';
 import { nextScene, pickScene } from './scenes';
 import { inject, pageview } from '@vercel/analytics';
@@ -73,7 +74,6 @@ const MONTH = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'o
 const pad2 = (n: number) => String(n | 0).padStart(2, '0');
 
 function weatherWord(): string {
-  if (S.typhoon && S.storm > 0.5) return 'tufão';
   if (S.storm > 0.45) return S.snow > S.rain ? 'nevasca' : 'tempestade';
   if (S.snow > 0.6) return 'nevasca';
   if (S.snow > 0.25) return 'neve';
@@ -110,10 +110,17 @@ function updateHud() {
   const c = S.cal;
   $('clock').textContent = `${pad2(c.hour)}:${pad2((c.hour % 1) * 60)}`;
   $('date').textContent = `${WEEK[c.weekday]} ${c.day} ${MONTH[c.month]} · ${city.utc < 0 ? 'horário de Brasília' : 'horário de Tóquio'}`;
-  const live = simOffset === 0 ? liveNow(city.id) : null;
-  $('temp').textContent = `${Math.round(live ? live.temp : S.temp)}°C`;
-  $('wx').textContent = live ? `${weatherWord()} · sensação ${Math.round(live.feels)}° · umidade ${Math.round(live.humidity)}%` : weatherWord();
-  $('live').hidden = !live;
+  // Weather text comes only from a genuine reading (or the clearly labelled #wx= test override).
+  const pinned = simOffset !== 0, v = weatherView(city.id), reading = !pinned && v.kind !== 'unavailable' ? v.feed.now : null;
+  const h = hudWeather({
+    kind: S.wxKind, word: weatherWord(), now: Date.now(), utc: city.utc, pinned, override: wxOverride ?? undefined,
+    temp: reading ? reading.temp : S.temp, feels: reading?.feels, humidity: reading?.humidity, at: reading?.t,
+  });
+  $('temp').textContent = h.temp;
+  $('wx').textContent = h.text;
+  const badge = $('live');
+  badge.hidden = !h.badge;
+  if (h.badge) { badge.textContent = h.badge.text; badge.className = `live ${h.badge.cls}`; }
   $('season').textContent = seasonWord();
 }
 
@@ -216,7 +223,10 @@ function frame(now: number) {
   if (dt > 0.25) dt = 0.25;
   const t0 = performance.now();
   clock += dt;
+  const hadData = S.wxKind !== 'unavailable';
   direct(simNow(), city, dt);
+  // the first genuine reading arrived: rebuild wet streets / snow cover from its past hours
+  if (!hadData && S.wxKind !== 'unavailable') { settle(simNow(), city); direct(simNow(), city, 0); }
   updateSky(dt); updateSkyEvents(dt); updatePrecip(dt); scene.update(dt);
   scene.render();
   drawEmotes(dt);
@@ -233,7 +243,7 @@ function frame(now: number) {
     uiT = 0; updateHud();
     if (showDebug) $('debug').textContent =
 `scene   ${scene.name}   frame ${G.W}x${G.H}
-time    ${new Date(simNow()).toISOString().slice(0, 16)}Z   ${city.id}   weather ${S.live ? 'live' : 'model'}
+time    ${new Date(simNow()).toISOString().slice(0, 16)}Z   ${city.id}   weather ${S.wxKind}
 sun     ${S.sunElev.toFixed(1)}°  day ${S.dayK.toFixed(2)}  gold ${S.golden.toFixed(2)}  moon ${S.moonPhase.toFixed(2)}
 wx      rain ${S.rain.toFixed(2)} snow ${S.snow.toFixed(2)} storm ${S.storm.toFixed(2)} cloud ${S.cloud.toFixed(2)}
         fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp.toFixed(1)}

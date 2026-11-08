@@ -44,7 +44,7 @@ pnpm test       # unit tests for the bell schedule and timer (node --test; Node 
 - `#scene=praca-matriz`: pin a scene (`praca-matriz`, `rua-comercio`, `capelinha`, `praca-cultura`, `campo-rodoviaria`, `acude-velho`, `cabo-branco`, `centro-areia`, `lagoa-remigio`, `rain-corner`, `neon-alley`, `konbini`, `shrine`)
 - `#at=2026-12-24T22:00`: freeze a moment in the city's time zone (for testing; the UI always uses real time)
 - `#debug`: technical panel (for development)
-- `#wx=rain`: force the weather (`clear`, `cloudy`, `rain`, `snow`, `storm`, `fog`)
+- `#wx=rain`: test override for previews (`clear`, `cloudy`, `rain`, `snow`, `storm`, `fog`); the HUD marks it as a test, never as live
 - `#car=bus`: make most Esperança traffic one kind, for previews (`moto`, `hatch`, `sedan`, `suv`, `pickup`, `veraneio`, `kombi`, `som`, `pipa`, `carroca`, `bus`, `micro`, `escolar`)
 
 ## Keys
@@ -54,7 +54,7 @@ T city, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M ambie
 ## Layout
 
 - `src/engine`: indexed framebuffer, palette, WebGL2 post-processing
-- `src/sky`: cities, clock and astronomy, climate models (Japan and Brazil's Agreste), live weather, palette grading
+- `src/sky`: cities, clock and astronomy, live weather (`weather-feed.ts` holds the pure live / stale / unavailable rules, unit-tested; `live.ts` the network), palette grading
 - `src/fx`: rain, snow, petals and leaves, lightning, fireworks
 - `src/actors`: pedestrians, cars and motorcycles, trees
 - `src/scenes`: shared passes, the Esperança prop kit (`br-kit.ts`) and one file per scene
@@ -63,7 +63,7 @@ T city, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M ambie
 
 ## Credits
 
-- **Weather**: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). No API key; refreshes every 10 minutes and falls back to the simulated climate if the network fails.
+- **Weather**: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). No API key; refreshes every 10 minutes. Weather is never simulated: if a fetch fails, the last real reading for that city stays on screen marked "dados de HH:MM · sem atualização" (for up to 12 h); with no reading the HUD says "clima indisponível" over a neutral sky with no rain, snow, storm or fog. Failures are retried 3 times (15 s, 1 min, 3 min), then every 10 minutes until the API answers again.
 - **Music**: streamed from the [Internet Archive](https://archive.org/), released by their labels under Creative Commons licenses. The radio shows each track's artist, album and license with a link to the original page.
   - **Lo-Fi City** (amber; lo-fi beats, instrumental hip-hop): 15 albums from the [Dusted Wax Kingdom](https://archive.org/details/dustedwaxkingdom) netlabel (CC BY-NC-ND 3.0/4.0).
   - **Neon FM** (magenta; vaporwave): Meavy Boy (*Column*, *EP 71 to 20*), Meavy Boy / アロキン (*No Sleep*) and アロキン (*Sleepless Arcade*), all from the [Spettro Records](https://archive.org/details/spettrorec) netlabel (CC BY-NC-ND 4.0), and 2003 Toyota Corolla from the hanahata netlabel (CC BY-SA 4.0).
