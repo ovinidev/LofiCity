@@ -16,7 +16,8 @@ import {
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
-import { anyoneBetween, drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
+import { anyoneBetween, bikeCount, drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
+import { yieldLimit } from '../actors/street-rules';
 import { setCarLanes } from '../actors/cars';
 import { type Tree, drawTree, makeTree } from '../actors/trees';
 import { type MassState, massState } from '../sky/rhythm';
@@ -337,10 +338,7 @@ function updateTraffic(dt: number) {
     if (!c.on) continue;
     let v = c.sp * 40 * (0.1 + ((c.y - ROAD_VY) / 46) ** 1.5) * dt; // faster as it nears the viewer
     for (const o of RC) if (o !== c && o.on && o.dir === c.dir && (o.y - c.y) * c.dir > 0) v = Math.min(v, Math.max(0, Math.abs(o.y - c.y) - gapAt(Math.max(o.y, c.y))));
-    if (crossing) { // stop short of the zebra; a vehicle already on it carries on
-      if (c.dir > 0 && c.y <= CROSS0 - 1) v = Math.min(v, Math.max(0, CROSS0 - 1 - c.y));
-      if (c.dir < 0 && c.y >= CROSS1 + 2) v = Math.min(v, Math.max(0, c.y - CROSS1 - 2));
-    }
+    v = Math.min(v, yieldLimit(c.y, c.dir, CROSS0 - 1, CROSS1 + 2, crossing)); // stop short of the zebra; a vehicle already on it carries on
     c.y += c.dir * v;
     if (c.y > Y_NEAR + 1 || c.y < Y_FAR - 0.5) c.on = false;
   }
@@ -415,7 +413,7 @@ export const praca: Scene = {
       trees = [makeTree(34, 140, 1.0, wr), makeTree(134, 140, 0.85, wr)];
       built = true;
     }
-    setLanes([{ y: 142 }, { y: 144 }, { y: 146 }]);
+    setLanes([{ y: 142 }, { y: 144 }, { y: 146 }], { bikes: false }); // only people on foot cross in front of the church
     setupAnimals({ ground: [143, 145], dogs: 2, sleepSpots: [60, 250], lamps: LAMPS.flatMap((l) => [{ x: l.x - 13, y: l.top }, { x: l.x + 14, y: l.top }]),
       wires: WIRES.slice(0, 3).map(([a, b, c, d, g]) => wireCurve(a, b, c, d, g)),
       walls: [{ x0: 0, x1: 92, y: 63 }, { x0: 96, x1: 152, y: 104 }, { x0: 390, x1: 436, y: 66 }, { x0: F0, x1: 196, y: 45 }, { x0: 284, x1: F1, y: 45 }] });
@@ -426,7 +424,7 @@ export const praca: Scene = {
   },
   update,
   render,
-  debug() { return `active  people x${peopleCount()}  road x${RC.filter((c) => c.on).length}  fiéis x${FIEIS.filter((f) => f.on).length}  mass ${mass.active ? 'on' : mass.doorsOpen ? 'doors' : 'off'}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
+  debug() { return `active  people x${peopleCount()}  bici x${bikeCount()}  road x${RC.filter((c) => c.on).length}  fiéis x${FIEIS.filter((f) => f.on).length}  mass ${mass.active ? 'on' : mass.doorsOpen ? 'doors' : 'off'}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
   // tap a vehicle and it honks; tap the church (façade, tower or spire) and the bell strikes once
   tap(x, y) {
     for (const c of RC) {

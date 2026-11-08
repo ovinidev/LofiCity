@@ -12,6 +12,7 @@ import {
   STEEL, STONE, STONEL, TILEW, VOID, WCOOL, WDIM, WOOD, AMB,
 } from '../engine/palette';
 import { S, hourIn } from '../sky/state';
+import { overlaps, yieldLimit } from './street-rules';
 
 type Kind = 'moto' | 'hatch' | 'sedan' | 'suv' | 'pickup' | 'veraneio' | 'kombi' | 'som' | 'pipa' | 'carroca' | 'bus' | 'micro' | 'escolar';
 type MotoKind = 'plain' | 'mototaxi' | 'delivery' | 'gas' | 'scooter';
@@ -30,7 +31,19 @@ const VS: V[] = Array.from({ length: POOL }, () => ({
 }));
 let laneY = [158, 172], spawnT = 0.3;
 
-export function setBrLanes(far: number, near: number) { laneY = [far, near]; for (const v of VS) v.on = false; }
+/** A zebra crossing across both lanes between world x0 and x1; `occupied` says whether a pedestrian
+    is on it or about to step on. Off unless a scene sets one (setBrLanes clears it). */
+export interface BrCrossing { x0: number; x1: number; occupied: () => boolean }
+let crossing: BrCrossing | null = null;
+/** Gap between a stop line and the stripes. */
+const STOP_GAP = 3;
+
+export function setBrLanes(far: number, near: number) { laneY = [far, near]; crossing = null; for (const v of VS) v.on = false; }
+export function setBrCrossing(c: BrCrossing | null) { crossing = c; }
+/** Whether any vehicle's body is on the crossing or between its stop lines (a pedestrian waits for this to clear). */
+export const vehicleNearCrossing = () => !!crossing && VS.some((v) => v.on && overlaps(v.x, v.len, crossing!.x0 - STOP_GAP, crossing!.x1 + STOP_GAP));
+/** Whether any vehicle's body overlaps world x0..x1 (debug check). */
+export const vehicleBetween = (x0: number, x1: number) => VS.some((v) => v.on && overlaps(v.x, v.len, x0, x1));
 
 const LEN: Record<Kind, number> = { moto: 12, hatch: 26, sedan: 31, suv: 31, pickup: 31, veraneio: 34, kombi: 28, som: 27, pipa: 42, carroca: 34, bus: 66, micro: 44, escolar: 50 };
 const CAR_COLORS = [TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, CNAVY, STONE, CBEIGE];
@@ -88,7 +101,10 @@ export function updateBr(dt: number, density = 1) {
   // roughly one vehicle every 2-6 s at a busy hour, a trickle late at night
   spawnT -= dt * (0.02 + 0.36 * S.traffic) * density;
   if (spawnT <= 0) { spawnT = 0.6 + r() * 1.2; spawn(); }
-  for (const v of VS) {
+  // with a zebra crossing, vehicles are moved front-first so each sees where the one ahead stopped
+  const zc = crossing, occupied = !!zc && zc.occupied(), held = new Set<V>();
+  const order = zc ? VS.filter((v) => v.on).sort((a, b) => b.x * b.dir - a.x * a.dir) : VS;
+  for (const v of order) {
     if (!v.on) continue;
     // follow a slower vehicle ahead in the same lane (motorcycles squeeze past)
     let sp = v.cruise;
@@ -97,8 +113,21 @@ export function updateBr(dt: number, density = 1) {
       const gap = v.dir > 0 ? o.x - (v.x + v.len) : v.x - (o.x + o.len);
       if (gap > 0 && gap < 14) sp = Math.min(sp, o.sp * (gap < 6 ? 0.6 : 1));
     }
+    let lim = Infinity;
+    if (zc) {
+      // stop before the stripes while someone is on (or stepping onto) them; queue behind anyone held there
+      lim = yieldLimit(v.dir > 0 ? v.x + v.len : v.x, v.dir, zc.x0 - STOP_GAP, zc.x1 + STOP_GAP, occupied);
+      for (const o of held) {
+        if (o.lane !== v.lane) continue;
+        const gap = v.dir > 0 ? o.x - (v.x + v.len) : v.x - (o.x + o.len);
+        if (gap >= 0) lim = Math.min(lim, Math.max(0, gap - 3));
+      }
+      if (lim < Infinity) { held.add(v); sp = Math.min(sp, lim * 1.5); } // ease down toward the line
+    }
     v.sp += (sp - v.sp) * Math.min(1, dt * 2);
-    v.x += v.dir * v.sp * dt; v.ph += v.sp * dt * 0.25;
+    const move = Math.min(v.sp * dt, lim);
+    if (move < v.sp * dt) v.sp = move / dt;
+    v.x += v.dir * move; v.ph += v.sp * dt * 0.25;
     if (v.x < G.camX - v.len - 80 || v.x > G.camX + G.W + 80) v.on = false;
   }
 }

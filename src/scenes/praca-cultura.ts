@@ -8,17 +8,18 @@
    the right the "EU ♥ ESPERANÇA" letters (red and white, patterned) with their big red heart on
    a red base. Craft fairs fill it with white tents; in Holy Week it hosts the Paixão de Cristo;
    at Christmas the gable and roofline are outlined with lights. */
-import { L, Lget, Lp, WW, blitLayer, newLayer, put, rect } from '../engine/gfx';
+import { G, L, Lget, Lp, WW, blitLayer, newLayer, put, rect } from '../engine/gfx';
 import { mulberry32 } from '../engine/math';
 import {
   BARK, BFAR, BNEAR, CBEIGE, CBLUE, CGREEN, CHURCH, CHURCHD, CNAVY, CRED, CYELL, FBLUE, FPINK, LEAFG, LEAFGD, LEDW, LIGHT, AMB,
-  MAG, STEEL, STONE, STONEL, VOID, WHITE, WOOD, WWARM, TILEW, SKIN2, HAIR1, CORNG,
+  MAG, STEEL, STONE, STONEL, VOID, WHITE, WOOD, WWARM, TILEW, SKIN1, SKIN2, SKIN3, SKIN4, HAIR1, HAIR2, HAIR3, CORNG,
 } from '../engine/palette';
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
+import { setBrCrossing, vehicleBetween, vehicleNearCrossing } from '../actors/br-traffic';
 import { type Tree, drawTree, makeTree } from '../actors/trees';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
@@ -34,6 +35,8 @@ const BASE = 112, PLAZA = 119, WALL = 125, WALK = 140;
 /** The building (centre BX) and the two flights of steps, which in the photo sit left of its centre. */
 const BX = 250, B0 = 198, B1 = 302, BTOP = 94;
 const RED0 = 156, RED1 = 250, BLUE0 = 96, BLUE1 = 248;
+/** The zebra crossing on the road, in front of the right half of the blue steps (world x). */
+const ZEBRA0 = 212, ZEBRA1 = 236;
 const wr = mulberry32(0xc017);
 const far = newLayer(), mid = newLayer(), front = newLayer();
 const street: Street = { y0: STREET, base: new Uint8Array(SH * WW), pud: new Uint8Array(SH * WW), jit: precip.jit };
@@ -172,6 +175,8 @@ function buildFront() {
 function buildGround() {
   // concrete road: pale slabs with joints
   for (let d = 0; d < SH; d++) for (let x = 0; x < WW; x++) street.base[d * WW + x] = d % 11 === 0 || x % 40 === 0 ? STONE : wr() < 0.12 ? STONE : STONEL;
+  // the zebra in front of the blue steps: white bars along the traffic, stacked across the road
+  for (let d = 1; d < SH; d++) for (let x = ZEBRA0; x < ZEBRA1; x++) street.base[d * WW + x] = (d + 1) % 5 < 3 ? TILEW : STONE;
   for (let p = 0; p < 5; p++) {
     const cx = wr() * WW, cy = 2 + wr() * (SH - 4), rx = 8 + wr() * 16, ry = 2 + wr() * 2;
     for (let d = 0; d < SH; d++) for (let x = 0; x < WW; x++) { const a = (x - cx) / rx, b = (d - cy) / ry; if (a * a + b * b < 1) street.pud[d * WW + x] = 1; }
@@ -239,10 +244,79 @@ function passion() {
   if (n) for (let y = g - 34; y < g - 6; y++) for (let x = X - 30; x < X + 30; x++) if (((x * 3 + y * 7) & 7) === 0) put(x, y, LIGHT); // stage lights
 }
 
+// ---------- people crossing the road on the zebra ----------
+// A few pedestrians use the crossing: some walk along the sidewalk, wait at the kerb and cross toward
+// the viewer (off the bottom of the frame); others come up from the near kerb and walk off along the
+// sidewalk. They step out only once no vehicle is on the stripes or past a stop line; from the moment
+// one waits at the kerb until they are across, the traffic stops before the crossing (br-traffic.ts).
+type XPhase = 'approach' | 'wait' | 'cross' | 'leave';
+interface Crosser { on: boolean; phase: XPhase; x: number; y: number; tx: number; dir: number; vy: number; sp: number; ph: number; wait: number; top: number; low: number; skin: number; hair: number; skirt: boolean }
+const xr = mulberry32(0x2eb4a);
+const xpick = <T>(a: readonly T[]): T => a[(xr() * a.length) | 0];
+const CROSSERS: Crosser[] = Array.from({ length: 3 }, () => ({ on: false, phase: 'approach' as XPhase, x: 0, y: 0, tx: 0, dir: 1, vy: 1, sp: 10, ph: 0, wait: 0, top: WHITE, low: VOID, skin: SKIN2, hair: HAIR1, skirt: false }));
+const KERB = 146, FAR_KERB = 188; // the sidewalk lane, and the near kerb just below the frame
+let crossT = 2, crossings = 0, conflicts = 0;
+
+function spawnCrosser() {
+  const c = CROSSERS.find((o) => !o.on);
+  if (!c) return;
+  c.skirt = xr() < 0.4; c.top = xpick([WHITE, CBLUE, CRED, CYELL, FPINK, TILEW, CGREEN, STEEL]); c.low = c.skirt ? c.top : xpick([VOID, BNEAR, CNAVY, STONE]);
+  c.skin = xpick([SKIN1, SKIN2, SKIN2, SKIN3, SKIN4]); c.hair = xpick([HAIR1, HAIR1, HAIR2, HAIR3]);
+  c.sp = 9 + xr() * 5; c.ph = xr() * 4; c.tx = ZEBRA0 + 5 + xr() * (ZEBRA1 - ZEBRA0 - 10); c.on = true;
+  if (xr() < 0.55) { // along the sidewalk to the kerb, then across toward the viewer
+    c.dir = xr() < 0.5 ? 1 : -1; c.x = c.dir > 0 ? G.camX - 8 : G.camX + G.W + 8; c.y = KERB; c.vy = 1; c.phase = 'approach';
+  } else { // from the near kerb up to the sidewalk, then off along it
+    c.x = c.tx; c.y = FAR_KERB; c.vy = -1; c.dir = xr() < 0.5 ? 1 : -1; c.phase = 'wait'; c.wait = 0.6 + xr();
+  }
+}
+
+/** Someone is on the crossing, or at the kerb about to step onto it. */
+const zebraBusy = () => CROSSERS.some((c) => c.on && (c.phase === 'wait' || c.phase === 'cross'));
+
+function updateCrossers(dt: number) {
+  crossT -= dt * (0.1 + 0.6 * S.busy);
+  if (crossT <= 0) { crossT = 3 + xr() * 5; spawnCrosser(); }
+  for (const c of CROSSERS) {
+    if (!c.on) continue;
+    if (c.phase === 'approach' || c.phase === 'leave') {
+      const d = c.tx - c.x;
+      c.x += c.dir * c.sp * dt; c.ph += dt * c.sp * 0.42;
+      if (c.phase === 'approach' && d * c.dir <= 0) { c.x = c.tx; c.phase = 'wait'; c.wait = 0.6 + xr(); }
+      if (c.phase === 'leave' && (c.x < G.camX - 12 || c.x > G.camX + G.W + 12)) c.on = false;
+    } else if (c.phase === 'wait') {
+      c.wait -= dt; // the traffic already sees them waiting and slows; they step out once it has
+      if (c.wait <= 0 && !vehicleNearCrossing()) c.phase = 'cross';
+    } else {
+      c.y += c.vy * c.sp * 0.8 * dt; c.ph += dt * c.sp * 0.42;
+      if (c.vy > 0 && c.y > FAR_KERB) { c.on = false; crossings++; }
+      if (c.vy < 0 && c.y <= KERB) { c.y = KERB; c.phase = 'leave'; c.tx = c.dir > 0 ? G.camX + G.W + 20 : G.camX - 20; crossings++; }
+    }
+  }
+}
+
+/** Debug check: a vehicle must never be on the stripes while someone is crossing. */
+const onRoad = () => CROSSERS.filter((c) => c.on && c.phase === 'cross' && c.y > STREET && c.y < FAR_KERB).length;
+
+/** A crosser: side view along the sidewalk, front or back view on the crossing. */
+function drawCrosser(c: Crosser) {
+  const X = Math.round(c.x), y = Math.round(c.y), walking = c.phase !== 'wait';
+  const st = walking ? [1, 0, 1, 0][(c.ph | 0) & 3] : 0, across = c.phase === 'cross' || c.phase === 'wait';
+  for (let r = 0; r < 5; r++) {
+    const c2 = r === 4 ? VOID : c.skirt && r >= 2 ? c.skin : c.low;
+    if (across) { put(X - 1, y - 4 + r - (r >= 2 && st ? 1 : 0), c2); put(X + 1, y - 4 + r - (r >= 2 && !st && walking ? 1 : 0), c2); }
+    else { const off = r >= 2 ? st : 0; put(X - 1 - off, y - 4 + r, c2); put(X + 1 + off, y - 4 + r, c2); }
+  }
+  rect(X - 1, y - 10, 3, c.skirt ? 8 : 6, c.top);
+  rect(X - 1, y - 14, 3, 3, c.skin); rect(X - 1, y - 15, 3, 1, c.hair);
+  if (across && c.vy < 0) rect(X - 1, y - 14, 3, 2, c.hair); // seen from behind, walking up toward the steps
+  else if (!across) put(X - c.dir, y - 14, c.hair);
+}
+
 function update(dt: number) {
   updateAnimals(dt);
   const k = paixao() ? 5 : feira() ? 2.6 : weekendNight() ? 2.2 : S.festa || S.saoJoao ? 2 : 1.2;
-  tickSpawns(dt, k); updatePeople(dt); updateCars(dt, 0.7);
+  tickSpawns(dt, k); updatePeople(dt); updateCrossers(dt); updateCars(dt, 0.7);
+  if (onRoad() && vehicleBetween(ZEBRA0, ZEBRA1)) conflicts++;
 }
 
 const FOG = [{ y: 102, h: 9, sp: 0.5 }, { y: 138, h: 6, sp: -0.4 }];
@@ -258,7 +332,7 @@ function render() {
   for (const l of LAMPS) lampLight(l);
   if (S.festa || S.saoJoao) { bandeirolas(142, 46, 318, 40, 12, 2); bulbs(0, 62, 142, 46, 6); bulbs(318, 40, 480, 62, 6); }
   drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
-  drawStreet(street); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
+  drawStreet(street); for (const c of CROSSERS) if (c.on) drawCrosser(c); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
 let built = false;
@@ -275,10 +349,12 @@ export const pracaCultura: Scene = {
     setupAnimals({ ground: [142, 146], dogs: 2, sleepSpots: [150], lamps: LAMPS.flatMap((l) => [{ x: l.x - 13, y: l.top }, { x: l.x + 14, y: l.top }]),
       walls: [{ x0: 0, x1: BLUE0 - 16, y: WALL }, { x0: BLUE1 + 8, x1: SIGN.x - 4, y: WALL }, { x0: B0, x1: BX - 20, y: BTOP - 2 }, { x0: BX + 20, x1: B1, y: BTOP - 2 }] });
     setCarLanes(160, 174, 'br');
+    setBrCrossing({ x0: ZEBRA0, x1: ZEBRA1, occupied: zebraBusy }); // after setCarLanes, which clears it for every other scene
+    for (const c of CROSSERS) c.on = false;
     configure({ roofs: [{ x0: B0, x1: B1, y: BTOP - 2 }], tips: [{ x: B0 + 1, y: BTOP - 1, end: BASE }, { x: B1 - 1, y: BTOP - 1, end: BASE }], lamps: LAMPS.map((l) => ({ x: l.x, y: l.top })), ground0: 140, horizon: HORIZON });
     for (let i = 0; i < 150; i++) update(1 / 30);
   },
   update,
   render,
-  debug() { return `active  people x${peopleCount()}  feira ${feira()}  paixão ${paixao()}  fim de semana ${weekendNight()}`; },
+  debug() { return `active  people x${peopleCount()}  faixa x${onRoad()} travessias ${crossings} conflitos ${conflicts}  feira ${feira()}  paixão ${paixao()}  fim de semana ${weekendNight()}`; },
 };

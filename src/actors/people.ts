@@ -10,6 +10,7 @@ import {
 } from '../engine/palette';
 import { peopleCap } from '../sky/rhythm';
 import { S } from '../sky/state';
+import { allowedArchetypes } from './street-rules';
 
 const enum Kind { Walk, Bike, Chair }
 const enum Top { Jacket, Suit, Coat, Tee, Sailor, Gakuran, Yukata, Shirt }
@@ -43,8 +44,11 @@ const P: Person[] = Array.from({ length: POOL }, () => ({
   umb: 255, stoop: false, cane: false, dog: 255, phone: false, box: 255, light: false, run: false, sun: false, push: 255,
 }));
 let lanes: Lane[] = [{ y: 145 }];
+let bikes = true;
 
-export function setLanes(l: Lane[]) { lanes = l; for (const p of P) p.on = false; }
+/** Sets the scene's pavement lanes (clearing everyone). `bikes: false` keeps cyclists and delivery
+    riders out of this scene; any scene that calls setLanes without it gets them back. */
+export function setLanes(l: Lane[], opts: { bikes?: boolean } = {}) { lanes = l; bikes = opts.bikes ?? true; for (const p of P) p.on = false; }
 
 const SKINS: [number, number][] = [[SKIN1, 0.34], [SKIN2, 0.34], [SKIN3, 0.2], [SKIN4, 0.12]];
 const SKINS_BR: [number, number][] = [[SKIN1, 0.18], [SKIN2, 0.34], [SKIN3, 0.3], [SKIN4, 0.18]];
@@ -175,8 +179,7 @@ function dress(p: Person, a: Archetype) {
 
 /** Adds one pedestrian (or a couple) entering from a screen edge. Returns how many spawned. */
 export function spawnPerson(couple = false): number {
-  const archs = archetypes();
-  const a = weighted(archs);
+  const a = weighted(allowedArchetypes(archetypes(), bikes));
   const dir = r() < 0.5 ? 1 : -1, lane = (r() * lanes.length) | 0;
   const n = couple || (a === 'yukata' && r() < 0.5) || (a === 'casual' && S.cal.hour >= 18 && r() < 0.3) ? 2 : 1;
   let made = 0, sp = 0;
@@ -223,6 +226,9 @@ export function tapPeople(x: number, y: number): { x: number; y: number; dog: bo
 
 /** Whether anyone (on any lane) is between world x0 and x1: lets traffic yield at a crossing. */
 export const anyoneBetween = (x0: number, x1: number) => P.some((p) => p.on && p.x > x0 && p.x < x1);
+
+/** How many pedestrians are riding a bicycle right now (debug panel). */
+export const bikeCount = () => P.reduce((n, p) => n + (p.on && p.kind === Kind.Bike ? 1 : 0), 0);
 
 export const peopleCount = () => P.reduce((n, p) => n + (p.on ? 1 : 0), 0);
 
