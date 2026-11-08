@@ -240,15 +240,24 @@ export function updatePeople(dt: number) {
   }
 }
 
-/** A tapped pedestrian (and their dog, if any). */
-export function tapPeople(x: number, y: number): { x: number; y: number; dog: boolean } | null {
+/** A tapped pedestrian (and their dog, if any): where their head is, whether they walk a dog, and a `track`
+    that follows their head while they stay in the scene (for the speech bubble). */
+export function tapPeople(x: number, y: number): { x: number; y: number; dog: boolean; track: () => { x: number; y: number } | null } | null {
   for (const p of P) {
     if (!p.on) continue;
     const gy = lanes[p.lane]?.y ?? 0;
-    if (Math.abs(x - p.x) < 5 && y > gy - p.H - 2 && y < gy + 2) return { x: p.x, y: gy - p.H, dog: p.dog !== 255 };
+    if (Math.abs(x - p.x) < 5 && y > gy - p.H - 2 && y < gy + 2) {
+      const lane = p.lane;
+      const track = () => (p.on && p.lane === lane ? { x: p.x, y: (lanes[lane]?.y ?? 0) - p.H } : null);
+      return { x: p.x, y: gy - p.H, dog: p.dog !== 255, track };
+    }
   }
   return null;
 }
+
+/** Takes everyone off the street before a scene is built: scenes with pedestrians set their lanes
+    again, and scenes without them (the Capelinha) keep no invisible, still-tappable leftovers. */
+export function clearPeople() { for (const p of P) p.on = false; }
 
 /** Whether anyone (on any lane) is between world x0 and x1: lets traffic yield at a crossing. */
 export const anyoneBetween = (x0: number, x1: number) => P.some((p) => p.on && p.x > x0 && p.x < x1);

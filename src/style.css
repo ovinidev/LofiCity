@@ -43,6 +43,24 @@ body.idle { cursor: none; }
 }
 [hidden] { display: none !important; }
 @media (max-width: 600px) { .bar button { padding: 8px 9px; font-size: 10px; } }
+/* speech bubbles over tapped people: above the canvas, under every HUD panel (DOM order), never tappable
+   themselves, so a tap on a bubble still reaches the scene and a tap on the HUD never reaches it. */
+#bubbles { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.bubble {
+  --bc: #1a1430; position: absolute; left: 0; top: 0; max-width: min(210px, 62vw); width: max-content;
+  padding: 5px 8px 6px; font: 12px/1.35 var(--font-ui); letter-spacing: 0.02em; color: var(--bc);
+  background: #fff6e0; border: 2px solid var(--bc); border-radius: 0; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5);
+  animation: bubble-in 0.16s steps(2, end), bubble-out 0.3s steps(3, end) 2.7s forwards;
+}
+.bubble::before, .bubble::after { content: ""; position: absolute; top: 100%; width: 0; height: 0; border: solid transparent; border-bottom: 0; }
+.bubble::before { left: calc(var(--tail, 50%) - 6px); border-width: 7px 6px 0; border-top-color: var(--bc); }
+.bubble::after { left: calc(var(--tail, 50%) - 3px); margin-top: -1px; border-width: 4px 3px 0; border-top-color: #fff6e0; }
+.bubble.below::before, .bubble.below::after { top: auto; bottom: 100%; border-top: 0; border-bottom-style: solid; }
+.bubble.below::before { border-width: 0 6px 7px; border-bottom-color: var(--bc); }
+.bubble.below::after { margin: 0 0 -1px; border-width: 0 3px 4px; border-bottom-color: #fff6e0; }
+@keyframes bubble-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bubble-out { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .bubble { animation: none; } }
 /* Quick repeated taps on controls must not trigger double-tap zoom; pinch-zoom stays available. */
 .ui, .radio, .eye, .credit, #rotate, button, select, input, a { touch-action: manipulation; }
 

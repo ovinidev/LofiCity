@@ -16,6 +16,7 @@ import { type DepthCar, type DepthRoad, canEnter, stepDepthCars } from '../actor
 import { peopleCap } from '../sky/rhythm';
 import { S } from '../sky/state';
 import { isNight } from './br-kit';
+import type { Speaker } from './types';
 
 // ---------- projection ----------
 /** Vanishing point (vx, vy) in world pixels, focal length f in px, camera height in metres. */
@@ -309,11 +310,15 @@ export function drawWalker(v: View, w: Walker) {
   if (w.skirt && !side) R(-1.5, 1.5, 16.5, 13.5, w.hair);
 }
 
-export function tapWalker(v: View, ws: Walker[], x: number, y: number): { x: number; y: number; sfx: 'oi' } | null {
+export function tapWalker(v: View, ws: Walker[], x: number, y: number): { x: number; y: number; speaker: Speaker } | null {
   for (const w of ws) {
     if (!w.on || w.z < 1) continue;
     const k = scaleAt(v, w.z), cx = projX(v, w.X, w.z), gy = projY(v, 0, w.z);
-    if (Math.abs(x - cx) <= 3 * k + 2 && y <= gy + 2 && y >= gy - 18 * k - 2) return { x: cx, y: gy - 18 * k, sfx: 'oi' };
+    if (Math.abs(x - cx) <= 3 * k + 2 && y <= gy + 2 && y >= gy - 18 * k - 2) {
+      // follow the walker's head while they stay in view (they may walk on into the distance)
+      const track = () => (w.on && w.z >= 1 ? { x: projX(v, w.X, w.z), y: projY(v, 0, w.z) - 18 * scaleAt(v, w.z) } : null);
+      return { x: cx, y: gy - 18 * k, speaker: { role: 'passerby', track } };
+    }
   }
   return null;
 }

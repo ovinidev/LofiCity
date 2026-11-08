@@ -103,6 +103,12 @@ export function toFrame(clientX: number, clientY: number) {
   return { x: ((clientX * dpr - vp.x) * G.W) / vp.w, y: ((clientY * dpr - vp.y) * G.H) / vp.h };
 }
 
+/** The inverse of toFrame: a frame pixel to CSS px in the window (for DOM overlays such as speech bubbles). */
+export function fromFrame(x: number, y: number) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  return { x: ((x * vp.w) / G.W + vp.x) / dpr, y: ((y * vp.h) / G.H + vp.y) / dpr };
+}
+
 export function layout() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   view.width = Math.floor(innerWidth * dpr); view.height = Math.floor(innerHeight * dpr);

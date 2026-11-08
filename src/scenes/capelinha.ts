@@ -258,6 +258,21 @@ export const capelinha: Scene = {
   },
   update,
   render,
+  // Only the scripted figures can be tapped (the priest, the congregation, the rare visitors); each
+  // speaks as its role. They are followed by their stable look seed, since figuresAt rebuilds them.
+  tap(x, y) {
+    for (const f of figs) {
+      const gy = f.role === 'priest' ? chapel.door - 1 : rockTop(Math.round(f.x));
+      if (Math.abs(x - f.x) > 3 || y > gy + 2 || y < gy - 17) continue;
+      const look = f.look, role = f.role;
+      const track = () => {
+        const g = figs.find((o) => o.look === look && o.role === role);
+        return g ? { x: g.x, y: (role === 'priest' ? chapel.door - 1 : rockTop(Math.round(g.x))) - 15 } : null;
+      };
+      return { x: f.x, y: gy - 15, speaker: { role, track } };
+    }
+    return null;
+  },
   debug() {
     const s = today(), hm = (h: number) => { const m = Math.round(h * 60); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
     const mass = s.mass ? `${hm(s.mass.start)}-${hm(s.mass.end)}/${s.mass.attendees}` : 'none';

@@ -36,7 +36,9 @@ Esperança's streets are busy with local life: motorcycles of every kind (motot�
 
 Everything is drawn in code, with no image assets: an indexed framebuffer whose palette is graded for day, night, sunset and overcast skies.
 
-**Tap anything that moves**: birds fly off the wires, cats bolt along the walls, dogs bark and run, people say "oi!", and every vehicle has its own horn, from the moto's beep to the São José bus, the donkey cart's bray and the carro de som's jingle. In Praça da Matriz, tap the church and its bell strikes once. All sounds are synthesized in the browser.
+**Tap anything that moves**: birds fly off the wires, cats bolt along the walls, dogs bark and run, people answer with a short speech bubble, and every vehicle has its own horn, from the moto's beep to the São José bus, the donkey cart's bray and the carro de som's jingle. In Praça da Matriz, tap the church and its bell strikes once. All sounds are synthesized in the browser.
+
+The bubbles are silent and come from an authored pool of gentle pt-BR lines with a Paraíba accent (simple pt-BR with a few Japanese words in Tokyo), picked for the city, the scene, the time of day (manhã, tarde, noite, madrugada) and the real weather only: heat lines need a real reading of 30 °C or more, cold lines a real low temperature, rain lines real precipitation (or the `#wx=` test); with no reading there are no weather lines at all. The same line doesn't come back right away, at most two bubbles show at once, each hides after about 3 s, and changing scene or city clears them. In the Capelinha only its visitors, the priest and the congregation speak.
 
 **Church bells (Esperança)**: with ambient sound on (M), the matriz strikes the hours on Esperança's real clock (Brasília time), from 05:00 through 00:00, counting in 12-hour style (13h = 1 strike, 00h = 12); it is silent from 01:00 to 04:00. You hear it in every Esperança scene: near in Praça da Matriz, farther away and softer elsewhere. Missed hours are never replayed (background tab, sleep, reload, turning sound on late), and nothing rings while a `#at=` moment is pinned.
 

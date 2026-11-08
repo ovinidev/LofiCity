@@ -4,8 +4,11 @@ import { G, frameFor, setFrame } from './engine/gfx';
 import { backend, initPost, layout, opts, present, toFrame } from './engine/post';
 import { sfx } from './audio/sfx';
 import { drawEmotes, emote } from './fx/emotes';
+import { clearBubbles, say, updateBubbles } from './fx/bubbles';
+import { pickPhrase, remember } from './actors/speech-rules';
+import type { Speaker } from './scenes/types';
 import { tapAnimals } from './actors/animals';
-import { rainDebug, tapPeople } from './actors/people';
+import { clearPeople, rainDebug, tapPeople } from './actors/people';
 import { tapCars } from './actors/cars';
 import { audio } from './audio/audio';
 import { radio } from './audio/radio';
@@ -140,6 +143,7 @@ function setCity(id: string) {
   sel.value = city.id;
   pinMoment();
   followLive(city);
+  clearBubbles(); clearPeople();
   scene = pickScene(city.id);
   settle(simNow(), city); direct(simNow(), city, 0, scene.id);
   scene.build();
@@ -155,7 +159,7 @@ const actions: Record<string, () => void> = {
   sound: () => { press('b-sound', audio.toggle()); syncBells(); },
   crt: () => { opts.crt = !opts.crt; press('b-crt', opts.crt); },
   city: () => setCity(CITIES[(CITIES.indexOf(city) + 1) % CITIES.length].id),
-  scene: () => { scene = nextScene(city.id, scene); direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); },
+  scene: () => { clearBubbles(); clearPeople(); scene = nextScene(city.id, scene); direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); },
   music: () => radio.toggle(),
   station: () => radio.nextStation(),
   skip: () => radio.skip(),
@@ -228,17 +232,30 @@ addEventListener('keydown', (e) => {
 });
 // No dblclick-to-fullscreen on the canvas: two quick taps on something that moves fired it and the
 // page seemed to zoom. Fullscreen stays on the button and Enter.
-// Tap what moves: birds fly off, cats bolt, dogs bark and run, people say hi, vehicles honk.
+// People say a short phrase that fits the city, the scene, the hour and the real weather (speech-rules.ts),
+// in a silent bubble; the recent ones are kept out so the same line doesn't come right back.
+let recentPhrases: string[] = [];
+function speak(who: Speaker, x: number, y: number) {
+  const text = pickPhrase({
+    city: city.id, scene: scene.id, hour: S.cal.hour, role: who.role,
+    wx: { kind: S.wxKind, temp: S.temp, rain: S.rain, snow: S.snow },
+  }, recentPhrases, Math.random);
+  if (!text) return;
+  recentPhrases = remember(recentPhrases, text);
+  say(text, { x, y }, who.track);
+}
+// Tap what moves: birds fly off, cats bolt, dogs bark and run, people talk, vehicles honk.
 $('view').addEventListener('pointerdown', (e) => {
   const f = toFrame(e.clientX, e.clientY), x = f.x + G.camX, y = f.y - G.oy;
   const a = tapAnimals(x, y);
   if (a) { sfx(a.kind === 'bird' ? 'chirp' : a.kind === 'cat' ? 'meow' : 'bark'); emote(a.x, a.y, a.kind === 'bird' ? '♪' : '!'); return; }
   const p = tapPeople(x, y);
-  if (p) { sfx(p.dog ? 'bark' : 'oi'); emote(p.x, p.y, Math.random() < 0.5 ? '♥' : '!'); return; }
+  if (p) { if (p.dog) sfx('bark'); speak({ role: 'passerby', track: p.track }, p.x, p.y); return; } // the dog still barks
   const c = tapCars(x, y);
   if (c) { sfx(c.sound); emote(c.x, c.y, '♪'); return; }
   const prop = scene.tap?.(x, y);
-  if (prop) { sfx(prop.sfx); emote(prop.x, prop.y, '♪'); }
+  if (prop?.speaker) speak(prop.speaker, prop.x, prop.y);
+  else if (prop?.sfx) { sfx(prop.sfx); emote(prop.x, prop.y, '♪'); }
 });
 
 let idleTimer = 0, wakeLock: WakeLockSentinel | null = null;
@@ -274,6 +291,7 @@ function frame(now: number) {
   drawEmotes(dt);
   gradePalette();
   present(clock, S.shake, S.dayK);
+  updateBubbles(now);
   workMs = workMs * 0.95 + (performance.now() - t0) * 0.05;
   frames++; fpsT += dt; uiT += dt; audioT += dt;
   if (audioT > 0.5) { audioT = 0; audio.tick(); }
