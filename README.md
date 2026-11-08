@@ -49,7 +49,9 @@ pnpm test       # unit tests for the bell schedule and timer (node --test; Node 
 
 ## Keys
 
-T city, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
+T city, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
+
+The eye button (top-right) hides the whole HUD, credit included, for a clean view; the choice is remembered. Hiding it does not pause the radio. Fullscreen is on the button and Enter only (no double-click), so quick taps on the scene never resize it.
 
 ## Layout
 

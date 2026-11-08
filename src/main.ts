@@ -90,7 +90,9 @@ function weatherWord(): string {
 function seasonWord(): string {
   const m = S.cal.month;
   if (city.br) {
-    const tags = [city.climate === 'litoral' ? (m >= 3 && m <= 7 ? 'inverno chuvoso' : 'verão') : m >= 2 && m <= 6 ? 'quadra chuvosa' : 'estação seca'];
+    const tags: string[] = [];
+    if (city.climate === 'litoral') tags.push(m >= 3 && m <= 7 ? 'inverno chuvoso' : 'verão');
+    else if (m >= 2 && m <= 6) tags.push('quadra chuvosa');
     if (S.festa) tags.push(S.procissao ? 'procissão' : 'festa da padroeira');
     if (S.saoJoao) tags.push('são joão');
     if (S.natal && !S.festa) tags.push('natal');
@@ -121,7 +123,9 @@ function updateHud() {
   const badge = $('live');
   badge.hidden = !h.badge;
   if (h.badge) { badge.textContent = h.badge.text; badge.className = `live ${h.badge.cls}`; }
-  $('season').textContent = seasonWord();
+  const season = seasonWord();
+  $('season').textContent = season;
+  $('season').hidden = !season; // sertão dry season has no tag: don't leave an empty HUD row
 }
 
 // ---------- controls ----------
@@ -177,16 +181,52 @@ $('rotate-ok').addEventListener('click', () => {
   try { sessionStorage.setItem('loficity:portrait-ok', '1'); } catch { /* ignore */ }
 });
 
+// Eye button: hides the whole HUD (info, radio, controls, credit) for a clean view. Only DOM state changes,
+// so the radio and ambience keep doing whatever they were doing. `hidden` + `inert` keep the hidden
+// panels out of the tab order and away from taps, so the scene underneath stays tappable.
+const HUD_PARTS = ['.hud', '.radio', '.bar', '.credit'];
+const eye = $('b-hud');
+function setHud(show: boolean, save = true) {
+  const active = document.activeElement;
+  for (const s of HUD_PARTS) {
+    const el = document.querySelector<HTMLElement>(s);
+    if (!el) continue;
+    el.hidden = !show; el.inert = !show;
+    if (!show && active instanceof HTMLElement && el.contains(active)) eye.focus();
+  }
+  document.body.classList.toggle('hud-off', !show);
+  const label = show ? 'Ocultar painel' : 'Mostrar painel';
+  eye.setAttribute('aria-label', label); eye.title = `${label} (H)`;
+  press('b-hud', !show);
+  if (save) try { localStorage.setItem('loficity:hud', show ? 'on' : 'off'); } catch { /* ignore */ }
+}
+actions.hud = () => setHud(document.body.classList.contains('hud-off'));
+eye.addEventListener('click', actions.hud);
+let hudPref: string | null = null;
+try { hudPref = localStorage.getItem('loficity:hud'); } catch { /* storage unavailable */ }
+if (hudPref === 'off') setHud(false, false);
+
+// Upright phones stack the radio under the info panel; publish the panel's real height (it grows when
+// the city or weather line wraps) so the CSS can place the radio right below it.
+const hudEl = document.querySelector<HTMLElement>('.hud');
+if (hudEl) {
+  new ResizeObserver(() => {
+    if (hudEl.offsetHeight) document.documentElement.style.setProperty('--hud-h', `${hudEl.offsetHeight}px`);
+  }).observe(hudEl);
+}
+
 const KEYS: Record<string, string> = {
-  m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', s: 'scene', l: 'lightning', enter: 'full',
+  m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', s: 'scene', l: 'lightning', h: 'hud', enter: 'full',
 };
 addEventListener('keydown', (e) => {
   const tag = (e.target as HTMLElement).tagName;
   if (tag === 'SELECT' || tag === 'INPUT' || (tag === 'BUTTON' && e.key === 'Enter')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser shortcuts (Ctrl +/-, Ctrl+H...) alone
   const a = KEYS[e.key.toLowerCase()];
   if (a) actions[a]();
 });
-$('view').addEventListener('dblclick', actions.full);
+// No dblclick-to-fullscreen on the canvas: two quick taps on something that moves fired it and the
+// page seemed to zoom. Fullscreen stays on the button and Enter.
 // Tap what moves: birds fly off, cats bolt, dogs bark and run, people say hi, vehicles honk.
 $('view').addEventListener('pointerdown', (e) => {
   const f = toFrame(e.clientX, e.clientY), x = f.x + G.camX, y = f.y - G.oy;
