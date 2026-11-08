@@ -28,6 +28,13 @@ Everything is drawn in code, with no image assets: an indexed framebuffer whose 
 
 **Church bells (Esperança)**: with ambient sound on (M), the matriz strikes the hours on Esperança's real clock (Brasília time), from 05:00 through 00:00, counting in 12-hour style (13h = 1 strike, 00h = 12); it is silent from 01:00 to 04:00. You hear it in every Esperança scene: near in Praça da Matriz, farther away and softer elsewhere. Missed hours are never replayed (background tab, sleep, reload, turning sound on late), and nothing rings while a `#at=` moment is pinned.
 
+**Daily rhythm**: crowds, traffic and birds follow each city's own clock, interpolated smoothly between hours (and `#at=` moments). Esperança, Campina Grande and João Pessoa all use Brasília time (UTC-3, the same as Fortaleza, no daylight saving), and so do the weekday and calendar.
+
+- Esperança's Praça da Matriz and Praça da Cultura are busiest from 14h to 15h. Around 17h the birds get busy, flying back to the trees and wires (this depends on the time only, not the temperature). From 19h the streets thin out; 21–23h and 00–05h are nearly empty, with just the odd dog or passer-by.
+- Campina Grande and João Pessoa are busier by day and in the evening, but still have few people out from 00h to 05h.
+- **Mass at the Matriz**: the doors open, the nave is lit and a small congregation gathers by the church on Sundays at 07, 09, 16 and 19h, and Monday to Friday at 19h. Assumptions, not an official parish timetable: each mass lasts 1 hour, and there is no Saturday mass. The rest of the praça stays quiet.
+- Weather is never made up here: only real rain, storms and snow from Open-Meteo (live or stale) scale these crowd levels down; with no reading ("clima indisponível") the rhythm runs unscaled.
+
 ## Run
 
 ```bash
@@ -35,7 +42,7 @@ pnpm install
 pnpm dev        # http://localhost:5173
 pnpm build      # dist/index.html, a single self-contained file
 pnpm shot       # screenshots into ./shots (needs a build; NODEBUG=1 hides the debug panel)
-pnpm test       # unit tests for the bell schedule and timer (node --test; Node >= 22.18, no extra deps)
+pnpm test       # unit tests for the bell schedule and timer and the daily rhythm (node --test; Node >= 22.18, no extra deps)
 ```
 
 ## URL options
@@ -44,19 +51,19 @@ pnpm test       # unit tests for the bell schedule and timer (node --test; Node 
 - `#scene=praca-matriz`: pin a scene (`praca-matriz`, `rua-comercio`, `capelinha`, `praca-cultura`, `campo-rodoviaria`, `acude-velho`, `cabo-branco`, `centro-areia`, `lagoa-remigio`, `rain-corner`, `neon-alley`, `konbini`, `shrine`)
 - `#at=2026-12-24T22:00`: freeze a moment in the city's time zone (for testing; the UI always uses real time)
 - `#debug`: technical panel (for development)
-- `#wx=rain`: force the weather (`clear`, `cloudy`, `rain`, `snow`, `storm`, `fog`)
+- `#wx=rain`: test override for previews (`clear`, `cloudy`, `rain`, `snow`, `storm`, `fog`); the HUD marks it as a test, never as live
 - `#car=bus`: make most Esperança traffic one kind, for previews (`moto`, `hatch`, `sedan`, `suv`, `pickup`, `veraneio`, `kombi`, `som`, `pipa`, `carroca`, `bus`, `micro`, `escolar`)
 
 ## Keys
 
-T city, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, L lightning, H hide/show the panels, Enter fullscreen.
+T city, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
 
 The eye button (top-right) hides the whole HUD, credit included, for a clean view; the choice is remembered. Hiding it does not pause the radio. Fullscreen is on the button and Enter only (no double-click), so quick taps on the scene never resize it.
 
 ## Layout
 
 - `src/engine`: indexed framebuffer, palette, WebGL2 post-processing
-- `src/sky`: cities, clock and astronomy, climate models (Japan and Brazil's Agreste), live weather, palette grading
+- `src/sky`: cities, clock and astronomy, live weather (`weather-feed.ts` holds the pure live / stale / unavailable rules, unit-tested; `live.ts` the network), palette grading; `rhythm.ts` holds the pure, unit-tested daily rhythm (crowds, birds, mass times)
 - `src/fx`: rain, snow, petals and leaves, lightning, fireworks
 - `src/actors`: pedestrians, cars and motorcycles, trees
 - `src/scenes`: shared passes, the Esperança prop kit (`br-kit.ts`) and one file per scene
@@ -65,7 +72,7 @@ The eye button (top-right) hides the whole HUD, credit included, for a clean vie
 
 ## Credits
 
-- **Weather**: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). No API key; refreshes every 10 minutes and falls back to the simulated climate if the network fails.
+- **Weather**: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). No API key; refreshes every 10 minutes. Weather is never simulated: if a fetch fails, the last real reading for that city stays on screen marked "dados de HH:MM · sem atualização" (for up to 12 h); with no reading the HUD says "clima indisponível" over a neutral sky with no rain, snow, storm or fog. Failures are retried 3 times (15 s, 1 min, 3 min), then every 10 minutes until the API answers again.
 - **Music**: streamed from the [Internet Archive](https://archive.org/), released by their labels under Creative Commons licenses. The radio shows each track's artist, album and license with a link to the original page.
   - **Lo-Fi City** (amber; lo-fi beats, instrumental hip-hop): 15 albums from the [Dusted Wax Kingdom](https://archive.org/details/dustedwaxkingdom) netlabel (CC BY-NC-ND 3.0/4.0).
   - **Neon FM** (magenta; vaporwave): Meavy Boy (*Column*, *EP 71 to 20*), Meavy Boy / アロキン (*No Sleep*) and アロキン (*Sleepless Arcade*), all from the [Spettro Records](https://archive.org/details/spettrorec) netlabel (CC BY-NC-ND 4.0), and 2003 Toyota Corolla from the hanahata netlabel (CC BY-SA 4.0).

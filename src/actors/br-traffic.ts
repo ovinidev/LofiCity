@@ -86,7 +86,7 @@ function spawn() {
 
 export function updateBr(dt: number, density = 1) {
   // roughly one vehicle every 2-6 s at a busy hour, a trickle late at night
-  spawnT -= dt * (0.06 + 0.32 * S.busy) * density;
+  spawnT -= dt * (0.02 + 0.36 * S.traffic) * density;
   if (spawnT <= 0) { spawnT = 0.6 + r() * 1.2; spawn(); }
   for (const v of VS) {
     if (!v.on) continue;

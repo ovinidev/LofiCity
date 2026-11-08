@@ -15,9 +15,10 @@ import { animalsDebug } from './actors/animals';
 import { brTrafficDebug } from './actors/br-traffic';
 import { fireworksStats, updateSkyEvents, lightning } from './fx/sky-events';
 import { gradePalette } from './sky/grade';
-import { S, direct, settle } from './sky/state';
+import { S, direct, settle, wxOverride } from './sky/state';
 import { CITIES, type City, cityById } from './sky/cities';
-import { followLive, liveNow } from './sky/live';
+import { followLive, weatherView } from './sky/live';
+import { hudWeather, manualLightningAllowed } from './sky/weather-feed';
 import { updateSky } from './scenes/common';
 import { nextScene, pickScene } from './scenes';
 import { inject, pageview } from '@vercel/analytics';
@@ -64,7 +65,7 @@ resize();
 
 let scene = pickScene(city.id);
 settle(simNow(), city);
-direct(simNow(), city, 0);
+direct(simNow(), city, 0, scene.id);
 scene.build();
 
 // ---------- HUD ----------
@@ -73,7 +74,6 @@ const MONTH = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'o
 const pad2 = (n: number) => String(n | 0).padStart(2, '0');
 
 function weatherWord(): string {
-  if (S.typhoon && S.storm > 0.5) return 'tufão';
   if (S.storm > 0.45) return S.snow > S.rain ? 'nevasca' : 'tempestade';
   if (S.snow > 0.6) return 'nevasca';
   if (S.snow > 0.25) return 'neve';
@@ -112,11 +112,20 @@ function updateHud() {
   const c = S.cal;
   $('clock').textContent = `${pad2(c.hour)}:${pad2((c.hour % 1) * 60)}`;
   $('date').textContent = `${WEEK[c.weekday]} ${c.day} ${MONTH[c.month]} · ${city.utc < 0 ? 'horário de Brasília' : 'horário de Tóquio'}`;
-  const live = simOffset === 0 ? liveNow(city.id) : null;
-  $('temp').textContent = `${Math.round(live ? live.temp : S.temp)}°C`;
-  $('wx').textContent = live ? `${weatherWord()} · sensação ${Math.round(live.feels)}° · umidade ${Math.round(live.humidity)}%` : weatherWord();
-  $('live').hidden = !live;
-  $('season').textContent = seasonWord();
+  // Weather text comes only from a genuine reading (or the clearly labelled #wx= test override).
+  const pinned = simOffset !== 0, v = weatherView(city.id), reading = !pinned && v.kind !== 'unavailable' ? v.feed.now : null;
+  const h = hudWeather({
+    kind: S.wxKind, word: weatherWord(), now: Date.now(), utc: city.utc, pinned, override: wxOverride ?? undefined,
+    temp: reading ? reading.temp : S.temp ?? undefined, feels: reading?.feels, humidity: reading?.humidity, at: reading?.t,
+  });
+  $('temp').textContent = h.temp;
+  $('wx').textContent = h.text;
+  const badge = $('live');
+  badge.hidden = !h.badge;
+  if (h.badge) { badge.textContent = h.badge.text; badge.className = `live ${h.badge.cls}`; }
+  const season = seasonWord();
+  $('season').textContent = season;
+  $('season').hidden = !season; // sertão dry season has no tag: don't leave an empty HUD row
 }
 
 // ---------- controls ----------
@@ -131,8 +140,9 @@ function setCity(id: string) {
   sel.value = city.id;
   pinMoment();
   followLive(city);
-  settle(simNow(), city); direct(simNow(), city, 0);
-  scene = pickScene(city.id); scene.build();
+  scene = pickScene(city.id);
+  settle(simNow(), city); direct(simNow(), city, 0, scene.id);
+  scene.build();
   syncBells();
   updateHud();
   if (hosted) pageview({ route: '/[city]', path: `/${city.id}` });
@@ -145,11 +155,12 @@ const actions: Record<string, () => void> = {
   sound: () => { press('b-sound', audio.toggle()); syncBells(); },
   crt: () => { opts.crt = !opts.crt; press('b-crt', opts.crt); },
   city: () => setCity(CITIES[(CITIES.indexOf(city) + 1) % CITIES.length].id),
-  scene: () => { scene = nextScene(city.id, scene); scene.build(); syncBells(); },
+  scene: () => { scene = nextScene(city.id, scene); direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); },
   music: () => radio.toggle(),
   station: () => radio.nextStation(),
   skip: () => radio.skip(),
-  lightning: () => lightning.strike(),
+  // test tool only (#debug or #wx=); in normal use lightning comes only from real storm data
+  lightning: () => { if (manualLightningAllowed({ debug: showDebug, wxOverride })) lightning.strike(); },
   full: () => {
     const d = document;
     if (d.fullscreenElement) void d.exitFullscreen?.().catch(() => {});
@@ -254,7 +265,10 @@ function frame(now: number) {
   if (dt > 0.25) dt = 0.25;
   const t0 = performance.now();
   clock += dt;
-  direct(simNow(), city, dt);
+  const hadData = S.wxKind !== 'unavailable';
+  direct(simNow(), city, dt, scene.id);
+  // the first genuine reading arrived: rebuild wet streets / snow cover from its past hours
+  if (!hadData && S.wxKind !== 'unavailable') { settle(simNow(), city); direct(simNow(), city, 0, scene.id); }
   updateSky(dt); updateSkyEvents(dt); updatePrecip(dt); scene.update(dt);
   scene.render();
   drawEmotes(dt);
@@ -271,11 +285,11 @@ function frame(now: number) {
     uiT = 0; updateHud();
     if (showDebug) $('debug').textContent =
 `scene   ${scene.name}   frame ${G.W}x${G.H}
-time    ${new Date(simNow()).toISOString().slice(0, 16)}Z   ${city.id}   weather ${S.live ? 'live' : 'model'}
+time    ${new Date(simNow()).toISOString().slice(0, 16)}Z   ${city.id}   weather ${S.wxKind}
 sun     ${S.sunElev.toFixed(1)}°  day ${S.dayK.toFixed(2)}  gold ${S.golden.toFixed(2)}  moon ${S.moonPhase.toFixed(2)}
 wx      rain ${S.rain.toFixed(2)} snow ${S.snow.toFixed(2)} storm ${S.storm.toFixed(2)} cloud ${S.cloud.toFixed(2)}
-        fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp.toFixed(1)}
-busy    ${S.busy.toFixed(2)}   tree d${S.tree.density.toFixed(2)} p${S.tree.pink.toFixed(2)} r${S.tree.red.toFixed(2)}
+        fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp === null ? 'unknown' : S.temp.toFixed(1)}
+busy    ${S.busy.toFixed(2)}  traffic ${S.traffic.toFixed(2)}  birds ${S.birds.toFixed(2)}   tree d${S.tree.density.toFixed(2)} p${S.tree.pink.toFixed(2)} r${S.tree.red.toFixed(2)}
 ${scene.debug()}
 fps     ${fps}   work ${workMs.toFixed(1)} ms   ${backend()}
 drops   ${precip.liveDrops}/${precip.rainCap}  flakes ${precip.liveFlakes}  leaves ${precip.liveLeaves}

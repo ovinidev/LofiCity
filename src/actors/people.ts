@@ -8,6 +8,7 @@ import {
   BARK, CBEIGE, CBLUE, CGREEN, CNAVY, CORNG, CRED, CYAN, CYELL, HAIR1, HAIR2, HAIR3, HALO, MAGD,
   SKIN1, SKIN2, SKIN3, SKIN4, STEEL, UMB, VOID, WCOOL, WHITE, WOOD, AMB, AMBD,
 } from '../engine/palette';
+import { peopleCap } from '../sky/rhythm';
 import { S } from '../sky/state';
 
 const enum Kind { Walk, Bike, Chair }
@@ -74,13 +75,14 @@ function archetypes(): [Archetype, number][] {
     ['owl', peak(0, 5) * 2 + peak(23, 24)],
     // Esperança: joggers at dawn and dusk, sun umbrellas on hot clear days, street vendors
     ['runner', br ? peak(5, 7.5) * 2 + peak(17, 19.5) * 1.5 : 0],
-    ['sombrinha', br && S.temp > 26 && S.dayK > 0.6 && S.cloud < 0.5 ? 1.4 : 0],
+    ['sombrinha', br && S.temp !== null && S.temp > 26 && S.dayK > 0.6 && S.cloud < 0.5 ? 1.4 : 0],
     ['vendor', br ? peak(8, 17) * 0.7 : 0],
   ];
 }
 
 function dress(p: Person, a: Archetype) {
-  const cold = S.temp < 8, cool = S.temp < 17, hot = S.temp > 23;
+  // unknown temperature (no reading): none of these, so the neutral default outfit
+  const t = S.temp, cold = t !== null && t < 8, cool = t !== null && t < 17, hot = t !== null && t > 23;
   const female = r() < 0.5;
   p.H = 15 + ((r() * 3) | 0); p.skin = weighted(S.city.br ? SKINS_BR : SKINS); p.hair = weighted([[HAIR1, 0.62], [HAIR2, 0.3], [CORNG, 0.04], [CBEIGE, 0.04]]);
   p.hairStyle = female ? pick([Hair.Long, Hair.Bob, Hair.Bun, Hair.Long]) : pick([Hair.Short, Hair.Short, Hair.Spiky]);
@@ -190,10 +192,14 @@ export function spawnPerson(couple = false): number {
 }
 
 let spawnT = 0.5;
-/** Spawns pedestrians at a rate that follows how busy the hour is. */
+/** Spawns pedestrians at a rate that follows how busy the hour is. In Brazilian cities the rate has
+    no floor and the crowd is capped by the hour's level (rhythm.ts), so late nights stay nearly empty. */
 export function tickSpawns(dt: number, density = 1) {
-  spawnT -= dt * (0.05 + 0.42 * S.busy) * density;
-  if (spawnT <= 0) { spawnT = 0.5 + r() * 1.5; spawnPerson(); }
+  const br = S.city.br;
+  spawnT -= dt * (br ? 0.47 * S.busy : 0.05 + 0.42 * S.busy) * density;
+  if (spawnT > 0) return;
+  spawnT = 0.5 + r() * 1.5;
+  if (!br || peopleCount() < peopleCap(S.busy * density)) spawnPerson();
 }
 
 export function updatePeople(dt: number) {
