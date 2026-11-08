@@ -14,9 +14,11 @@ export const VOID = 0, SKY1 = 1, SKY2 = 2, SKY3 = 3, SKY4 = 4, HAZE = 5, GLOWO =
   FARB = 64,
   // Esperança: church ochre, pilaster stone, cream trim, terracotta, white LED, casario pastels, Virgin's mantle, gilding
   CHURCH = 65, CHURCHD = 66, CHURCHL = 67, TERRA = 68, LEDW = 69, FPINK = 70, FBLUE = 71, FGREEN = 72, FORNG = 73,
-  FLILAC = 74, MANTO = 75, GOLD = 76, TILEW = 77;
+  FLILAC = 74, MANTO = 75, GOLD = 76, TILEW = 77,
+  /** A lit red traffic-light lamp (a light source). */
+  SIGR = 78;
 
-export const NPAL = 78;
+export const NPAL = 79;
 
 // prettier-ignore
 export const NIGHT_HEX = [
@@ -30,7 +32,8 @@ export const NIGHT_HEX = [
   '#14261e','#0e1a16','#7a4a66','#553048','#6a2228','#1a1218','#5a6488','#6a3a24',
   '#1e1e4a',
   '#5c4a2e','#3f3224','#6e6046','#3e2622','#f2f6ff','#3e2c3a','#22304a','#203a30','#46301e',
-  '#2e2a48','#1e2c5c','#7a6430','#4a4e5e'];
+  '#2e2a48','#1e2c5c','#7a6430','#4a4e5e',
+  '#ff3a2c'];
 
 // prettier-ignore
 export const DAY_HEX = [
@@ -44,7 +47,8 @@ export const DAY_HEX = [
   '#4f8a3c','#36652c','#f2a7c3','#d985a8','#c8402a','#4a3428','#d6dde8','#d9783a',
   '#8da4c0',
   '#e9c25c','#c79d52','#f4ecd2','#c7783a','#e8eef4','#e8a2ac','#8cb6d8','#92cea6','#eca05a',
-  '#b8a4d8','#3f72c4','#e0b545','#eef0ee'];
+  '#b8a4d8','#3f72c4','#e0b545','#eef0ee',
+  '#ff4436'];
 
 const rgb = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 export const NIGHT_RGB = NIGHT_HEX.map(rgb);
@@ -56,8 +60,8 @@ function flags(list: number[]) {
   return a;
 }
 /** Light sources: reflect in wet streets and keep their night color when lit. */
-export const BRIGHT = flags([WWARM, WCOOL, MAG, CYAN, AMB, LIGHT, AMBD, WHITE, HALO, RAINB, FWG, BOLT, SUN, MOON, LEDW]);
-export const EMISSIVE = flags([WWARM, WCOOL, MAG, CYAN, AMB, LIGHT, HALO, FWG, BOLT, SUN, MOON, GLOWI, LEDW]);
+export const BRIGHT = flags([WWARM, WCOOL, MAG, CYAN, AMB, LIGHT, AMBD, WHITE, HALO, RAINB, FWG, BOLT, SUN, MOON, LEDW, SIGR]);
+export const EMISSIVE = flags([WWARM, WCOOL, MAG, CYAN, AMB, LIGHT, HALO, FWG, BOLT, SUN, MOON, GLOWI, LEDW, SIGR]);
 export const SKYIDX = flags([SKY1, SKY2, SKY3, SKY4, HAZE, GLOWO, GLOWI]);
 export const FOGOK = flags([SKY1, SKY2, SKY3, SKY4, FARB, BFAR, BMID, BNEAR, WDIM, STONE, ASPH, WET, STEEL, CLOUD, CLOUDD, CHURCH, CHURCHD, FPINK, FBLUE, FGREEN, FORNG, FLILAC, TILEW]);
 export const HALOOK = flags([SKY1, SKY2, SKY3, SKY4, HAZE, FARB, BFAR, BMID, BNEAR, WDIM, STONE, STONEL, ASPH, WET, STEEL, FOG, SNOW, SNOWS, CLOUD, CLOUDD,
@@ -69,7 +73,7 @@ export const GROUND = flags([STONE, STONEL, ASPH, WET, HALO]);
 export const REFL = new Uint8Array(NPAL).fill(WET);
 for (const [a, b] of [[WWARM, AMBD], [WCOOL, CYAND], [MAG, MAGD], [MAGD, WOOD], [CYAN, CYAND], [CYAND, FOG], [AMB, AMBD],
   [LIGHT, WWARM], [AMBD, WOOD], [LEDW, RAIN], [CHURCH, AMBD], [CHURCHL, AMBD], [WHITE, RAIN], [HALO, WWARM], [RAINB, RAIN], [RAIN, FOG], [VOID, ASPH], [BNEAR, ASPH],
-  [SKY3, FOG], [SKY4, FOG], [HAZE, FOG], [CLOUD, FOG], [SNOW, RAIN], [FWG, CGREEN], [BOLT, RAINB], [SUN, LIGHT], [MOON, RAIN]])
+  [SKY3, FOG], [SKY4, FOG], [HAZE, FOG], [CLOUD, FOG], [SNOW, RAIN], [FWG, CGREEN], [BOLT, RAINB], [SUN, LIGHT], [MOON, RAIN], [SIGR, CRED]])
   REFL[a] = b;
 
 export const PAL32 = new Uint32Array(NPAL);

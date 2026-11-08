@@ -17,7 +17,7 @@ import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
   type Lamp, type Opening, type Plat, bandeirolas, bulbs, cart, casa, christmasStar, drawOpenings, isNight, lampLight,
-  lampPost, pole, text, textW, wire, wireCurve,
+  lampPool, lampPost, lampRoadPool, nightSpill, pole, text, textW, wire, wireCurve,
 } from './br-kit';
 import type { Scene } from './types';
 
@@ -168,13 +168,14 @@ function render() {
   ROW.forEach((b, i) => drawOpenings(opens[i], openNow(b)));
   signsAndLights(); drawFarPrecip();
   blitLayer(front);
-  for (const l of LAMPS) lampLight(l);
+  for (const l of LAMPS) { lampLight(l); lampPool(l); }
+  ROW.forEach((b, i) => nightSpill(opens[i], openNow(b)));
   if (S.natal) for (const l of LAMPS) christmasStar(l.x + 14, l.top - 10, 1);
   if (S.festa || S.saoJoao) { bandeirolas(59, 74, 263, 74, 12, 1); bandeirolas(263, 74, 447, 74, 12, 4); }
   barTables();
   cart(222, 146, S.stallOpen);
   drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
-  drawStreet(street); parkedMotos(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
+  drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 158); parkedMotos(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
 let built = false;

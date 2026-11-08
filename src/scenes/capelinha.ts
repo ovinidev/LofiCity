@@ -18,7 +18,7 @@ import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, up
 import { S } from '../sky/state';
 import { doyOf } from '../sky/time';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
-import { isNight, wire, wireCurve } from './br-kit';
+import { type Lamp, isNight, lampArm, lampLight, lampPool, wire, wireCurve } from './br-kit';
 import { figuresAt, massActive, scheduleFor, dayKey, type DaySchedule, type Figure } from './capelinha-schedule';
 import type { Scene } from './types';
 
@@ -28,6 +28,8 @@ const far = newLayer(), mid = newLayer(), front = newLayer();
 const street: Street = { y0: STREET, base: new Uint8Array(SH * WW), pud: new Uint8Array(SH * WW), jit: precip.jit };
 const farWins: { x: number; y: number; rank: number }[] = [];
 const POOL = { cx: 112, cy: 162, rx: 50, ry: 7 };
+/** The street light on the utility pole on the rock. */
+const LAMP: Lamp = { x: 150, top: 82, ground: 124, arms: 1 };
 
 /** Top of the rock for a column: a broad hump peaking under the chapel. */
 const rockTop = (x: number) => Math.round(124 - 9 * Math.exp(-(((x - CX) / 120) ** 2)) + Math.sin(x * 0.045) * 2.5 + Math.sin(x * 0.13 + 1) * 1.2);
@@ -54,6 +56,7 @@ function buildFar() {
   for (let y = 36; y < 120; y++) { Lp(far, 186 - Math.round((y - 36) / 40), y, STEEL); Lp(far, 190 + Math.round((y - 36) / 40), y, STEEL); if (y % 6 === 0) L(far, 186, y, 5, 1, STEEL); }
   L(mid, 150, 70, 2, 54, STONEL); L(mid, 146, 73, 10, 1, STONE);
   wire(mid, 151, 72, -10, 84, 6); wire(mid, 151, 75, -10, 88, 6);
+  LAMP.ground = rockTop(LAMP.x + 14); lampArm(mid, LAMP);
 }
 
 function arch(x: number, y: number, w: number, h: number, c: number) {
@@ -238,6 +241,7 @@ function render() {
   blitLayer(far); drawFireworks();
   blitLayer(mid); lights(); openDoor(); drawFarPrecip();
   blitLayer(front);
+  lampLight(LAMP); lampPool(LAMP);
   drawAnimalsPerched(); drawFigures(); drawAnimalsGround();
   drawStreet(street); pool(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }

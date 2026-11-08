@@ -9,7 +9,7 @@
 import { L, Lp, type Layer, WW, WY0, getW, put, rect, sx, sy } from '../engine/gfx';
 import { bay, mulberry32 } from '../engine/math';
 import {
-  BMID, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CRED, CYELL, HAIR1, HAIR2, HAIR3, HALO, HALOOK, LEDW, MAG, MAGD,
+  AMBD, BMID, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CRED, CYELL, HAIR1, HAIR2, HAIR3, HALO, HALOOK, LEDW, MAG, MAGD,
   SKIN1, SKIN2, SKIN3, SKIN4, STEEL, STONE, STONEL, TILEW, VOID, WCOOL, WDIM, WHITE, WWARM, LIGHT, FGREEN, FPINK,
 } from '../engine/palette';
 import { type DepthCar, type DepthRoad, canEnter, stepDepthCars } from '../actors/persp-rules';
@@ -117,7 +117,7 @@ export function lampLightP(v: View, l: PLamp) {
   const on = isNight();
   rect(hx - Math.max(1, k * 3), hy, Math.max(2, k * 6), Math.max(1, k * 1.5), on ? LEDW : STONEL);
   if (!on) return;
-  const R = 5; // metres
+  const R = 6.5; // metres
   const zn = Math.max(0.6, l.z - R);
   const x0 = Math.floor(projX(v, l.X + l.arm - R, zn)), x1 = Math.ceil(projX(v, l.X + l.arm + R, zn));
   const y0 = Math.floor(projY(v, 0, l.z + R)), y1 = Math.min(180, Math.ceil(projY(v, 0, zn)));
@@ -126,7 +126,10 @@ export function lampLightP(v: View, l: PLamp) {
     for (let x = x0; x <= x1; x++) {
       const X = ((x + 0.5 - v.vx) * Z) / v.f, d = Math.hypot(X - l.X - l.arm, Z - l.z) / R;
       const c = getW(x, y);
-      if (d < 1 && c !== 255 && HALOOK[c] && bay(sx(x), sy(y)) < 0.28 * (1 - d)) put(x, y, HALO);
+      if (d >= 1 || c === 255 || !HALOOK[c]) continue;
+      // warm pool: a pale core fading through amber, still sparse enough to read as night
+      const k = 0.55 * (1 - d) ** 1.4, b = bay(sx(x), sy(y));
+      if (b < k * 0.4) put(x, y, HALO); else if (b < k) put(x, y, d < 0.6 ? WWARM : AMBD);
     }
   }
   for (let j = -2; j <= 2; j++) for (let i = -4; i <= 4; i++) { // small halo round the head

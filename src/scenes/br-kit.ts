@@ -64,12 +64,17 @@ export function casa(ly: Layer, x: number, w: number, h: number, ground: number,
   return out;
 }
 
+/** Whether a shop front is open now (some stay shut even in opening hours). */
+const shopOpen = (o: Opening, openShops: boolean) => openShops && o.rank < 0.75;
+/** Whether a window is lit now: at night only, fewer late at night. */
+const windowLit = (o: Opening) => night() && o.rank < (S.cal.hour >= 22 || S.cal.hour < 5 ? 0.25 : 0.65);
+
 /** Shutters, roll-up doors and lit rooms, drawn every frame. */
 export function drawOpenings(list: Opening[], openShops: boolean) {
-  const lateness = S.cal.hour >= 22 || S.cal.hour < 5 ? 0.25 : 0.65, n = night(), t = S.ms / 1000;
+  const n = night(), t = S.ms / 1000;
   for (const o of list) {
     if (o.kind === 'shop') {
-      const open = openShops && o.rank < 0.75;
+      const open = shopOpen(o, openShops);
       if (open) {
         rect(o.x, o.y, o.w, o.h, n ? WWARM : BNEAR);
         if (n) for (let i = 0; i < o.w; i += 5) rect(o.x + i, o.y + 2, 2, o.h - 2, LIGHT);
@@ -81,7 +86,7 @@ export function drawOpenings(list: Opening[], openShops: boolean) {
       continue;
     }
     if (o.kind === 'door') continue;
-    const lit = n && o.rank < lateness;
+    const lit = windowLit(o);
     if (!lit) { rect(o.x, o.y, o.w, o.h, n ? BNEAR : WDIM); for (let j = o.y; j < o.y + o.h; j += 2) rect(o.x, j, o.w, 1, n ? VOID : BMID); continue; }
     const tv = o.tv && Math.sin(t * 7 + o.x) + Math.sin(t * 3.1 + o.y) > 0.3;
     rect(o.x, o.y, o.w, o.h, tv ? WCOOL : WWARM);
@@ -139,6 +144,56 @@ export function lampLight(l: Lamp) {
       const c = getW(hx + i, l.top + j);
       if (c !== 255 && HALOOK[c] && bay(sx(hx + i), sy(l.top + j)) < 0.3 * (1 - Math.hypot(i - 1, j * 1.6) / 7)) put(hx + i, l.top + j, HALO);
     }
+  }
+}
+
+// ---------- warm night light (opt-in: the Esperança scenes call these) ----------
+/** Warm light dithered over lit-able pixels in an ellipse centred on (cx, cy): a pale core fading
+    through amber, sparse enough that the street still reads as night. Does nothing by day. */
+export function warmPool(cx: number, cy: number, rx: number, ry: number, peak = 0.45) {
+  if (!night()) return;
+  for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+    const d = Math.hypot((x - cx) / rx, (y - cy) / ry);
+    if (d >= 1) continue;
+    const c = getW(x, y);
+    if (c === 255 || !HALOOK[c]) continue;
+    const k = peak * (1 - d) ** 1.4, b = bay(sx(x), sy(y));
+    if (b < k * 0.4) put(x, y, HALO);
+    else if (b < k) put(x, y, d < 0.6 ? WWARM : AMBD);
+  }
+}
+
+const headXs = (l: Lamp) => (l.arms === 2 ? [l.x - 13, l.x + 14] : [l.x + 14]);
+/** The bright pool a street light throws on the sidewalk at its foot (draw after the sidewalk layer,
+    before the people on it). */
+export function lampPool(l: Lamp) {
+  if (night()) for (const cx of headXs(l)) warmPool(cx, l.ground + 3, 24, 5, 0.6);
+}
+/** The wider, fainter pool it throws on the road around `roadY` (draw after the street pass, before
+    the vehicles). */
+export function lampRoadPool(l: Lamp, roadY: number) {
+  if (night()) for (const cx of headXs(l)) warmPool(cx, roadY, 36, 9, 0.38);
+}
+/** Just the arm and head of a street light, for one fixed to a concrete utility pole. */
+export function lampArm(ly: Layer, l: Lamp) {
+  for (let i = 0; i < 12; i++) Lp(ly, l.x + 2 + i, l.top + 3 - Math.round(Math.sqrt(i) * 1.2), STEEL);
+  L(ly, l.x + 11, l.top - 2, 7, 2, STEEL);
+}
+
+/** Light spilling out at night: a warm wash on the wall round each lit window, a pool on the
+    sidewalk in front of open shops, and the small light most shopkeepers leave on over a shut front.
+    Same open / lit rules as drawOpenings; draw after the sidewalk layer. */
+export function nightSpill(list: Opening[], openShops: boolean) {
+  if (!night()) return;
+  for (const o of list) {
+    const cx = o.x + o.w / 2;
+    if (o.kind === 'shop') {
+      if (shopOpen(o, openShops)) { warmPool(cx, o.y + o.h + 2, o.w * 0.75 + 4, 5, 0.55); continue; }
+      if (o.rank >= 0.5) continue;
+      rect(cx - 1, o.y - 2, 3, 1, LIGHT); // the light over the shutter
+      warmPool(cx, o.y + 2, Math.min(14, o.w * 0.6), 6, 0.4);
+      warmPool(cx, o.y + o.h + 2, Math.min(16, o.w * 0.6), 3, 0.3);
+    } else if (o.kind === 'win' && windowLit(o)) warmPool(cx, o.y + o.h / 2, o.w * 0.5 + 4, o.h * 0.5 + 3, 0.22);
   }
 }
 

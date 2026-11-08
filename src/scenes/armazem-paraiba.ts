@@ -23,13 +23,18 @@ import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
-import { type Opening, bandeirolas, drawOpenings, isNight, pole, text, textW, wire, wireCurve } from './br-kit';
+import {
+  type Lamp, type Opening, bandeirolas, drawOpenings, isNight, lampArm, lampLight, lampPool, lampRoadPool, nightSpill, pole, text, textW,
+  wire, wireCurve,
+} from './br-kit';
 import type { Scene } from './types';
 
 const HORIZON = 112, STREET = 147, SH = 180 - STREET, GROUND = 138;
 const wr = mulberry32(0xa4a2);
 const far = newLayer(), mid = newLayer(), front = newLayer();
 const street: Street = { y0: STREET, base: new Uint8Array(SH * WW), pud: new Uint8Array(SH * WW), jit: precip.jit };
+/** The street light fixed to the concrete pole in front of the store. */
+const LAMP: Lamp = { x: 113, top: 40, ground: GROUND, arms: 1 };
 const shops: Opening[] = [];
 const wins: Opening[] = [];
 const S0 = 22, S1 = 243; // the store front
@@ -120,7 +125,7 @@ function buildFront() {
   for (let y = GROUND; y < 146; y++) for (let x = 0; x < WW; x++) Lp(front, x, y, ((x + y * 2) % 6 < 3) !== ((x - y * 2) % 6 < 3) ? CBEIGE : STONE);
   L(front, 0, 146, WW, 1, TILEW);
   // the concrete pole in front of the store, with a blue placard; wires
-  pole(front, 112, GROUND, 104); L(front, 116, 98, 4, 8, CBLUE);
+  pole(front, 112, GROUND, 104); L(front, 116, 98, 4, 8, CBLUE); lampArm(front, LAMP);
   for (const [x0, y0, x1, y1, s] of [[0, 30, 113, 36, 2], [113, 36, 480, 22, 14], [113, 38, 480, 30, 16], [113, 40, 300, 0, 3], [150, 0, 480, 48, 8]] as const) wire(front, x0, y0, x1, y1, s);
 }
 
@@ -170,9 +175,10 @@ function render() {
   if (isNight() && storeOpen()) for (let x = S0 + 2; x < S1; x += 4) put(x, 99, WWARM);
   drawFarPrecip();
   blitLayer(front);
+  lampLight(LAMP); lampPool(LAMP); nightSpill(shops, storeOpen());
   if (S.festa || S.saoJoao) bandeirolas(113, 44, 480, 30, 14, 5);
   drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
-  drawStreet(street); parked(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
+  drawStreet(street); lampRoadPool(LAMP, 158); parked(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
 let built = false;

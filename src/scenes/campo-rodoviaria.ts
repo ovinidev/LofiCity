@@ -17,13 +17,15 @@ import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, up
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
-import { type Palm, drawPalm, isNight, pole } from './br-kit';
+import { type Lamp, type Palm, drawPalm, isNight, lampArm, lampLight, lampPool, lampRoadPool, pole } from './br-kit';
 import type { Scene } from './types';
 
 const HORIZON = 100, STREET = 147, SH = 180 - STREET;
 /** Far touchline, top of the mural wall, sidewalk, top rail of the fence. */
 const FAR = 104, WALLTOP = 126, WALK = 140, FENCE = 82;
 const PC = 240; // halfway line
+/** The street light on the concrete pole on the sidewalk. */
+const LAMP: Lamp = { x: 114, top: 52, ground: 142, arms: 1 };
 const PITCH = { x0: 30, x1: 450, y0: 107, y1: 125 }, MOUTH = { y0: 112, y1: 120 };
 const wr = mulberry32(0xf007), rr = mulberry32(0xba11);
 const far = newLayer(), mid = newLayer(), fence = newLayer(), front = newLayer();
@@ -145,7 +147,7 @@ function buildFront() {
   L(front, 0, WALK, WW, STREET - WALK, STONEL);
   for (let y = WALK + 1; y < STREET; y += 3) for (let x = (y % 2) * 3; x < WW; x += 6) { Lp(front, x, y, STONE); Lp(front, x + 1, y, STONE); }
   L(front, 0, WALK, WW, 1, STONE);
-  pole(front, 114, 142, 136);
+  pole(front, 114, 142, 136); lampArm(front, LAMP);
   L(front, 112, 112, 7, 8, TILEW); L(front, 112, 121, 7, 6, TILEW); // flyers stuck to the pole
 }
 
@@ -335,8 +337,8 @@ function render() {
     if (!drawn) drawBall();
   }
   blitLayer(fence); wallCrowd();
-  blitLayer(front); drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
-  drawStreet(street); drawPalm(PALM);
+  blitLayer(front); lampLight(LAMP); lampPool(LAMP); drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
+  drawStreet(street); lampRoadPool(LAMP, 158); drawPalm(PALM);
   drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 

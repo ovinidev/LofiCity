@@ -10,30 +10,42 @@
    sign at the edge, motorcycles parked at the far kerb, and in the foreground the corner of the near
    sidewalk with the traffic-light pole. A zebra crosses the avenue on the left, as in the photo.
 
+   The avenue is one-way here, left to right (both lanes). A fixed-time traffic light controls the
+   zebra (signal-rules.ts): a signal post at the far kerb just past the stripes, repeated on the head
+   hanging from the arm of the near pole, and a pedestrian head on that pole. Vehicles stop at the
+   stop line on red, and on yellow when they can stop in time; people step out only while vehicles
+   have red (never in the clearance seconds) and the road by the stripes is clear.
+
    The photo shows no theatre sign, so none is drawn. The small brand panels on the billboard and the
    red sign at the right edge are not legible in the photo and are left without lettering. */
-import { L, Lp, WW, blitLayer, getW, newLayer, put, rect } from '../engine/gfx';
-import { mulberry32 } from '../engine/math';
+import { L, Lp, WW, blitLayer, getW, newLayer, put, rect, sx, sy } from '../engine/gfx';
+import { bay, mulberry32 } from '../engine/math';
 import {
   ASPH, BFAR, BMID, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CRED, CYELL, FBLUE, FLILAC, FORNG, GOLD, LIGHT, MAGD, STEEL, STONE,
-  STONEL, TERRA, TILEW, VOID, WDIM, WHITE, WOOD, WWARM, SKIN1, SKIN2, SKIN3, SKIN4, HAIR1, HAIR2, HAIR3, FPINK,
+  STONEL, TERRA, TILEW, VOID, WDIM, WHITE, WOOD, SKIN1, SKIN2, SKIN3, SKIN4, HAIR1, HAIR2, HAIR3, FPINK, AMB, FWG, SIGR, HALOOK,
 } from '../engine/palette';
+import { type SignalState, cycleLength, pedestrianLight, pedestrianMayStart, signalAt } from '../actors/signal-rules';
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
-import { setBrCrossing, vehicleBetween, vehicleNearCrossing } from '../actors/br-traffic';
+import {
+  brQueued, brSignalStats, setBrCrossing, setBrOneWay, setBrSignal, vehicleBetween, vehicleNearCrossing,
+} from '../actors/br-traffic';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
-  type Lamp, type Opening, bandeirolas, christmasStar, drawOpenings, isNight, lampLight, lampPost, pole, text, textW, wire, wireCurve,
+  type Lamp, type Opening, bandeirolas, christmasStar, drawOpenings, isNight, lampLight, lampPool, lampPost, lampRoadPool, nightSpill, pole,
+  text, textW, wire, wireCurve,
 } from './br-kit';
 import type { Scene } from './types';
 
 const HORIZON = 110, STREET = 147, SH = 180 - STREET, GROUND = 140;
 /** The zebra on the left of the avenue (world x), as in the photo. */
 const ZEBRA0 = 70, ZEBRA1 = 96;
+/** The stop line, a few px before the stripes (br-traffic's STOP_GAP), and the signal post at the far kerb. */
+const STOP_X = ZEBRA0 - 3, SIG_X = ZEBRA1 + 4;
 const wr = mulberry32(0xca5a);
 const far = newLayer(), mid = newLayer(), front = newLayer(), near = newLayer();
 const street: Street = { y0: STREET, base: new Uint8Array(SH * WW), pud: new Uint8Array(SH * WW), jit: precip.jit };
@@ -167,7 +179,11 @@ function buildFront() {
   for (let x = 356; x < WW; x++) { const top = 176 + (x < 372 ? Math.round(((372 - x) / 16) ** 2 * 4) : 0); if (top < 180) L(near, x, top, 1, 1, CYELL); }
   L(near, 378, 36, 4, 144, STEEL); L(near, 381, 36, 1, 144, BMID);
   for (let i = 0; i < 64; i++) L(near, 378 - i, 36 + Math.round(i * 0.3), 1, 2, STEEL); // arm reaching over the avenue
-  L(near, 306, 56, 5, 15, VOID); L(near, 305, 55, 7, 1, BMID); // signal head, seen from the side
+  L(near, 305, 55, 7, 17, VOID); L(near, 305, 55, 7, 1, BMID); L(near, 307, 54, 3, 1, STEEL); // signal head hanging from the arm (repeats the post's phase)
+  // the signal post at the far kerb just past the zebra: a vehicle head on top, a pedestrian head below
+  L(front, SIG_X, 106, 2, GROUND - 106, STEEL); L(front, SIG_X + 1, 106, 1, GROUND - 106, BMID); L(front, SIG_X - 1, GROUND - 2, 4, 2, STONE);
+  L(front, SIG_X - 2, 92, 6, 15, VOID); L(front, SIG_X - 2, 92, 6, 1, BMID);
+  L(front, SIG_X + 2, 110, 4, 8, VOID);
   L(near, 318, 44, 12, 18, CGREEN); L(near, 319, 45, 10, 16, CGREEN); L(near, 318, 44, 12, 1, TILEW); // street-name sign, not legible
   L(near, 375, 118, 4, 9, VOID); // pedestrian signal box
 }
@@ -176,6 +192,7 @@ function buildGround() {
   for (let d = 0; d < SH; d++) for (let x = 0; x < WW; x++) street.base[d * WW + x] = wr() < 0.08 ? STONE : ASPH;
   for (let x = 6; x < WW; x += 24) for (let i = 0; i < 12; i++) if (x + i < ZEBRA0 - 4 || x + i > ZEBRA1 + 4) street.base[14 * WW + x + i] = TILEW; // lane dashes
   for (let d = 1; d < SH; d++) for (let x = ZEBRA0; x < ZEBRA1; x++) street.base[d * WW + x] = (d + 1) % 5 < 3 ? TILEW : ASPH;
+  for (let d = 1; d < SH; d++) street.base[d * WW + STOP_X] = street.base[d * WW + STOP_X + 1] = TILEW; // stop line, just ahead of a stopped front
   for (let p = 0; p < 6; p++) {
     const cx = wr() * WW, cy = 2 + wr() * (SH - 4), rx = 8 + wr() * 18, ry = 2 + wr() * 2;
     for (let d = 0; d < SH; d++) for (let x = 0; x < WW; x++) { const a = (x - cx) / rx, b = (d - cy) / ry; if (a * a + b * b < 1) street.pud[d * WW + x] = 1; }
@@ -223,6 +240,41 @@ const CROSSERS: Crosser[] = Array.from({ length: 3 }, () => ({ on: false, phase:
 const KERB = 146, FAR_KERB = 188;
 let crossT = 3, crossings = 0, conflicts = 0;
 
+// ---------- the traffic light ----------
+/** Seconds into the signal cycle, advanced with the simulation. */
+let sigT = 0;
+const sig = (): SignalState => signalAt(sigT);
+/** The slowest crosser covers the 42 px between the kerbs in under 6 s. */
+const CROSS_TIME = 6;
+/** People who stepped out while the light did not allow it (should stay 0; debug). */
+let badStarts = 0;
+
+/** A 3x3 lamp; lit ones glow round the head at night. */
+function lamp(x: number, y: number, on: boolean, c: number) {
+  rect(x, y, 3, 3, on ? c : BNEAR);
+  if (!on || !isNight()) return;
+  for (let j = -3; j <= 5; j++) for (let i = -3; i <= 5; i++) {
+    const g = getW(x + i, y + j), d = Math.hypot(i - 1, j - 1) / 4.5;
+    if (d < 1 && g !== 255 && (HALOOK[g] || g === VOID) && bay(sx(x + i), sy(y + j)) < 0.35 * (1 - d)) put(x + i, y + j, c);
+  }
+  rect(x, y, 3, 3, c);
+}
+/** Vehicle head: red, yellow, green from the top; pedestrian head: red figure over green figure. */
+function vehicleHead(x: number, y: number, s: SignalState) {
+  lamp(x, y, s.phase === 'red', SIGR); lamp(x, y + 5, s.phase === 'yellow', AMB); lamp(x, y + 10, s.phase === 'green', FWG);
+}
+function pedHead(x: number, y: number, walk: boolean) {
+  rect(x, y, 2, 3, walk ? BNEAR : SIGR); rect(x, y + 3, 2, 3, walk ? FWG : BNEAR);
+}
+function drawSignals() {
+  const s = sig(), walk = pedestrianLight(s, CROSS_TIME) === 'walk';
+  vehicleHead(SIG_X - 1, 93, s); pedHead(SIG_X + 3, 111, walk);
+}
+function drawNearSignals() {
+  const s = sig();
+  vehicleHead(307, 57, s); pedHead(376, 119, pedestrianLight(s, CROSS_TIME) === 'walk');
+}
+
 function spawnCrosser() {
   const c = CROSSERS.find((o) => !o.on);
   if (!c) return;
@@ -232,7 +284,9 @@ function spawnCrosser() {
   if (xr() < 0.55) { c.dir = xr() < 0.5 ? 1 : -1; c.x = c.dir > 0 ? -8 : WW + 8; c.y = KERB; c.vy = 1; c.phase = 'approach'; }
   else { c.x = c.tx; c.y = FAR_KERB; c.vy = -1; c.dir = xr() < 0.5 ? 1 : -1; c.phase = 'wait'; c.wait = 0.6 + xr(); }
 }
-const zebraBusy = () => CROSSERS.some((c) => c.on && (c.phase === 'wait' || c.phase === 'cross'));
+/** Someone on the stripes: vehicles hold at the line until they are across, whatever the light
+    (people waiting at the kerb do not stop traffic here; the light does). */
+const zebraBusy = () => CROSSERS.some((c) => c.on && c.phase === 'cross');
 
 function updateCrossers(dt: number) {
   crossT -= dt * (0.08 + 0.5 * S.busy);
@@ -246,7 +300,8 @@ function updateCrossers(dt: number) {
       if (c.phase === 'leave' && (c.x < -12 || c.x > WW + 12)) c.on = false;
     } else if (c.phase === 'wait') {
       c.wait -= dt;
-      if (c.wait <= 0 && !vehicleNearCrossing()) c.phase = 'cross';
+      // step out only in the pedestrian phase (vehicles have red), and only once the road by the stripes is clear
+      if (c.wait <= 0 && pedestrianMayStart(sig(), CROSS_TIME) && !vehicleNearCrossing()) c.phase = 'cross';
     } else {
       c.y += c.vy * c.sp * 0.8 * dt; c.ph += dt * c.sp * 0.42;
       if (c.vy > 0 && c.y > FAR_KERB) { c.on = false; crossings++; }
@@ -270,7 +325,10 @@ function drawCrosser(c: Crosser) {
 
 function update(dt: number) {
   updateAnimals(dt);
+  sigT += dt;
+  const before = CROSSERS.map((c) => c.on && c.phase === 'cross');
   tickSpawns(dt, S.festa || S.saoJoao ? 1.8 : 1.1); updatePeople(dt); updateCrossers(dt); updateCars(dt, 1);
+  if (CROSSERS.some((c, i) => c.on && c.phase === 'cross' && !before[i]) && sig().phase !== 'red') badStarts++;
   if (onRoad() && vehicleBetween(ZEBRA0, ZEBRA1)) conflicts++;
 }
 
@@ -282,12 +340,13 @@ function render() {
   drawOpenings(shops, shopsOpen()); drawOpenings(glass, false); shopFloor(); billboard();
   drawFarPrecip();
   blitLayer(front);
-  for (const l of LAMPS) lampLight(l);
+  for (const l of LAMPS) { lampLight(l); lampPool(l); }
+  nightSpill(shops, shopsOpen()); drawSignals();
   if (S.natal) christmasStar(LAMPS[0].x + 14, LAMPS[0].top - 10, 1);
   if (S.festa || S.saoJoao) bandeirolas(166, 76, 378, 62, 10, 3);
   drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
-  drawStreet(street); parked(); for (const c of CROSSERS) if (c.on) drawCrosser(c); drawCars();
-  blitLayer(near); if (isNight()) put(376, 120, WWARM);
+  drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 158); parked(); for (const c of CROSSERS) if (c.on) drawCrosser(c); drawCars();
+  blitLayer(near); drawNearSignals();
   drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
@@ -304,6 +363,9 @@ export const centroTeatro: Scene = {
       walls: [{ x0: 297, x1: 364, y: 93 }, { x0: 57, x1: 124, y: 62 }] });
     setCarLanes(160, 174, 'br');
     setBrCrossing({ x0: ZEBRA0, x1: ZEBRA1, occupied: zebraBusy }); // after setCarLanes, which clears it
+    setBrOneWay(1); // one-way here: left to right
+    sigT = (S.ms / 1000) % cycleLength();
+    setBrSignal(() => sig().phase);
     for (const c of CROSSERS) c.on = false;
     configure({ roofs: [{ x0: B0, x1: B1, y: 33 }, { x0: 297, x1: 365, y: 93 }], tips: [{ x: 181, y: 114, end: GROUND }, { x: 302, y: 114, end: GROUND }],
       lamps: LAMPS.map((l) => ({ x: l.x + 14, y: l.top })), ground0: GROUND, horizon: HORIZON });
@@ -311,5 +373,10 @@ export const centroTeatro: Scene = {
   },
   update,
   render,
-  debug() { return `active  people x${peopleCount()}  faixa x${onRoad()} travessias ${crossings} conflitos ${conflicts}  lojas ${shopsOpen() ? 'abertas' : 'fechadas'}`; },
+  debug() {
+    const s = sig(), st = brSignalStats();
+    return `active  people x${peopleCount()}  sinal ${s.phase} ${s.left.toFixed(0)}s pedestre ${pedestrianLight(s, CROSS_TIME) === 'walk' ? 'siga' : 'pare'}`
+      + `  parados x${brQueued()} furou-vermelho ${st.redRuns} contramao ${st.wrongWay}`
+      + `  faixa x${onRoad()} travessias ${crossings} conflitos ${conflicts} fora-de-fase ${badStarts}  lojas ${shopsOpen() ? 'abertas' : 'fechadas'}`;
+  },
 };

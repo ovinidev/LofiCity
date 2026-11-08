@@ -25,7 +25,7 @@ import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
   type Lamp, type Opening, type Palm, bandeirolas, bulbs, casa, drawOpenings, drawPalm, easterDoy, isNight, lampLight,
-  lampPost, text, textW,
+  lampPool, lampPost, lampRoadPool, nightSpill, text, textW,
 } from './br-kit';
 import type { Scene } from './types';
 
@@ -329,10 +329,11 @@ function render() {
   fair(); passion();
   blitLayer(front); signLights();
   for (const p of PALMS) drawPalm(p);
-  for (const l of LAMPS) lampLight(l);
+  for (const l of LAMPS) { lampLight(l); lampPool(l); }
+  nightSpill(opens, hourIn(S.cal.hour, 8, 18) && S.cal.weekday !== 0);
   if (S.festa || S.saoJoao) { bandeirolas(142, 46, 318, 40, 12, 2); bulbs(0, 62, 142, 46, 6); bulbs(318, 40, 480, 62, 6); }
   drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
-  drawStreet(street); for (const c of CROSSERS) if (c.on) drawCrosser(c); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
+  drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 156); for (const c of CROSSERS) if (c.on) drawCrosser(c); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
 let built = false;

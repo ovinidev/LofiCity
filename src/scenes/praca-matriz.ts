@@ -25,7 +25,7 @@ import { S } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
   type Lamp, type Opening, type Palm, type TowerWin, bandeirolas, bulbs, cart, casa, christmasStar, drawOpenings, drawPalm,
-  drawTowerWins, fogueira, isNight, lampLight, lampPost, pole, wire, wireCurve,
+  drawTowerWins, fogueira, isNight, lampLight, lampPool, lampPost, lampRoadPool, nightSpill, pole, wire, wireCurve,
 } from './br-kit';
 import type { Scene } from './types';
 
@@ -397,13 +397,14 @@ function render() {
   for (const t of trees) drawTree(t);
   blitLayer(front);
   for (const p of PALMS) drawPalm(p);
-  for (const l of LAMPS) lampLight(l);
+  for (const l of LAMPS) { lampLight(l); lampPool(l); }
+  nightSpill(opens, S.cal.hour >= 7 && S.cal.hour < 19 && S.cal.weekday !== 0);
   if (S.natal) for (const l of LAMPS) christmasStar(l.x + 1, l.top - 12, 1);
   if (S.festa || S.saoJoao) { bandeirolas(96, 70, 222, 58, 8, 0); bandeirolas(258, 58, 364, 70, 8, 3); if (S.festa) { bulbs(0, 74, 82, 70, 6); bulbs(378, 70, 480, 74, 6); } }
   if (S.saoJoao && S.cal.day >= 22 && S.cal.day <= 24 && S.cal.hour >= 18) fogueira(440, 146);
   cart(282, 146, S.stallOpen);
   drawAnimalsPerched(); drawTraffic(false); for (const f of FIEIS) if (f.on) drawFiel(f); drawPeople(); drawAnimalsGround();
-  drawStreet(street); drawTraffic(true); drawRipples(); drawFog(FOG); drawNearPrecip();
+  drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 156); drawTraffic(true); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
 let built = false;

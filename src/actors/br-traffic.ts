@@ -7,7 +7,8 @@
    São José buses and micro-buses.
    Two lanes: the far lane drives left, the near lane right. Slower vehicles hold up the cars
    behind them; motorcycles weave past, riding beside (drawn between the lanes) while level with a
-   bigger vehicle. At a zebra crossing everyone queues without overlapping (street-rules.ts). */
+   bigger vehicle. At a zebra crossing everyone queues without overlapping (street-rules.ts).
+   A scene may make its road one-way and put a traffic light at the crossing (signal-rules.ts). */
 import { G, put, rect } from '../engine/gfx';
 import { bay, mulberry32 } from '../engine/math';
 import {
@@ -15,7 +16,8 @@ import {
   STEEL, STONE, STONEL, TILEW, VOID, WCOOL, WDIM, WOOD, AMB,
 } from '../engine/palette';
 import { S, hourIn } from '../sky/state';
-import { besideAny, holdLimit, leadX, overlaps, yieldLimit } from './street-rules';
+import { PAST_LINE, type Phase, mayGo, nextCommitted, spawnDir } from './signal-rules';
+import { besideAny, holdLimit, leadX, overlaps, queueLimit, yieldLimit } from './street-rules';
 
 type Kind = 'moto' | 'hatch' | 'sedan' | 'suv' | 'pickup' | 'fusca' | 'veraneio' | 'kombi' | 'van' | 'som' | 'pipa' | 'carroca' | 'bus' | 'micro' | 'escolar';
 type MotoKind = 'plain' | 'mototaxi' | 'delivery' | 'gas' | 'scooter' | 'trail' | 'eletrica';
@@ -26,6 +28,8 @@ interface V {
   skin: number; hair: number; pTop: number; pSkin: number;
   /** A motorcycle (for the queue rules), whether it rides beside a bigger vehicle, and how far it has moved aside (0..1, drawing). */
   moto: boolean; beside: boolean; sideK: number;
+  /** At a traffic light: it decided to go on yellow and carries on through (signal-rules.ts). */
+  committed: boolean;
 }
 /** No helmet: the rider's hair and face show. */
 const NO_HELMET = 255;
@@ -36,7 +40,7 @@ const POOL = 8;
 const VS: V[] = Array.from({ length: POOL }, () => ({
   on: false, kind: 'hatch' as Kind, x: 0, dir: 1, sp: 0, cruise: 0, lane: 0, len: 26, body: TILEW, body2: TILEW, rider: CRED,
   helmet: VOID, pillion: false, pHelmet: true, mk: 'plain' as MotoKind, load: 'none' as Load, ph: 0, skin: SKIN2, hair: HAIR1, pTop: CBEIGE, pSkin: SKIN2,
-  moto: false, beside: false, sideK: 0,
+  moto: false, beside: false, sideK: 0, committed: false,
 }));
 let laneY = [158, 172], spawnT = 0.3;
 
@@ -47,8 +51,27 @@ let crossing: BrCrossing | null = null;
 /** Gap between a stop line and the stripes. */
 const STOP_GAP = 3;
 
-export function setBrLanes(far: number, near: number) { laneY = [far, near]; crossing = null; for (const v of VS) v.on = false; }
+/** One-way road: every vehicle drives this way (+1 = left to right); 0 = two-way (the default). */
+let oneWay: 1 | -1 | 0 = 0;
+/** A traffic light at the crossing, for a one-way road: the phase vehicles see now. */
+let signal: (() => Phase) | null = null;
+/** Vehicles that drove the wrong way or crossed the stop line on red without having committed on
+    yellow (both should stay 0; shown in the debug text). */
+let wrongWay = 0, redRuns = 0;
+
+export function setBrLanes(far: number, near: number) {
+  laneY = [far, near]; crossing = null; oneWay = 0; signal = null; wrongWay = 0; redRuns = 0;
+  for (const v of VS) v.on = false;
+}
 export function setBrCrossing(c: BrCrossing | null) { crossing = c; }
+/** Make the road one-way (call after setBrLanes, which resets it to two-way). */
+export function setBrOneWay(dir: 1 | -1) { oneWay = dir; }
+/** A traffic light controlling the crossing (call after setBrCrossing and setBrOneWay). Vehicles stop
+    at the crossing's stop line on red, and on yellow when they can stop in time. */
+export function setBrSignal(phase: (() => Phase) | null) { signal = phase; }
+export const brSignalStats = () => ({ wrongWay, redRuns });
+/** Vehicles standing still (queued at a crossing or a light; debug). */
+export const brQueued = () => VS.filter((v) => v.on && v.sp < 1).length;
 /** Whether any vehicle's body is on the crossing or between its stop lines (a pedestrian waits for this to clear). */
 export const vehicleNearCrossing = () => !!crossing && VS.some((v) => v.on && overlaps(v.x, v.len, crossing!.x0 - STOP_GAP, crossing!.x1 + STOP_GAP));
 /** Whether any vehicle's body overlaps world x0..x1 (debug check). */
@@ -106,13 +129,15 @@ function choose(v: V) {
 }
 
 function spawn() {
-  const lane = r() < 0.5 ? 0 : 1, dir = lane === 0 ? -1 : 1;
-  const entry = dir > 0 ? G.camX - 70 : G.camX + G.W + 4;
+  const lane = r() < 0.5 ? 0 : 1, dir = spawnDir(lane, oneWay);
+  // with a traffic light, vehicles always enter before its stop line, even when the view starts past it
+  const left = signal && crossing ? Math.min(G.camX, crossing.x0 - STOP_GAP - 60) : G.camX;
+  const entry = dir > 0 ? left - 70 : G.camX + G.W + 4;
   if (VS.some((o) => o.on && o.lane === lane && Math.abs(o.x - entry) < 80)) return;
   const v = VS.find((o) => !o.on);
   if (!v) return;
   choose(v);
-  v.on = true; v.lane = lane; v.dir = dir; v.x = dir > 0 ? G.camX - v.len - 4 : G.camX + G.W + 4;
+  v.on = true; v.lane = lane; v.dir = dir; v.committed = false; v.x = dir > 0 ? left - v.len - 4 : G.camX + G.W + 4;
 }
 
 export function updateBr(dt: number, density = 1) {
@@ -121,10 +146,12 @@ export function updateBr(dt: number, density = 1) {
   if (spawnT <= 0) { spawnT = 0.6 + r() * 1.2; spawn(); }
   const on = VS.filter((v) => v.on);
   const zc = crossing, occupied = !!zc && zc.occupied(), held: V[] = [];
+  const sig = zc && signal ? signal() : null, stopping = occupied || (sig !== null && sig !== 'green');
   // a motorcycle level with a bigger vehicle in its lane rides beside it, between the lanes; one
-  // coming up to a queue at an occupied crossing stops behind instead (it only stays beside if it already was)
+  // coming up to a queue at an occupied crossing (or a light that is not green) stops behind instead
+  // (it only stays beside if it already was)
   for (const v of on) {
-    const queuing = !!zc && occupied && !v.beside && yieldLimit(leadX(v), v.dir, zc.x0 - STOP_GAP, zc.x1 + STOP_GAP, true) < Infinity;
+    const queuing = !!zc && stopping && !v.beside && yieldLimit(leadX(v), v.dir, zc.x0 - STOP_GAP, zc.x1 + STOP_GAP, true) < Infinity;
     v.beside = besideAny(v, on, queuing ? 0 : 6);
   }
   // with a zebra crossing, vehicles are moved front-first so each sees where the one ahead stopped
@@ -143,14 +170,28 @@ export function updateBr(dt: number, density = 1) {
       // stop before the stripes while someone is on (or stepping onto) them; queue behind anyone
       // held in the same row, a few px back, never overlapping
       lim = holdLimit(v, held, zc.x0 - STOP_GAP, zc.x1 + STOP_GAP, occupied);
+      if (sig) {
+        if (v.dir > 0) {
+          // the traffic light (one-way road, left to right): stop at the line on red, and on yellow when it can stop in time
+          const dist = zc.x0 - STOP_GAP - leadX(v), go = mayGo(sig, dist, v.sp, v.committed);
+          v.committed = nextCommitted(sig, dist, go, v.committed);
+          if (!go) lim = Math.min(lim, Math.max(0, dist));
+        }
+        // and never run into a vehicle held ahead in the same row, even when going on yellow
+        lim = Math.min(lim, queueLimit(v, held));
+      }
       if (lim < Infinity) { held.push(v); sp = Math.min(sp, lim * 1.5); } // ease down toward the line
     }
+    if (oneWay !== 0 && v.dir !== oneWay) wrongWay++;
+    const before = zc && sig ? zc.x0 - STOP_GAP - leadX(v) : 0;
     v.sideK += ((v.beside ? 1 : 0) - v.sideK) * Math.min(1, dt * 6);
     v.sp += (sp - v.sp) * Math.min(1, dt * 2);
     const move = Math.min(v.sp * dt, lim);
     if (move < v.sp * dt) v.sp = move / dt;
     v.x += v.dir * move; v.ph += v.sp * dt * 0.25;
-    if (v.x < G.camX - v.len - 80 || v.x > G.camX + G.W + 80) v.on = false;
+    if (zc && sig === 'red' && v.dir > 0 && !v.committed && before >= -PAST_LINE && zc.x0 - STOP_GAP - leadX(v) < -PAST_LINE) redRuns++;
+    // gone once it has driven off the side it was heading for
+    if (v.dir > 0 ? v.x > G.camX + G.W + 80 : v.x < G.camX - v.len - 80) v.on = false;
   }
 }
 
