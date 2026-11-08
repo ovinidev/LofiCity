@@ -97,6 +97,10 @@ The eye button (top-right) hides the whole HUD, credit included, for a clean vie
 
 The hosted site uses [Vercel Web Analytics](https://vercel.com/docs/analytics) and [Speed Insights](https://vercel.com/docs/speed-insights). Both are cookieless and only collect visit counts per city (`/tokyo`, `/esperanca`) and performance metrics. Nothing is sent when running locally.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 Code under the [MIT](LICENSE) license.
