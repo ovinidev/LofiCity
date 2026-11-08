@@ -4,13 +4,13 @@
    shuffled across albums, and every track shows artist, album and license as attribution.
 
    Every album below was checked on https://archive.org/metadata/<id> (title, creator,
-   licenseurl, subjects and file list) in Nov 2026. Albums that did not fit their station
-   (swing, drum & bass, drone, indie rock, IDM, harsh-noise compilations) were removed.
+   licenseurl, subjects, the label's description and the track list) in Nov 2026. Nobody
+   listened to the audio: the curation rests on that written metadata only.
    The licenses are mostly non-commercial: fine for this free app; check before monetizing.
 
    Tracks that break the mood are skipped when an album loads: intros, interludes, skits,
-   vocal features and tributes, anything shorter than MIN_S, and long ambient pieces or
-   continuous mixes longer than MAX_S. */
+   vocal features, vocal versions, covers and tributes, anything shorter than MIN_S, and long
+   ambient pieces or continuous mixes longer than MAX_S. */
 
 type StationId = 'lofi' | 'neon';
 interface Station {
@@ -22,44 +22,48 @@ interface Station {
 }
 const STATIONS: Station[] = [
   {
-    // Dusted Wax Kingdom (netlabel), all CC BY-NC-ND 3.0 except DWK383 (CC BY-NC-ND 4.0)
+    // Strictly instrumental: only Dusted Wax Kingdom releases whose label description itself says
+    // "instrumental" and whose track list shows no featured singer or MC. All CC BY-NC-ND 3.0
+    // except DWK256 (CC BY-NC-ND 4.0). Dropped in Nov 2026 for vocals or missing evidence: Anitek
+    // "Luna" (seven tracks feat. singers), ProleteR (chanson samples, feat. MCs), Jazz One Beats
+    // (tracks named after rappers), Mounika, Esbe vol. 1, Anitek "Sae Yeon", Poldoore, Lo-Fi
+    // Scientists and Jenova 7 (descriptions never say instrumental; several have vocal features).
+    // Sample-based beats can still carry a short vocal chop that no metadata reveals.
     id: 'lofi', name: 'Lo-Fi City', tag: 'beats lo-fi · hip-hop instrumental',
     albums: [
-      'DWK069', // Esbe - Late Night Headphones (Volume 1)
-      'DWK123', // ProleteR - Curses From Past Times
-      'DWK301', // Mounika - Born To Be Beats
-      'DWK127', // Kova - Cookin' Session
-      'DWK315', // Anitek - Luna
-      'DWK114', // Anitek - Sae Yeon
-      'DWK155', // Poldoore - Lush Life
-      'DWK044', // Lo-Fi Scientists - Lo-Fi Scientists
-      'DWK119', // Jenova 7 - Dusted Jazz Volume Two
-      'DWK107', // Jenova 7 - Dusted Jazz Volume One
-      'DWK137', // Jenova 7 & Mr. Moods - Time Travellers
-      'DWK163', // deeB - Daydream
-      'DWK138', // Romo - Listen, Love
-      'DWK154', // Thegntlmn - Earbuds (Volume 1)
-      'DWK383', // Jazz One Beats - The MPC Files
+      'DWK127', // Kova - Cookin' Session: "5 ... instrumental hip-hop beats to chill, refresh and dream to"
+      'DWK163', // deeB - Daydream: "10 tracks of melodic acid jazz and instrumental hip-hop"
+      'DWK208', // deeB - Thru Nature: "enchanting jazzy instrumental hip-hop beats"
+      'DWK138', // Romo - Listen, Love: "12 tracks of instrumental jazzy hip-hop"
+      'DWK154', // Thegntlmn - Earbuds (Volume 1): "a pure instrumental hip-hop gem"
+      'DWK187', // Thegntlmn - Earbuds (Volume 2): "8 instrumental hip-hop joints"
+      'DWK212', // Derlee - Mellow Morning: "downtempo soulful instrumental hip-hop"
+      'DWK209', // Fredo - First Movements: "12 chilled instrumental hip-hop joints"
+      'DWK129', // DJ Mentos - Field of Vision: "jazzy lo-fi instrumental hip-hop joints"
+      'DWK256', // JCreate - Musical Introspection: "14 instrumental hip-hop tracks"
     ],
   },
   {
-    // Vaporwave only: every album was uploaded to its netlabel's collection and is tagged
-    // "vaporwave" on archive.org. Synthwave/retrowave/chillwave releases (Enough Records, Demonic
-    // Sweaters, Evenings, Kansas Beach Patrol) were dropped in Nov 2026: they are not vaporwave.
-    id: 'neon', name: 'Neon FM', tag: 'vaporwave · retrofuturismo',
+    // Dreamy retro synth (dreamwave, chillsynth, chillwave, ambient synthwave), chosen in Nov 2026
+    // after the vaporwave picks were dropped. Each album sits in its netlabel's archive.org
+    // collection; genre evidence below is from its subjects/description. Darksynth, outrun-heavy,
+    // horror-synth, noise and meme releases were left out.
+    id: 'neon', name: 'Neon FM', tag: 'dreamwave · chillsynth',
     albums: [
-      'SR193-Meavy_Boy-Column', // Meavy Boy - Column, Spettro Records; description "Genre: vaporwave, retrofuturism, ambient, neon gazing"; CC BY-NC-ND 4.0
-      'MeavyBoy-EP', // Meavy Boy - EP 71 to 20, Spettro Records; subjects vaporwave, retrofuturism; CC BY-NC-ND 4.0
-      'MeavyBoy-Arokin-No_Sleep', // Meavy Boy / Arokin - No Sleep, Spettro Records; subject vaporwave; CC BY-NC-ND 4.0
-      'AROKIN-Sleepless_Arcade', // Arokin - Sleepless Arcade, Spettro Records; subjects vaporwave, chillwave; CC BY-NC-ND 4.0
-      '2003-toyota-corolla', // 2003 Toyota Corolla, hanahata netlabel; subjects vaporwave, dreampunk; CC BY-SA 4.0
+      'LeeRosevere_Synthcronicity', // Lee Rosevere - Synthcronicity, Happy Puppy Records; retrowave, synthwave, instrumental; CC BY-NC 3.0
+      'cior-198-proton42-sub-suburbia-ep', // Proton 42 - Sub-Suburbia, Cian Orbe; "synth ambient", sadwave, atmospheric, retrowave; CC BY-NC-ND 4.0
+      'toulp13', // Psychadelik Pedestrian - All Of Time, Toucan Music; synthwave, chillout, "retro 1980s synth sounds"; CC BY-NC-SA 4.0
+      'KSBPCoast2Coast', // Kansas Beach Patrol - Coast to Coast; chillwave, dream pop, glo-fi, "remastered instrumentals"; CC BY 3.0
+      'Mam135-Evenings-NorthDormEp', // Evenings - North Dorm EP, mam!records; chillwave, glo-fi, ambient; CC BY-NC-ND 3.0
+      'SBWS194', // Tiiiza - W8 EP, Subwise; dreamwave, dream pop, synthpop, downtempo; CC BY-ND 3.0
+      'district-lost-beyond-comprehension', // District Lost - Beyond Comprehension; vapor ambient, dreamcore, VHS, retrowave; CC BY-NC-ND 4.0
     ],
   },
 ];
 
 /** Tracks shorter or longer than this (seconds) are skipped: fragments, ambient epics, DJ mixes. */
 const MIN_S = 75, MAX_S = 480;
-const SKIP_TITLE = /\b(intro|outro|interlude|skit|reprise|tribute)\b|\(int\.?\)|\b(feat|ft)\b/i;
+const SKIP_TITLE = /\b(intro|outro|interlude|skit|reprise|tribute|cover|vocals?|acapella|a cappella)\b|\(int\.?\)|\b(feat|ft)\b/i;
 
 interface Track { url: string; title: string; artist: string; album: string; license: string; page: string }
 
