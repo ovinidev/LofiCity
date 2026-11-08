@@ -12,11 +12,13 @@ Lo-fi pixel-art scenes that follow each city's **real clock** and **live weather
 - **Remígio**: `Lagoa de Remígio`, the round lagoon with royal palms, houses up the hill, the matriz on top and ducks on the water.
 - **Tokyo**: `Esquina da chuva` (rain corner), `Beco neon` (neon alley), `Rua do konbini` (konbini street), `Santuário` (shrine). Japanese seasons: sakura, tsuyu, momiji, year-end snow, hanabi.
 - **Esperança, Paraíba, Brazil** (Brasília time). Local calendar: the patron saint's festival in January, Holy Week, São João in June, Christmas.
-  - `Praça da Matriz`: the square in front of the Nossa Senhora do Bom Conselho church.
+  - `Praça da Matriz`: the square in front of the ochre Nossa Senhora do Bom Conselho church, with its slender clock tower and spire.
   - `Rua do Comércio`: the main shopping street, with a bar that puts its tables out at night.
   - `Capelinha das Pedras`: the tiny 1925 chapel on the Lajedo do Araçá rock, beside the pool that mirrors it.
-  - `Praça da Cultura`: the town's postcard square, with the "EU ♥ ESPERANÇA" letters, craft fairs and the Paixão de Cristo in Holy Week.
-  - `Campo da Rodoviária`: the dirt football pitch by the bus station; pickup games, weekend matches with a crowd, buses coming and going.
+  - `Praça da Cultura`: the town's postcard square: blue steps up to a red plaza, the "EU ♥ ESPERANÇA" letters with their big heart, craft fairs and the Paixão de Cristo in Holy Week.
+  - `Campo da Rodoviária`: the fenced artificial-turf pitch behind a wall of football murals; pickup games, weekend matches, floodlit evenings.
+
+  The Matriz, Praça da Cultura and Campo da Rodoviária scenes were drawn using Google Maps captures as reference only (Feb 2020, Feb 2025 and Jun 2025). They may not match the places today, and none of the images are in the repo.
 
 Esperança's streets are busy with local life: motorcycles of every kind (mototáxi, delivery, the gas man with a botijão), Viação São José buses, the prefeitura school bus, carros-pipa, donkey carts, the carro de som, pickups carrying furniture, a Veraneio now and then; joggers, sun umbrellas and street vendors; street dogs, cats on the walls, birds on the wires, vultures on the thermals and bats around the lamps.
 
