@@ -175,7 +175,7 @@ body.idle .credit { opacity: 0.4; }
   .hud .hint, #season { display: none; }
   .hud .city select { padding: 2px 5px; }
   /* the bottom of the frame is the scene; the sky under the HUD is free */
-  .radio { bottom: auto; top: calc(var(--st) + 108px); font-size: 9px; padding: 6px 8px; gap: 4px; }
+  .radio { bottom: auto; top: calc(var(--st) + var(--hud-h, 98px) + 10px); /* --hud-h: measured in main.ts */ font-size: 9px; padding: 6px 8px; gap: 4px; }
   .radio .ctl { gap: 4px; }
   .radio button { padding: 5px 6px; }
   .radio input[type="range"] { min-width: 40px; }

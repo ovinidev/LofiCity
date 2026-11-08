@@ -194,6 +194,15 @@ let hudPref: string | null = null;
 try { hudPref = localStorage.getItem('loficity:hud'); } catch { /* storage unavailable */ }
 if (hudPref === 'off') setHud(false, false);
 
+// Upright phones stack the radio under the info panel; publish the panel's real height (it grows when
+// the city or weather line wraps) so the CSS can place the radio right below it.
+const hudEl = document.querySelector<HTMLElement>('.hud');
+if (hudEl) {
+  new ResizeObserver(() => {
+    if (hudEl.offsetHeight) document.documentElement.style.setProperty('--hud-h', `${hudEl.offsetHeight}px`);
+  }).observe(hudEl);
+}
+
 const KEYS: Record<string, string> = {
   m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', s: 'scene', l: 'lightning', h: 'hud', enter: 'full',
 };
