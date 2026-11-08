@@ -14,7 +14,7 @@ Lo-fi pixel-art scenes that follow each city's **real clock** and **live weather
 - **Esperança, Paraíba, Brazil** (Brasília time). Local calendar: the patron saint's festival in January, Holy Week, São João in June, Christmas.
   - `Praça da Matriz`: the square in front of the ochre Nossa Senhora do Bom Conselho church, with its slender clock tower and spire.
   - `Rua do Comércio`: the main shopping street, with a bar that puts its tables out at night.
-  - `Capelinha das Pedras`: the tiny 1925 chapel on the Lajedo do Araçá rock, beside the pool that mirrors it.
+  - `Capelinha das Pedras`: the tiny 1925 chapel on the Lajedo do Araçá rock, beside the pool that mirrors it, painted the Matriz's yellow. A quiet spot: no traffic and usually nobody around. Now and then a visitor walks up to take photos, and on some days (more often on Sundays, always on 27 June and 1 January) there is one short daytime mass: the door opens on a lit interior, a priest waits at the door and a handful of people come and go. This is art direction, not the chapel's real schedule: each day's events come from a seed of the local date (so `#at=` shows the same day), all between 07:00 and 17:00, and the weather does not change them.
   - `Praça da Cultura`: the town's postcard square: blue steps up to a red plaza, the "EU ♥ ESPERANÇA" letters with their big heart, craft fairs and the Paixão de Cristo in Holy Week.
   - `Campo da Rodoviária`: the fenced artificial-turf pitch behind a wall of football murals; pickup games, weekend matches, floodlit evenings.
 
