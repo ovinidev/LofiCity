@@ -5,11 +5,12 @@
    city:  'br' = any Paraíba city, or one city id. scene: only in that scene (implies its city).
    tod:   only at those times of day. wx: only when the REAL weather shows it (see weatherTags).
    who:   who may say it (default: an ordinary passer-by). The Capelinha has no passers-by, only its
-          scripted visitors, the priest and the congregation, so its phrases name their roles. */
+          scripted visitors, the priest and the congregation, so its phrases name their roles; the
+          players at the Campo da Rodoviária speak as 'player'. */
 
 export type Tod = 'manha' | 'tarde' | 'noite' | 'madrugada';
 export type WxTag = 'heat' | 'cold' | 'rain' | 'snow';
-export type Role = 'passerby' | 'visitor' | 'attendee' | 'priest';
+export type Role = 'passerby' | 'visitor' | 'attendee' | 'priest' | 'player';
 export interface Phrase { t: string; city?: string; scene?: string; tod?: Tod[]; wx?: WxTag; who?: Role[] }
 
 type Opt = Omit<Phrase, 't'>;
@@ -45,6 +46,11 @@ export const PHRASES: Phrase[] = [
   ...group({ scene: 'armazem-paraiba' }, ['Vou dar uma olhada no Armazém Paraíba.', 'Tem promoção no Armazém!', 'Comprei um liquidificador novo!']),
   ...group({ scene: 'rua-comercio' }, ['O comércio tá movimentado.', 'Vou ali na farmácia.', 'Achei um chinelo baratinho!']),
   ...group({ scene: 'campo-rodoviaria' }, ['Tem pelada no campo hoje?', 'Vou pegar o ônibus pra Campina.', 'Bora uma resenha?']),
+  // the players on the pitch (src/scenes/campo-matches.ts): only football talk
+  ...group({ scene: 'campo-rodoviaria', who: ['player'] }, ['Toca a bola!', 'Passa, passa!', 'Marca ele aí!', 'Bora, time!', 'Hoje a gente vira esse jogo!', 'Tô livre, tô livre!', 'Segura a defesa!', 'Que golaço seria…']),
+  ...group({ scene: 'campo-rodoviaria', who: ['player'], tod: ['noite'] }, ['Com refletor ligado é outra coisa!', 'Último jogo da noite, bora!']),
+  ...group({ scene: 'campo-rodoviaria', who: ['player'], wx: 'rain' }, ['Bola molhada corre demais!', 'Cuidado que o campo tá liso!']),
+  ...group({ scene: 'campo-rodoviaria', who: ['player'], wx: 'heat' }, ['Vixe, que calor pra jogar bola!', 'Pede tempo pra beber água!']),
   ...group({ scene: 'centro-teatro' }, ['Bora dar uma volta no centro?', 'Vou encontrar os amigos ali.']),
   ...group({ scene: 'rua-faustino' }, ['Essa rua é tranquila, viu?', 'Vou visitar minha vó aqui perto.']),
   ...group({ scene: 'rua-jose-bezerra' }, ['Rua de vizinho bom é assim.', 'Tô indo levar um bolo pra vizinha.']),

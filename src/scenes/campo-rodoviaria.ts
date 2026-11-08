@@ -3,10 +3,11 @@
    a low wall painted with football murals (a ball, a goal net, a #10 in blue, the Brazilian flag,
    another ball, a kicking silhouette) and through a tall chain-link fence onto the green
    artificial-turf pitch, floodlight poles along the far side and low town buildings behind.
-   Kids play pelada on weekday afternoons, amateur sides play with a referee and spectators on
-   the wall at weekends, and some evenings the floodlights come on for a late game. Rain stops play. */
+   Two amateur sides play here every day: a new match every 1h30 from 08:00 to 21:00 local time, with
+   a referee, a new pair of kits each slot and spectators on the wall; the 18:30 and 20:00 games are
+   played under the floodlights. Heavy rain or a storm (real reading) pauses play. See ./campo-matches.ts. */
 import { G, L, Lp, WW, blitLayer, getW, newLayer, put, rect, sx, sy } from '../engine/gfx';
-import { bay, clamp, mulberry32 } from '../engine/math';
+import { bay, mulberry32 } from '../engine/math';
 import {
   BFAR, BMID, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CRED, CYELL, FBLUE, FGREEN, FLILAC, FORNG, HAIR1, HAIR2, HALO, LEAFG, LEAFGD,
   LEDW, SKIN1, SKIN2, SKIN3, SKIN4, STEEL, STONE, STONEL, TILEW, VOID, WHITE, WWARM,
@@ -15,9 +16,10 @@ import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '.
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
-import { S, hourIn } from '../sky/state';
+import { S } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import { type Lamp, type Palm, drawPalm, isNight, lampArm, lampLight, lampPool, lampRoadPool, pole } from './br-kit';
+import { type MatchInfo, MatchSim, type Pitch, type SimPlayer, matchAt, paletteIndex } from './campo-matches';
 import type { Scene } from './types';
 
 const HORIZON = 100, STREET = 147, SH = 180 - STREET;
@@ -27,7 +29,7 @@ const PC = 240; // halfway line
 /** The street light on the concrete pole on the sidewalk. */
 const LAMP: Lamp = { x: 114, top: 52, ground: 142, arms: 1 };
 const PITCH = { x0: 30, x1: 450, y0: 107, y1: 125 }, MOUTH = { y0: 112, y1: 120 };
-const wr = mulberry32(0xf007), rr = mulberry32(0xba11);
+const wr = mulberry32(0xf007);
 const far = newLayer(), mid = newLayer(), fence = newLayer(), front = newLayer();
 const street: Street = { y0: STREET, base: new Uint8Array(SH * WW), pud: new Uint8Array(SH * WW), jit: precip.jit };
 const farWins: { x: number; y: number; rank: number }[] = [];
@@ -169,105 +171,45 @@ function buildGround() {
 }
 
 // ---------- the match ----------
-type Mode = 'none' | 'kids' | 'match' | 'night';
-interface Player { x: number; y: number; hx: number; hy: number; team: 0 | 1; ph: number; skin: number; hair: number; shirt: number; shorts: number; H: number; gk: boolean; ref: boolean; jump: number }
-const BALL0 = { x: PC, y: 116 };
-const ball = { x: BALL0.x, y: BALL0.y, z: 0, vx: 0, vy: 0, vz: 0 };
-let players: Player[] = [], mode: Mode = 'none', kickCd = 0, celebrate = 0, lastTeam: 0 | 1 = 0, score = [0, 0];
-
-function gameMode(): Mode {
-  if (S.rain > 0.4 || S.storm > 0.2) return 'none';
-  const h = S.cal.hour, wd = S.cal.weekday;
-  if ((wd === 0 && hourIn(h, 15.5, 17.6)) || (wd === 6 && hourIn(h, 15, 17.5))) return 'match';
-  if (wd >= 1 && wd <= 5 && hourIn(h, 15.5, 18)) return 'kids';
-  if ((wd === 2 || wd === 4) && hourIn(h, 19, 21.5)) return 'night';
-  return 'none';
-}
-
-function setupPlayers(m: Mode) {
-  players = []; score = [0, 0];
-  if (m === 'none') return;
-  const n = m === 'kids' ? 4 : m === 'match' ? 6 : 5;
-  const kits = m === 'match' ? [[CRED, WHITE], [CBLUE, WHITE]] : [[WHITE, CBLUE], [0, VOID]]; // kids/night: one side plays shirtless
-  const skins = [SKIN1, SKIN2, SKIN2, SKIN3, SKIN3, SKIN4];
-  const depth = PITCH.y1 - PITCH.y0 - 3;
-  for (const team of [0, 1] as const) for (let i = 0; i < n; i++) {
-    const gk = i === 0 && m !== 'kids';
-    const hx = team === 0 ? (gk ? PITCH.x0 + 6 : 70 + (i / n) * 150) : gk ? PITCH.x1 - 6 : 410 - (i / n) * 150;
-    const hy = PITCH.y0 + 2 + ((i * 7 + team * 3) % depth);
-    const skin = skins[(rr() * skins.length) | 0];
-    players.push({
-      x: hx, y: hy, hx, hy, team, ph: rr() * 6, skin, hair: rr() < 0.7 ? HAIR1 : HAIR2,
-      shirt: gk ? CYELL : kits[team][0] || skin, shorts: kits[team][1], H: m === 'kids' ? 9 + ((rr() * 2) | 0) : 11, gk, ref: false, jump: 0,
-    });
-  }
-  if (m === 'match') players.push({ x: PC, y: 120, hx: PC, hy: 120, team: 0, ph: 0, skin: SKIN2, hair: HAIR1, shirt: VOID, shorts: VOID, H: 11, gk: false, ref: true, jump: 0 });
-  resetBall();
-}
-function resetBall() { ball.x = BALL0.x; ball.y = BALL0.y; ball.z = 0; ball.vx = ball.vy = ball.vz = 0; kickCd = 0.8; }
-
-function kick(p: Player) {
-  const goalX = p.team === 0 ? PITCH.x1 : PITCH.x0, dist = Math.abs(goalX - p.x);
-  if (dist < 110 && rr() < 0.6) { // shoot
-    const ty = MOUTH.y0 + rr() * (MOUTH.y1 - MOUTH.y0) + (rr() - 0.5) * 6, sp = 140 + rr() * 50, dx = goalX - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
-    ball.vx = (dx / d) * sp; ball.vy = (dy / d) * sp; ball.vz = 15 + rr() * 35;
-  } else { // pass forward to a teammate, or punt it upfield
-    const mates = players.filter((q) => !q.ref && q !== p && q.team === p.team && (p.team === 0 ? q.x > p.x - 10 : q.x < p.x + 10));
-    const t = mates.length ? mates[(rr() * mates.length) | 0] : null;
-    const tx = t ? t.x : goalX, ty = t ? t.y : BALL0.y, dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy) || 1, sp = 80 + rr() * 50;
-    ball.vx = (dx / d) * sp; ball.vy = (dy / d) * sp; ball.vz = rr() < 0.3 ? 32 : 5;
-  }
-  lastTeam = p.team; kickCd = 0.35;
-}
+// Schedule, kits and the game live in ./campo-matches.ts (pure, tested): a match every 1h30 from
+// 08:00 to 21:00 local time, a new high-contrast pair of kits each slot, heavy rain pauses play.
+const GEO: Pitch = { x0: PITCH.x0, x1: PITCH.x1, y0: PITCH.y0, y1: PITCH.y1, mouth0: MOUTH.y0, mouth1: MOUTH.y1 };
+interface Look { skin: number; hair: number; shirt: number; shorts: number; H: number }
+let match: MatchInfo | null = null, sim: MatchSim | null = null, looks: Look[] = [];
+const playing = () => !!sim && !!match && !match.paused;
 
 function updateMatch(dt: number) {
-  const m = gameMode();
-  if (m !== mode) { mode = m; setupPlayers(m); }
-  if (mode === 'none') return;
-  kickCd -= dt;
-  if (celebrate > 0) {
-    celebrate -= dt;
-    for (const p of players) { p.jump = p.team === lastTeam && !p.ref && !p.gk ? Math.abs(Math.sin(celebrate * 9 + p.ph)) * 2 : 0; p.x += (p.hx - p.x) * dt * 0.8; p.y += (p.hy - p.y) * dt * 0.8; }
-    if (celebrate <= 0) resetBall();
-    return;
+  const m = matchAt(S.cal, S.cal.hour, { rain: S.rain, storm: S.storm }); // real weather only (or the labelled #wx= test)
+  if (!m) { match = null; sim = null; return; }
+  if (!sim || !match || match.key !== m.key) {
+    sim = new MatchSim(GEO, m.seed);
+    const r = mulberry32(m.seed), skins = [SKIN1, SKIN2, SKIN2, SKIN3, SKIN3, SKIN4], k = m.kits;
+    looks = sim.players.map((p) => {
+      const skin = skins[(r() * skins.length) | 0], hair = r() < 0.7 ? HAIR1 : HAIR2, H = 10 + ((r() * 2) | 0);
+      if (p.role === 'ref') return { skin, hair, shirt: paletteIndex(k.ref), shorts: VOID, H: 11 };
+      const kit = k.teams[p.team];
+      return { skin, hair, shirt: paletteIndex(p.role === 'gk' ? k.keepers[p.team] : kit.shirt), shorts: paletteIndex(kit.shorts), H };
+    });
   }
-  // ball physics: rolling friction, gravity, bounces; a wet pitch slows it down
-  const drag = 1.0 + S.wet * 1.2;
-  ball.x += ball.vx * dt; ball.y += ball.vy * dt; ball.vx *= Math.exp(-drag * dt); ball.vy *= Math.exp(-drag * dt);
-  ball.vz -= 160 * dt; ball.z += ball.vz * dt; if (ball.z < 0) { ball.z = 0; ball.vz = -ball.vz * 0.45; if (Math.abs(ball.vz) < 8) ball.vz = 0; }
-  // goal or out of play
-  if (ball.x < PITCH.x0 || ball.x > PITCH.x1) {
-    if (ball.y > MOUTH.y0 && ball.y < MOUTH.y1 && ball.z < 9) { score[ball.x > PC ? 0 : 1]++; lastTeam = ball.x > PC ? 0 : 1; celebrate = 3; ball.vx = ball.vy = 0; return; }
-    ball.x = clamp(ball.x, PITCH.x0 + 8, PITCH.x1 - 8); ball.vx = ball.vy = 0; ball.z = 0; kickCd = 0.6; // goal kick
-  }
-  if (ball.y < PITCH.y0 || ball.y > PITCH.y1) { ball.y = clamp(ball.y, PITCH.y0 + 1, PITCH.y1 - 1); ball.vx *= 0.2; ball.vy = 0; kickCd = 0.6; } // throw-in
-  // players: the nearest of each side chases, keepers guard the line, the rest hold shape around the ball
-  const chaser = [0, 1].map((team) => players.filter((p) => !p.ref && !p.gk && p.team === team).reduce((a, b) => (Math.hypot(a.x - ball.x, a.y - ball.y) < Math.hypot(b.x - ball.x, b.y - ball.y) ? a : b)));
-  for (const p of players) {
-    let tx: number, ty: number, sp = mode === 'kids' ? 40 : 36;
-    if (p.ref) { tx = ball.x + 24; ty = clamp(ball.y + 4, PITCH.y0, PITCH.y1); sp = 28; }
-    else if (p.gk) { tx = p.hx; ty = clamp(ball.y, MOUTH.y0, MOUTH.y1); sp = 22; }
-    else if (p === chaser[p.team]) { tx = ball.x; ty = ball.y; sp *= 1.15; }
-    else { tx = p.hx + (ball.x - PC) * 0.55; ty = p.hy + (ball.y - p.hy) * 0.25; }
-    const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
-    if (d > 1.5) { const k = Math.min(1, (sp * dt) / d); p.x += dx * k; p.y += dy * k; p.ph += sp * dt * 0.45; }
-    p.jump = 0;
-    if (!p.ref && kickCd <= 0 && ball.z < 5 && Math.hypot(p.x - ball.x, p.y - ball.y) < 3.5) kick(p);
-  }
+  match = m;
+  sim.step(dt, m.paused, S.wet);
 }
 
-function drawPlayer(p: Player) {
-  const x = Math.round(p.x) - 1, feet = Math.round(p.y - p.jump), H = p.H, step = Math.sin(p.ph);
+function drawPlayer(p: SimPlayer, k: Look) {
+  const x = Math.round(p.x) - 1, feet = Math.round(p.y - p.jump), H = k.H, step = Math.sin(p.ph);
   const legH = Math.round(H * 0.36), bodyH = Math.round(H * 0.34), headH = 3, top = feet - H;
   rect(x - 1, Math.round(p.y), 5, 1, LEAFGD); // shadow on the turf
   // legs scissor with the stride; boots dark
   const a = Math.round(step), b = -a;
-  rect(x + a, feet - legH, 1, legH, p.skin); rect(x + 2 + b, feet - legH, 1, legH, p.skin);
+  rect(x + a, feet - legH, 1, legH, k.skin); rect(x + 2 + b, feet - legH, 1, legH, k.skin);
   put(x + a, feet - 1, VOID); put(x + 2 + b, feet - 1, VOID);
-  rect(x, feet - legH - 2, 3, 2, p.shorts);
-  rect(x, top + headH, 3, bodyH, p.shirt);
-  put(x + (step > 0 ? 3 : -1), top + headH + 1, p.skin); put(x + (step > 0 ? -1 : 3), top + headH + 2, p.skin); // arms swing
-  rect(x, top, 3, headH, p.skin); rect(x, top, 3, 1, p.hair);
+  rect(x, feet - legH - 2, 3, 2, k.shorts);
+  rect(x, top + headH, 3, bodyH, k.shirt);
+  // arms swing (keepers wear white gloves); both arms go up when celebrating
+  const hand = p.role === 'gk' ? WHITE : k.skin;
+  if (p.jump > 0.5) { put(x - 1, top + headH - 1, hand); put(x + 3, top + headH - 1, hand); }
+  else { put(x + (step > 0 ? 3 : -1), top + headH + 1, hand); put(x + (step > 0 ? -1 : 3), top + headH + 2, hand); }
+  rect(x, top, 3, headH, k.skin); rect(x, top, 3, 1, k.hair);
 }
 
 function drawGoal(gx: number, dir: number) {
@@ -281,18 +223,21 @@ function drawGoal(gx: number, dir: number) {
 }
 
 function drawBall() {
-  put(ball.x, ball.y, LEAFGD);
-  rect(Math.round(ball.x), Math.round(ball.y - ball.z) - 2, 2, 2, WHITE); put(Math.round(ball.x) + 1, Math.round(ball.y - ball.z) - 1, VOID);
+  const b = sim!.ball;
+  put(b.x, b.y, LEAFGD);
+  rect(Math.round(b.x), Math.round(b.y - b.z) - 2, 2, 2, WHITE); put(Math.round(b.x) + 1, Math.round(b.y - b.z) - 1, VOID);
 }
 
-/** Spectators sitting on the mural wall during weekend matches. */
+/** Spectators sitting on the mural wall while a match is on (they leave when rain stops play); some
+    wear the two sides' colours, and they stand up for a goal. */
 function wallCrowd() {
-  if (mode !== 'match') return;
-  const t = S.ms / 1000, cheer = celebrate > 0;
-  for (let i = 0; i < 16; i++) {
-    const x = 8 + ((i * 59) % 464);
+  if (!playing()) return;
+  const t = S.ms / 1000, cheer = sim!.phase === 'goal', m = match!, n = 8 + (m.seed % 9);
+  const shirts = [paletteIndex(m.kits.teams[0].shirt), paletteIndex(m.kits.teams[1].shirt), WHITE, CYELL, CGREEN, VOID];
+  for (let i = 0; i < n; i++) {
+    const x = 8 + ((i * 59 + (m.seed % 23)) % 464);
     if (Math.abs(x - PALM.x) < 6 || Math.abs(x - 115) < 5) continue;
-    const c = [CRED, CBLUE, WHITE, CYELL, CGREEN, VOID][i % 6], up = cheer && Math.sin(t * 10 + i) > 0 ? 1 : 0;
+    const c = shirts[(i + m.slot) % 6], up = cheer && Math.sin(t * 10 + i) > 0 ? 1 : 0;
     rect(x, WALLTOP - 6 - up, 2, 4, c); rect(x, WALLTOP - 9 - up, 2, 3, [SKIN1, SKIN2, SKIN3, SKIN4][i % 4]); put(x, WALLTOP - 2, BNEAR); put(x + 1, WALLTOP - 1, BNEAR);
   }
 }
@@ -302,7 +247,8 @@ function lit() {
   const n = isNight();
   for (const f of farWins) put(f.x, f.y, n && f.rank < 0.45 ? WWARM : BFAR);
 }
-const floodsOn = () => mode === 'night' || (mode !== 'none' && S.dayK < 0.4);
+/** On for the evening slots (18:30, 20:00) and any match running into dusk; off outside match time. */
+const floodsOn = () => !!match && (match.night || S.dayK < 0.4);
 const TURF = new Set([LEAFG, LEAFGD, TILEW]);
 function floodlights() {
   const on = floodsOn();
@@ -321,7 +267,7 @@ function floodlights() {
 function update(dt: number) {
   updateAnimals(dt);
   updateMatch(dt);
-  tickSpawns(dt, mode === 'match' ? 2 : 1); updatePeople(dt);
+  tickSpawns(dt, playing() ? 2 : 1); updatePeople(dt);
 }
 
 const FOG = [{ y: 98, h: 9, sp: 0.4 }, { y: 138, h: 6, sp: -0.3 }];
@@ -330,10 +276,10 @@ function render() {
   blitLayer(far); drawFireworks();
   blitLayer(mid); lit(); floodlights(); drawFarPrecip();
   drawGoal(PITCH.x0, 1); drawGoal(PITCH.x1, -1);
-  if (mode !== 'none') {
-    const list = [...players].sort((a, b) => a.y - b.y);
+  if (sim) {
+    const pl = sim.players, ball = sim.ball, order = pl.map((_, i) => i).sort((a, b) => pl[a].y - pl[b].y);
     let drawn = false;
-    for (const p of list) { if (!drawn && p.y > ball.y) { drawBall(); drawn = true; } drawPlayer(p); }
+    for (const i of order) { if (!drawn && pl[i].y > ball.y) { drawBall(); drawn = true; } drawPlayer(pl[i], looks[i]); }
     if (!drawn) drawBall();
   }
   blitLayer(fence); wallCrowd();
@@ -352,10 +298,26 @@ export const campoRodoviaria: Scene = {
     setupAnimals({ ground: [143, 145], dogs: 2, sleepSpots: [330], lamps: FLOODS.map((x) => ({ x, y: FLOOD_Y })),
       walls: [{ x0: 0, x1: WW, y: FENCE }, { x0: 0, x1: 108, y: WALLTOP }, { x0: 380, x1: WW, y: WALLTOP }] });
     configure({ roofs: [], tips: [], lamps: [], ground0: WALK, horizon: HORIZON });
-    mode = 'none';
+    match = null; sim = null;
     for (let i = 0; i < 120; i++) update(1 / 30);
   },
   update,
   render,
-  debug() { return `active  people x${peopleCount()}  jogo ${mode}  placar ${score[0]}x${score[1]}`; },
+  // The players on the pitch (behind the fence) can be tapped: they speak as players.
+  tap(x, y) {
+    const s = sim;
+    if (!s) return null;
+    for (const [i, p] of s.players.entries()) {
+      if (p.role === 'ref' || Math.abs(x - p.x) > 2.5 || y > p.y + 1 || y < p.y - looks[i].H - 1) continue;
+      const at = () => ({ x: s.players[i].x, y: s.players[i].y - looks[i].H - 1 });
+      return { ...at(), speaker: { role: 'player', track: () => (sim === s ? at() : null) } };
+    }
+    return null;
+  },
+  debug() {
+    if (!match || !sim) return `active  people x${peopleCount()}  jogo none`;
+    const k = match.kits, hm = (h: number) => `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}`;
+    return `active  people x${peopleCount()}  jogo ${hm(match.start)}-${hm(match.end)} ${k.teams[0].shirt}x${k.teams[1].shirt}${match.paused ? ' (chuva)' : ''}` +
+      `  jogadores x${sim.players.filter((p) => p.role !== 'ref').length}  ${sim.phase}  placar ${sim.score[0]}x${sim.score[1]}  gols ${sim.goals}`;
+  },
 };
