@@ -28,6 +28,13 @@ Everything is drawn in code, with no image assets: an indexed framebuffer whose 
 
 **Church bells (Esperança)**: with ambient sound on (M), the matriz strikes the hours on Esperança's real clock (Brasília time), from 05:00 through 00:00, counting in 12-hour style (13h = 1 strike, 00h = 12); it is silent from 01:00 to 04:00. You hear it in every Esperança scene: near in Praça da Matriz, farther away and softer elsewhere. Missed hours are never replayed (background tab, sleep, reload, turning sound on late), and nothing rings while a `#at=` moment is pinned.
 
+**Daily rhythm**: crowds, traffic and birds follow each city's own clock, interpolated smoothly between hours (and `#at=` moments). Esperança, Campina Grande and João Pessoa all use Brasília time (UTC-3, the same as Fortaleza, no daylight saving), and so do the weekday and calendar.
+
+- Esperança's Praça da Matriz and Praça da Cultura are busiest from 14h to 15h. Around 17h the birds get busy, flying back to the trees and wires (this depends on the time only, not the temperature). From 19h the streets thin out; 21–23h and 00–05h are nearly empty, with just the odd dog or passer-by.
+- Campina Grande and João Pessoa are busier by day and in the evening, but still have few people out from 00h to 05h.
+- **Mass at the Matriz**: the doors open, the nave is lit and a small congregation gathers by the church on Sundays at 07, 09, 16 and 19h, and Monday to Friday at 19h. Assumptions, not an official parish timetable: each mass lasts 1 hour, and there is no Saturday mass. The rest of the praça stays quiet.
+- Weather is never made up here: live rain, storms and snow (or the fallback climate) only scale these crowd levels down.
+
 ## Run
 
 ```bash
@@ -35,7 +42,7 @@ pnpm install
 pnpm dev        # http://localhost:5173
 pnpm build      # dist/index.html, a single self-contained file
 pnpm shot       # screenshots into ./shots (needs a build; NODEBUG=1 hides the debug panel)
-pnpm test       # unit tests for the bell schedule and timer (node --test; Node >= 22.18, no extra deps)
+pnpm test       # unit tests for the bell schedule and timer and the daily rhythm (node --test; Node >= 22.18, no extra deps)
 ```
 
 ## URL options
@@ -54,7 +61,7 @@ T city, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M ambie
 ## Layout
 
 - `src/engine`: indexed framebuffer, palette, WebGL2 post-processing
-- `src/sky`: cities, clock and astronomy, climate models (Japan and Brazil's Agreste), live weather, palette grading
+- `src/sky`: cities, clock and astronomy, climate models (Japan and Brazil's Agreste), live weather, palette grading; `rhythm.ts` holds the pure, unit-tested daily rhythm (crowds, birds, mass times)
 - `src/fx`: rain, snow, petals and leaves, lightning, fireworks
 - `src/actors`: pedestrians, cars and motorcycles, trees
 - `src/scenes`: shared passes, the Esperança prop kit (`br-kit.ts`) and one file per scene

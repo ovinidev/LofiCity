@@ -64,7 +64,7 @@ resize();
 
 let scene = pickScene(city.id);
 settle(simNow(), city);
-direct(simNow(), city, 0);
+direct(simNow(), city, 0, scene.id);
 scene.build();
 
 // ---------- HUD ----------
@@ -129,8 +129,9 @@ function setCity(id: string) {
   sel.value = city.id;
   pinMoment();
   followLive(city);
-  settle(simNow(), city); direct(simNow(), city, 0);
-  scene = pickScene(city.id); scene.build();
+  scene = pickScene(city.id);
+  settle(simNow(), city); direct(simNow(), city, 0, scene.id);
+  scene.build();
   syncBells();
   updateHud();
   if (hosted) pageview({ route: '/[city]', path: `/${city.id}` });
@@ -143,7 +144,7 @@ const actions: Record<string, () => void> = {
   sound: () => { press('b-sound', audio.toggle()); syncBells(); },
   crt: () => { opts.crt = !opts.crt; press('b-crt', opts.crt); },
   city: () => setCity(CITIES[(CITIES.indexOf(city) + 1) % CITIES.length].id),
-  scene: () => { scene = nextScene(city.id, scene); scene.build(); syncBells(); },
+  scene: () => { scene = nextScene(city.id, scene); direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); },
   music: () => radio.toggle(),
   station: () => radio.nextStation(),
   skip: () => radio.skip(),
@@ -216,7 +217,7 @@ function frame(now: number) {
   if (dt > 0.25) dt = 0.25;
   const t0 = performance.now();
   clock += dt;
-  direct(simNow(), city, dt);
+  direct(simNow(), city, dt, scene.id);
   updateSky(dt); updateSkyEvents(dt); updatePrecip(dt); scene.update(dt);
   scene.render();
   drawEmotes(dt);
@@ -237,7 +238,7 @@ time    ${new Date(simNow()).toISOString().slice(0, 16)}Z   ${city.id}   weather
 sun     ${S.sunElev.toFixed(1)}°  day ${S.dayK.toFixed(2)}  gold ${S.golden.toFixed(2)}  moon ${S.moonPhase.toFixed(2)}
 wx      rain ${S.rain.toFixed(2)} snow ${S.snow.toFixed(2)} storm ${S.storm.toFixed(2)} cloud ${S.cloud.toFixed(2)}
         fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp.toFixed(1)}
-busy    ${S.busy.toFixed(2)}   tree d${S.tree.density.toFixed(2)} p${S.tree.pink.toFixed(2)} r${S.tree.red.toFixed(2)}
+busy    ${S.busy.toFixed(2)}  traffic ${S.traffic.toFixed(2)}  birds ${S.birds.toFixed(2)}   tree d${S.tree.density.toFixed(2)} p${S.tree.pink.toFixed(2)} r${S.tree.red.toFixed(2)}
 ${scene.debug()}
 fps     ${fps}   work ${workMs.toFixed(1)} ms   ${backend()}
 drops   ${precip.liveDrops}/${precip.rainCap}  flakes ${precip.liveFlakes}  leaves ${precip.liveLeaves}

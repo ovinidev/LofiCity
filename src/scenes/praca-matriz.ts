@@ -2,10 +2,11 @@
    Google Maps captures, a Jun 2025 photo and Feb 2025 Street View) with its slender central clock
    tower and pointed spire, cream pilasters lit amber from below at night, white LED lamp posts,
    palms, the Virgin on her tiled pedestal, wires across the street and motorcycles. */
-import { L, Lp, WW, blitLayer, getW, newLayer, put, sx, sy } from '../engine/gfx';
+import { G, L, Lp, WW, blitLayer, getW, newLayer, put, rect, sx, sy } from '../engine/gfx';
 import { bay, mulberry32 } from '../engine/math';
 import {
-  AMB, AMBD, ASPH, BARK, BFAR, BMID, BNEAR, CBLUE, CHURCH, CHURCHD, CHURCHL, CYELL, GOLD, LIGHT, MANTO, SKIN2, STONE, STONEL,
+  AMB, AMBD, ASPH, BARK, BFAR, BMID, BNEAR, CBLUE, CHURCH, CHURCHD, CHURCHL, CYELL, GOLD, HAIR1, HAIR2, HAIR3, LIGHT, MANTO,
+  SKIN1, SKIN2, SKIN3, SKIN4, STONE, STONEL,
   TILEW, VOID, WHITE, WOOD, WWARM, WCOOL, FBLUE, FGREEN, FPINK, MAG, CRED,
 } from '../engine/palette';
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
@@ -13,6 +14,7 @@ import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
+import { type MassState, massState } from '../sky/rhythm';
 import { S } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
@@ -190,18 +192,81 @@ function clock() {
 }
 
 function windows() {
-  const n = isNight(), lit = n && (S.festa || S.cal.hour >= 18 && S.cal.hour < 21 || S.cal.weekday === 0 && S.cal.hour < 11);
-  if (lit) {
+  const n = isNight();
+  if (n && (S.festa || mass.doorsOpen)) {
     for (const g of [...winTower, ...winSide]) arch(null, g.x, g.y, g.w, g.h, WWARM);
     for (const g of winOuter) arch(null, g.x, g.y, g.w, g.h, AMB);
-    arch(null, mainDoor.x + 2, mainDoor.y + 6, mainDoor.w - 4, mainDoor.h - 6, WWARM); // main door open
+  }
+  if (mass.doorsOpen || (n && S.festa)) { // main door open on the lit nave (dimmer against daylight)
+    const x = mainDoor.x + 2, y = mainDoor.y + 6, w = mainDoor.w - 4, h = mainDoor.h - 6;
+    arch(null, x, y, w, h, n ? WWARM : AMBD);
+    if (!n) { put(x + 2, y + 9, LIGHT); put(x + w - 3, y + 9, LIGHT); for (let i = 1; i < w - 1; i++) put(x + i, y + 13, AMB); } // candles, altar
   }
   for (const f of farWins) put(f.x, f.y, n && f.rank < 0.5 ? (f.rank < 0.1 ? WCOOL : WWARM) : BFAR);
   if (((S.ms / 1000) | 0) % 2 === 0) put(438, 9, MAG);
 }
 
+// ---------- mass: a small congregation by the church door ----------
+// Only around mass (rhythm.ts massState: Sundays 07/09/16/19h, Mon-Fri 19h): the faithful walk in
+// from the sides, linger chatting near the door, go in; at the end they come out and walk off.
+// Separate from the street pedestrians, so the rest of the praça keeps its quiet evening.
+interface Fiel { on: boolean; x: number; tx: number; dir: number; sp: number; ph: number; wait: number; out: boolean; top: number; low: number; skin: number; hair: number; skirt: boolean }
+const fr = mulberry32(0xf1e15);
+const fpick = <T>(a: readonly T[]): T => a[(fr() * a.length) | 0];
+const FIEIS: Fiel[] = Array.from({ length: 8 }, () => ({ on: false, x: 0, tx: 0, dir: 1, sp: 8, ph: 0, wait: 0, out: false, top: WHITE, low: VOID, skin: SKIN2, hair: HAIR1, skirt: false }));
+const FIEL_Y = 141; // the sidewalk in front of the steps
+let fielT = 0;
+let mass: MassState = massState(0);
+
+function spawnFiel(out: boolean) {
+  const f = FIEIS.find((o) => !o.on);
+  if (!f) return;
+  f.skirt = fr() < 0.55; f.top = fpick([WHITE, WHITE, CBLUE, MANTO, CRED, CYELL, FPINK, TILEW]); f.low = f.skirt ? f.top : fpick([VOID, BNEAR, CBLUE, STONE]);
+  f.skin = fpick([SKIN1, SKIN2, SKIN2, SKIN3, SKIN4]); f.hair = fpick([HAIR1, HAIR1, HAIR2, HAIR3, HAIR3]);
+  f.sp = 7 + fr() * 4; f.ph = fr() * 4; f.out = out; f.on = true;
+  if (out) { f.x = CX - 4 + fr() * 8; f.dir = fr() < 0.5 ? -1 : 1; }
+  else {
+    f.dir = fr() < 0.5 ? 1 : -1; f.x = f.dir > 0 ? G.camX - 8 : G.camX + G.W + 8;
+    f.tx = Math.round(CX + (fr() - 0.5) * 48); f.wait = mass.active ? 0.5 : 2 + fr() * 8; // latecomers go straight in
+  }
+}
+
+function updateMass(dt: number) {
+  mass = massState(S.ms);
+  fielT -= dt;
+  if (fielT <= 0) {
+    fielT = mass.leaving ? 0.8 + fr() * 1.7 : 4 + fr() * 6;
+    if (mass.arriving || mass.leaving) spawnFiel(mass.leaving);
+  }
+  for (const f of FIEIS) {
+    if (!f.on) continue;
+    if (f.out) {
+      f.x += f.dir * f.sp * dt; f.ph += dt * f.sp * 0.42;
+      if (f.x < G.camX - 12 || f.x > G.camX + G.W + 12) f.on = false;
+      continue;
+    }
+    if (!mass.doorsOpen) { f.on = false; continue; }
+    const d = f.tx - f.x;
+    if (Math.abs(d) > 1) { f.dir = Math.sign(d); f.x += f.dir * f.sp * dt; f.ph += dt * f.sp * 0.42; }
+    else if (f.tx !== CX) { f.wait -= dt; if (f.wait <= 0) f.tx = CX; } // chatting by the door, then in
+    else f.on = false; // through the door
+  }
+}
+
+function drawFiel(f: Fiel) {
+  const X = Math.round(f.x), y = FIEL_Y, walking = Math.abs(f.tx - f.x) > 1 || f.out;
+  const st = walking ? [1, 0, 1, 0][(f.ph | 0) & 3] : 0;
+  for (let rr = 0; rr < 5; rr++) {
+    const off = rr >= 2 ? st : 0, c = rr === 4 ? VOID : f.skirt && rr >= 2 ? f.skin : f.low;
+    put(X - 1 - off, y - 4 + rr, c); put(X + 1 + off, y - 4 + rr, c);
+  }
+  rect(X - 1, y - 10, 3, f.skirt ? 8 : 6, f.top);
+  rect(X - 1, y - 14, 3, 3, f.skin); rect(X - 1, y - 15, 3, 1, f.hair); put(X - f.dir, y - 14, f.hair);
+  if (f.skirt) put(X - f.dir, y - 13, f.hair);
+}
+
 function update(dt: number) {
-  updateAnimals(dt);
+  updateAnimals(dt); updateMass(dt);
   const crowd = S.procissao ? 5 : S.festa && S.cal.hour >= 18 ? 3 : 1.3;
   tickSpawns(dt, crowd); updatePeople(dt); updateCars(dt, 1);
 }
@@ -219,7 +284,7 @@ function render() {
   if (S.festa || S.saoJoao) { bandeirolas(118, 70, 222, 58, 8, 0); bandeirolas(258, 58, 362, 70, 8, 3); if (S.festa) { bulbs(0, 74, 118, 70, 6); bulbs(362, 70, 480, 74, 6); } }
   if (S.saoJoao && S.cal.day >= 22 && S.cal.day <= 24 && S.cal.hour >= 18) fogueira(440, 146);
   cart(326, 146, S.stallOpen);
-  drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
+  drawAnimalsPerched(); for (const f of FIEIS) if (f.on) drawFiel(f); drawPeople(); drawAnimalsGround();
   drawStreet(street); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
@@ -239,7 +304,7 @@ export const praca: Scene = {
   },
   update,
   render,
-  debug() { return `active  people x${peopleCount()}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
+  debug() { return `active  people x${peopleCount()}  fiéis x${FIEIS.filter((f) => f.on).length}  mass ${mass.active ? 'on' : mass.doorsOpen ? 'doors' : 'off'}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
   // tap the church (façade, tower or spire) and the bell strikes once
   tap(x, y) {
     const tower = x >= 220 && x < 260 && y >= -76 && y < 62, facade = x >= 166 && x < 314 && y >= 37 && y < 140;

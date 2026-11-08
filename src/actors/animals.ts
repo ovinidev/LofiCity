@@ -37,7 +37,12 @@ function updateDogs(dt: number) {
   // at night a couple of dogs sleep curled at their usual spots
   if (night && cfg.sleepSpots) cfg.sleepSpots.forEach((x, i) => { const d = dogs[i]; if (d && !d.on) { d.on = true; d.x = x; d.y = cfg.ground[0]; d.c = DOG_COLORS[i % DOG_COLORS.length]; d.spot = 255; d.st = 'sleep'; d.dir = i % 2 ? 1 : -1; d.t = 1e9; } });
   dogT -= dt * (S.rain > 0.4 ? 0.2 : 1);
-  if (dogT <= 0 && !night) { dogT = 12 + r() * 25; if (dogs.filter((d) => d.on).length < (cfg.dogs ?? 2)) spawnDog(); }
+  // fewer dogs about when the town is empty; late at night only the odd one trots by
+  if (dogT <= 0) {
+    dogT = (12 + r() * 25) / Math.max(0.25, Math.min(1, S.busy * 2));
+    const awake = dogs.filter((d) => d.on && d.st !== 'sleep').length;
+    if (awake < (night ? 1 : cfg.dogs ?? 2)) spawnDog();
+  }
   for (const d of dogs) {
     if (!d.on) continue;
     d.ph += dt; d.t -= dt;
@@ -112,14 +117,15 @@ function drawCat(c: Cat) {
 }
 
 // ---------- birds on wires ----------
-interface Bird { wire: Wire; x: number; on: boolean; fly: boolean; vx: number; vy: number; fx: number; fy: number; t: number; ph: number }
+/** `land`: flying in from off screen to its spot `x` on the wire (fx, fy is where it is now). */
+interface Bird { wire: Wire; x: number; on: boolean; fly: boolean; land: boolean; vx: number; vy: number; fx: number; fy: number; t: number; ph: number }
 let birds: Bird[] = [];
 function initBirds() {
   birds = [];
   for (const w of cfg.wires ?? []) {
     let x = w.x0 + 10 + r() * 30;
     while (x < w.x1 - 10) {
-      if (r() < 0.45) { const n = 1 + ((r() * 3) | 0); for (let k = 0; k < n; k++) birds.push({ wire: w, x: x + k * 3, on: true, fly: false, vx: 0, vy: 0, fx: 0, fy: 0, t: 0, ph: r() * 6 }); }
+      if (r() < 0.45) { const n = 1 + ((r() * 3) | 0); for (let k = 0; k < n; k++) birds.push({ wire: w, x: x + k * 3, on: true, fly: false, land: false, vx: 0, vy: 0, fx: 0, fy: 0, t: 0, ph: r() * 6 }); }
       x += 25 + r() * 40;
     }
   }
@@ -127,16 +133,26 @@ function initBirds() {
 let scareCd = 0;
 function updateBirds(dt: number) {
   scareCd -= dt;
-  const bx = bigVehicleNear(), night = S.dayK < 0.2;
+  // S.birds (time of day only) peaks around 17h: birds hop off and fly back in to the wires far more often
+  const bx = bigVehicleNear(), night = S.dayK < 0.2, act = S.birds;
   for (const b of birds) {
     b.ph += dt;
-    if (b.on && !b.fly && ((bx !== null && Math.abs(bx - b.x) < 30 && scareCd <= 0) || r() < dt * 0.004)) {
+    if (b.on && !b.fly && ((bx !== null && Math.abs(bx - b.x) < 30 && scareCd <= 0) || r() < dt * (0.004 + 0.012 * act))) {
       b.fly = true; b.fx = b.x; b.fy = b.wire.y(b.x); b.vx = (r() < 0.5 ? -1 : 1) * (25 + r() * 25); b.vy = -18 - r() * 18;
     }
-    if (b.fly) {
+    if (b.fly && b.land) {
+      const dx = b.x - b.fx, dy = b.wire.y(b.x) - b.fy, d = Math.hypot(dx, dy), step = 34 * dt;
+      if (d <= step) { b.fly = false; b.land = false; b.on = true; } else { b.fx += (dx / d) * step; b.fy += (dy / d) * step; }
+    } else if (b.fly) {
       b.fx += b.vx * dt; b.fy += b.vy * dt; b.vy += 4 * dt;
-      if (b.fx < G.camX - 20 || b.fx > G.camX + G.W + 20 || b.fy < -G.oy - 20) { b.fly = false; b.on = false; b.t = 8 + r() * 25; }
-    } else if (!b.on) { b.t -= dt; if (b.t <= 0 && !night) { b.on = true; b.x = b.wire.x0 + 8 + r() * (b.wire.x1 - b.wire.x0 - 16); } }
+      if (b.fx < G.camX - 20 || b.fx > G.camX + G.W + 20 || b.fy < -G.oy - 20) { b.fly = false; b.on = false; b.t = (8 + r() * 25) * (1 - 0.8 * act); }
+    } else if (!b.on) {
+      b.t -= dt;
+      if (b.t <= 0 && !night) { // glide in from off screen, above, to a free spot on its wire
+        b.x = b.wire.x0 + 8 + r() * (b.wire.x1 - b.wire.x0 - 16);
+        b.fly = true; b.land = true; b.fx = b.x + (r() < 0.5 ? -1 : 1) * (90 + r() * 80); b.fy = b.wire.y(b.x) - 40 - r() * 40;
+      }
+    }
   }
   if (bx !== null && birds.some((b) => b.fly)) scareCd = 4;
 }
@@ -164,7 +180,8 @@ function drawSkyAnimals(dt: number) {
   }
   // dusk flock (garças home to roost, or dark birds)
   flockT -= dt;
-  if (!flock && flockT <= 0 && (S.golden > 0.2 || S.twilight > 0.2)) { const dir = r() < 0.5 ? 1 : -1; flock = { x: dir > 0 ? G.camX - 40 : G.camX + G.W + 40, y: -20 + r() * 50, dir, n: 6 + ((r() * 7) | 0), white: r() < 0.5 }; flockT = 60 + r() * 120; }
+  // flocks follow the clock (S.birds): a few at dawn, many around 17h as birds head back to the trees
+  if (!flock && flockT <= 0 && S.birds > 0.3) { const dir = r() < 0.5 ? 1 : -1; flock = { x: dir > 0 ? G.camX - 40 : G.camX + G.W + 40, y: -20 + r() * 50, dir, n: 6 + ((r() * 7) | 0), white: r() < 0.5 }; flockT = (60 + r() * 120) * (1 - 0.7 * S.birds); }
   if (flock) {
     flock.x += flock.dir * 22 * dt; flock.y -= dt * 1.5;
     const t = S.ms / 1000;
@@ -246,4 +263,4 @@ export function drawAnimalsSky() { const now = S.ms / 1000, dt = Math.min(0.1, M
 export function drawAnimalsPerched() { for (const c of cats) drawCat(c); drawBirds(); drawBats(1 / 60); }
 /** Dogs and lizards on the ground: call with the pedestrians. */
 export function drawAnimalsGround() { for (const d of dogs) if (d.on) drawDog(d); drawLizards(1 / 60); }
-export const animalsDebug = () => `dogs ${dogs.filter((d) => d.on).map((d) => d.st).join(',') || '-'}  cats ${cats.length}  birds ${birds.filter((b) => b.on && !b.fly).length}/${birds.length}`;
+export const animalsDebug = () => `dogs ${dogs.filter((d) => d.on).map((d) => d.st).join(',') || '-'}  cats ${cats.length}  birds ${birds.filter((b) => b.on && !b.fly).length}/${birds.length} fly ${birds.filter((b) => b.fly).length}`;

@@ -1,9 +1,10 @@
 /* World state derived each frame from the simulated clock and the climate model.
    Only wetness and snow cover are integrated over time; everything else is a function of now. */
-import { clamp, hashf, lerp, ss } from '../engine/math';
+import { clamp, hashf, ss } from '../engine/math';
 import { type City, CITIES, FESTA_PADROEIRA } from './cities';
 import { type Wx, weather } from './climate';
 import { liveAt } from './live';
+import { birdActivity, density } from './rhythm';
 import { type Cal, calendar, doyOf, inDoy, moonElev, moonHourAngle, moonPhase, solarHour, sunElev } from './time';
 
 export const S = {
@@ -12,7 +13,11 @@ export const S = {
   festa: false, procissao: false, saoJoao: false, natal: false,
   sunElev: 0, moonElev: 0, moonHA: 0, moonPhase: 0, morning: true,
   dayK: 0, golden: 0, twilight: 0,
-  busy: 1, deep: 0, neonOn: true, lampOn: true, stallOpen: true, trains: true,
+  /** People (busy) and vehicles (traffic) out, 0..1, for the hour, city and scene (rhythm.ts), scaled by the weather. */
+  busy: 1, traffic: 1,
+  /** Birds leaving and landing on the wires, flocks crossing (rhythm.ts; time only). */
+  birds: 0,
+  deep: 0, neonOn: true, lampOn: true, stallOpen: true, trains: true,
   temp: 10, rain: 0.5, snow: 0, storm: 0, cloud: 0.5, fog: 0.3, wind: 0.1, typhoon: false, tsuyu: false,
   wet: 0.6, snowCover: 0,
   petals: 0, leaves: 0, fireworks: false,
@@ -20,9 +25,6 @@ export const S = {
   exposure: 1, flashSky: 0, flashAll: 0, shake: 0,
 };
 
-// Pedestrian traffic by hour: commute peaks, quiet small hours.
-const BUSY = [0.25, 0.15, 0.08, 0.05, 0.05, 0.12, 0.4, 0.85, 1, 0.7, 0.55, 0.6, 0.75, 0.65, 0.6, 0.65, 0.75, 0.95, 1, 0.9, 0.75, 0.6, 0.45, 0.35, 0.25];
-const busyAt = (h: number) => { const i = Math.floor(h) % 24; return lerp(BUSY[i], BUSY[i + 1], h - Math.floor(h)); };
 const hourIn = (h: number, a: number, b: number) => (a <= b ? h >= a && h < b : h >= a || h < b);
 export { hourIn };
 
@@ -90,7 +92,8 @@ function wx(ms: number, cal: Cal, city: City): Wx {
   };
 }
 
-export function direct(ms: number, city: City, dtSim: number) {
+/** `scene` is the current scene id, for scene-specific rhythms (Esperança's praças). */
+export function direct(ms: number, city: City, dtSim: number, scene = '') {
   const cal = deriveTime(ms, city), h = cal.hour;
   const w = wx(ms, cal, city);
   S.temp = w.temp; S.rain = w.rain; S.snow = w.snow; S.storm = w.storm; S.cloud = w.cloud; S.fog = w.fog;
@@ -98,7 +101,9 @@ export function direct(ms: number, city: City, dtSim: number) {
   S.wind = w.wind;
   integrate(dtSim);
 
-  S.busy = busyAt(h) * (1 - 0.3 * S.rain - 0.4 * S.storm - 0.3 * S.snow);
+  const rhythm = density(city.id, scene, ms), wxK = 1 - 0.3 * S.rain - 0.4 * S.storm - 0.3 * S.snow;
+  S.busy = rhythm.people * wxK; S.traffic = rhythm.traffic * wxK;
+  S.birds = birdActivity(city.id, ms);
   S.deep = ss(0.5, 2, h) * (1 - ss(4, 5.5, h));
   S.neonOn = S.dayK < 0.55 || (S.cloud > 0.85 && S.dayK < 0.8);
   S.lampOn = S.dayK < 0.4 || (S.cloud > 0.85 && w.precip > 0.5 && S.dayK < 0.7);
