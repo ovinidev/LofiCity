@@ -44,7 +44,9 @@ pnpm shot       # screenshots into ./shots (needs a build; NODEBUG=1 hides the d
 
 ## Keys
 
-T city, S scene, R radio, N next track, P station, M ambient sound, C CRT, L lightning, Enter fullscreen.
+T city, S scene, R radio, N next track, P station, M ambient sound, C CRT, L lightning, H hide/show the panels, Enter fullscreen.
+
+The eye button (top-right) hides the whole HUD, credit included, for a clean view; the choice is remembered. Hiding it does not pause the radio. Fullscreen is on the button and Enter only (no double-click), so quick taps on the scene never resize it.
 
 ## Layout
 
