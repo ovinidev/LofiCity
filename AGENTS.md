@@ -31,7 +31,7 @@ pnpm test        # node --test on test/*.test.ts (Node >= 22.18 strips types; no
 
 ## Project rules
 
-- **No image assets.** Everything is drawn in code into an indexed framebuffer with a palette. Do not add images or sprite files.
+- **No image assets.** Everything is drawn in code into an indexed framebuffer with a palette. Do not add images or sprite files (exception: the approved app icons and manifest in `public/`).
 - **Weather** comes only from Open-Meteo (no API key). Never simulate or randomize weather: when a fetch fails, show the last real reading for that city marked stale, or "clima indisponível" over a neutral sky (rules in `src/sky/weather-feed.ts`, tested in `test/weather-feed.test.ts`). `#wx=` is a test override and must stay labelled as one.
 - **Music** is streamed from the Internet Archive under Creative Commons licenses. It is not part of the repo or its MIT license; never vendor audio files.
 - **Public repo:** never commit secrets, keys or `.env` files (`.env*` is gitignored). `node_modules`, `dist`, `shots` and `.vercel` are also ignored.
