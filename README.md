@@ -12,17 +12,21 @@ Lo-fi pixel-art scenes that follow each city's **real clock** and **live weather
 - **Remígio**: `Lagoa de Remígio`, the round lagoon with royal palms, houses up the hill, the matriz on top and ducks on the water.
 - **Tokyo**: `Esquina da chuva` (rain corner), `Beco neon` (neon alley), `Rua do konbini` (konbini street), `Santuário` (shrine). Japanese seasons: sakura, tsuyu, momiji, year-end snow, hanabi.
 - **Esperança, Paraíba, Brazil** (Brasília time). Local calendar: the patron saint's festival in January, Holy Week, São João in June, Christmas.
-  - `Praça da Matriz`: the square in front of the Nossa Senhora do Bom Conselho church.
+  - `Praça da Matriz`: the square in front of the ochre Nossa Senhora do Bom Conselho church, with its slender clock tower and spire.
   - `Rua do Comércio`: the main shopping street, with a bar that puts its tables out at night.
   - `Capelinha das Pedras`: the tiny 1925 chapel on the Lajedo do Araçá rock, beside the pool that mirrors it.
-  - `Praça da Cultura`: the town's postcard square, with the "EU ♥ ESPERANÇA" letters, craft fairs and the Paixão de Cristo in Holy Week.
-  - `Campo da Rodoviária`: the dirt football pitch by the bus station; pickup games, weekend matches with a crowd, buses coming and going.
+  - `Praça da Cultura`: the town's postcard square: blue steps up to a red plaza, the "EU ♥ ESPERANÇA" letters with their big heart, craft fairs and the Paixão de Cristo in Holy Week.
+  - `Campo da Rodoviária`: the fenced artificial-turf pitch behind a wall of football murals; pickup games, weekend matches, floodlit evenings.
+
+  The Matriz, Praça da Cultura and Campo da Rodoviária scenes were drawn using Google Maps captures as reference only (Feb 2020, Feb 2025 and Jun 2025). They may not match the places today, and none of the images are in the repo.
 
 Esperança's streets are busy with local life: motorcycles of every kind (mototáxi, delivery, the gas man with a botijão), Viação São José buses, the prefeitura school bus, carros-pipa, donkey carts, the carro de som, pickups carrying furniture, a Veraneio now and then; joggers, sun umbrellas and street vendors; street dogs, cats on the walls, birds on the wires, vultures on the thermals and bats around the lamps.
 
 Everything is drawn in code, with no image assets: an indexed framebuffer whose palette is graded for day, night, sunset and overcast skies.
 
-**Tap anything that moves**: birds fly off the wires, cats bolt along the walls, dogs bark and run, people say "oi!", and every vehicle has its own horn, from the moto's beep to the São José bus, the donkey cart's bray and the carro de som's jingle. All sounds are synthesized in the browser.
+**Tap anything that moves**: birds fly off the wires, cats bolt along the walls, dogs bark and run, people say "oi!", and every vehicle has its own horn, from the moto's beep to the São José bus, the donkey cart's bray and the carro de som's jingle. In Praça da Matriz, tap the church and its bell strikes once. All sounds are synthesized in the browser.
+
+**Church bells (Esperança)**: with ambient sound on (M), the matriz strikes the hours on Esperança's real clock (Brasília time), from 05:00 through 00:00, counting in 12-hour style (13h = 1 strike, 00h = 12); it is silent from 01:00 to 04:00. You hear it in every Esperança scene: near in Praça da Matriz, farther away and softer elsewhere. Missed hours are never replayed (background tab, sleep, reload, turning sound on late), and nothing rings while a `#at=` moment is pinned.
 
 ## Run
 
@@ -31,6 +35,7 @@ pnpm install
 pnpm dev        # http://localhost:5173
 pnpm build      # dist/index.html, a single self-contained file
 pnpm shot       # screenshots into ./shots (needs a build; NODEBUG=1 hides the debug panel)
+pnpm test       # unit tests for the bell schedule and timer (node --test; Node >= 22.18, no extra deps)
 ```
 
 ## URL options
@@ -44,7 +49,7 @@ pnpm shot       # screenshots into ./shots (needs a build; NODEBUG=1 hides the d
 
 ## Keys
 
-T city, S scene, R radio, N next track, P station, M ambient sound, C CRT, L lightning, H hide/show the panels, Enter fullscreen.
+T city, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, L lightning, H hide/show the panels, Enter fullscreen.
 
 The eye button (top-right) hides the whole HUD, credit included, for a clean view; the choice is remembered. Hiding it does not pause the radio. Fullscreen is on the button and Enter only (no double-click), so quick taps on the scene never resize it.
 
@@ -55,14 +60,16 @@ The eye button (top-right) hides the whole HUD, credit included, for a clean vie
 - `src/fx`: rain, snow, petals and leaves, lightning, fireworks
 - `src/actors`: pedestrians, cars and motorcycles, trees
 - `src/scenes`: shared passes, the Esperança prop kit (`br-kit.ts`) and one file per scene
-- `src/audio`: generative ambience and the radio
+- `src/audio`: generative ambience, synthesized SFX and church bells (`bells-schedule.ts` holds the pure rules and `bells-scheduler.ts` the timer, both unit-tested), and the radio
+- `test`: `node --test` unit tests
 
 ## Credits
 
 - **Weather**: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). No API key; refreshes every 10 minutes and falls back to the simulated climate if the network fails.
 - **Music**: streamed from the [Internet Archive](https://archive.org/), released by their labels under Creative Commons licenses. The radio shows each track's artist, album and license with a link to the original page.
-  - Rádio Lo-Fi City: [Dusted Wax Kingdom](https://archive.org/search?query=identifier%3ADWK%2A) (CC BY-NC-ND).
-  - Rádio Vaporwave: releases from netlabels such as Enough Records, Section 27, Internet Daemon and others (CC BY-NC-ND / BY-NC-SA / BY-SA).
+  - **Lo-Fi City** (amber; lo-fi beats, instrumental hip-hop): 15 albums from the [Dusted Wax Kingdom](https://archive.org/details/dustedwaxkingdom) netlabel (CC BY-NC-ND 3.0/4.0).
+  - **Neon FM** (magenta; vaporwave): Meavy Boy (*Column*, *EP 71 to 20*), Meavy Boy / アロキン (*No Sleep*) and アロキン (*Sleepless Arcade*), all from the [Spettro Records](https://archive.org/details/spettrorec) netlabel (CC BY-NC-ND 4.0), and 2003 Toyota Corolla from the hanahata netlabel (CC BY-SA 4.0).
+  - The album list is in `src/audio/radio.ts`. Intros, interludes, skits, vocal features and tracks under 75 s or over 8 min are skipped. If a track or album fails, the radio skips ahead with a short pause between tries, and after 5 failures in a row it stops and says so.
   - The music is **not** part of this repository or its MIT license, and the NC licenses forbid commercial use.
 
 ## Privacy

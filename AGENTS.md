@@ -24,9 +24,10 @@ pnpm dev         # Vite dev server, http://localhost:5173
 pnpm typecheck   # tsc --noEmit
 pnpm build       # tsc --noEmit && vite build -> dist/index.html
 pnpm shot        # Playwright screenshots into ./shots (needs a build first)
+pnpm test        # node --test on test/*.test.ts (Node >= 22.18 strips types; no test deps)
 ```
 
-**Before opening a PR, run `pnpm typecheck` and `pnpm build`.** There are no tests, lint or CI; do not invent any.
+**Before opening a PR, run `pnpm typecheck`, `pnpm build` and `pnpm test`.** The only tests are the unit tests in `test/` for pure logic (currently the bell schedule and its timer); test modules must import nothing from the DOM. There is no lint or CI; do not invent any.
 
 ## Project rules
 

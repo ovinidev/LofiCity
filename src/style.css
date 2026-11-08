@@ -78,7 +78,7 @@ body.idle .eye:focus-visible { opacity: 1; }
 .radio {
   position: fixed; left: var(--sl); bottom: calc(var(--sb) + var(--tap) + 4px); /* just above the credit */
   font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink);
-  background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: 8px 10px; width: min(300px, calc(100% - var(--sl) - var(--sr)));
+  background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: 8px 10px; width: min(340px, calc(100% - var(--sl) - var(--sr)));
   display: flex; flex-direction: column; gap: 6px; transition: opacity 0.7s ease, background 0.7s ease, border-color 0.7s ease;
 }
 .radio .now { display: flex; gap: 8px; align-items: center; min-width: 0; }
@@ -94,11 +94,26 @@ body.idle .eye:focus-visible { opacity: 1; }
 .radio button {
   font: inherit; letter-spacing: inherit; text-transform: inherit; background: transparent; color: var(--ink);
   border: 1px solid var(--line); border-radius: 2px; padding: 6px 8px; cursor: pointer; min-height: var(--tap); min-width: var(--tap);
+  white-space: nowrap; flex: none; /* "LO-FI" must not break at its hyphen on phones */
 }
 .radio button:hover { border-color: var(--muted); }
 .radio button:focus-visible, .radio input:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
 .radio input[type="range"] { flex: 1; min-width: 50px; height: var(--tap); margin: 0; accent-color: var(--neon); }
-.radio.vapor .station { color: #ff8fd8; } .radio.vapor .eq i { background: #4ff0ff; }
+/* station identity: Lo-Fi City is warm amber (lamp light, vinyl); Neon FM is magenta and cyan.
+   Named --sc/--sc2 because --st is the top safe-area inset used for positioning. */
+.radio .head { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.radio .tag { color: var(--muted); font-size: 8px; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radio .stations { display: inline-flex; flex: none; }
+.radio .stations button + button { border-left: none; }
+.radio.st-lofi { --sc: #ffcf7a; --sc2: #ffb347; }
+.radio.st-neon { --sc: #ff4fa3; --sc2: #4ff0ff; }
+.radio .station { color: var(--sc); text-shadow: 0 0 6px color-mix(in srgb, var(--sc) 45%, transparent); }
+.radio .eq i { background: var(--sc2); }
+.radio.st-lofi, .radio.st-neon { border-left: 2px solid var(--sc); }
+.radio .stations button[aria-pressed="true"] { color: var(--sc); border-color: var(--sc); }
+.radio .ctl button[data-a="play"][aria-pressed="true"] { color: var(--sc); }
+.radio.busy .track { color: var(--sc2); }
+.radio.busy .eq i { animation: none; opacity: 0.5; }
 body.idle .radio { background: transparent; border-color: transparent; pointer-events: none; }
 body.idle .radio .ctl { opacity: 0; }
 body.idle .radio:not(.playing) { opacity: 0; }
@@ -144,8 +159,10 @@ body.idle .credit { opacity: 0.4; }
   .hud .clock { font-size: 16px; } .hud .temp { font-size: 12px; }
   .hud .hint, #season { display: none; }
   .hud .city select { padding: 2px 5px; }
-  .radio { width: 240px; font-size: 9px; padding: 6px 8px; gap: 4px; }
+  .radio { width: min(320px, calc(100% - var(--sl) - var(--sr))); font-size: 9px; padding: 6px 8px; gap: 4px; }
+  .radio .ctl { gap: 4px; }
   .radio button { padding: 4px 6px; }
+  .radio input[type="range"] { min-width: 40px; }
   .bar { gap: 4px; }
   .bar button { padding: 6px 8px; font-size: 9px; }
   .credit { font-size: 9px; }
@@ -161,6 +178,7 @@ body.idle .credit { opacity: 0.4; }
   .radio { bottom: auto; top: calc(var(--st) + 108px); font-size: 9px; padding: 6px 8px; gap: 4px; }
   .radio .ctl { gap: 4px; }
   .radio button { padding: 5px 6px; }
+  .radio input[type="range"] { min-width: 40px; }
   .bar { gap: 4px; }
   .bar button { padding: 7px 7px; font-size: 9px; letter-spacing: 0.03em; }
   .credit { bottom: calc(var(--sb) + var(--tap) + 4px); font-size: 9px; } /* above the bar, which spans the width */

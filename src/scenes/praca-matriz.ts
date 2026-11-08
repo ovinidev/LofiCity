@@ -1,11 +1,12 @@
-/* PRAÇA DA MATRIZ (Esperança, PB): the ochre church of Nossa Senhora do Bom Conselho with its
-   central clock tower and spire, rusticated pilasters lit amber from below at night, white LED
-   lamp posts, palms, the Virgin on her tiled pedestal, wires across the street and motorcycles. */
-import { L, Lp, WW, blitLayer, getW, newLayer, put, rect, sx, sy } from '../engine/gfx';
+/* PRAÇA DA MATRIZ (Esperança, PB): the ochre church of Nossa Senhora do Bom Conselho (drawn from
+   Google Maps captures, a Jun 2025 photo and Feb 2025 Street View) with its slender central clock
+   tower and pointed spire, cream pilasters lit amber from below at night, white LED lamp posts,
+   palms, the Virgin on her tiled pedestal, wires across the street and motorcycles. */
+import { L, Lp, WW, blitLayer, getW, newLayer, put, sx, sy } from '../engine/gfx';
 import { bay, mulberry32 } from '../engine/math';
 import {
-  AMB, AMBD, ASPH, BFAR, BNEAR, CBLUE, CHURCH, CHURCHD, CHURCHL, CYELL, GOLD, LIGHT, MANTO, SKIN2, STONE, STONEL,
-  TERRA, TILEW, VOID, WHITE, WOOD, WWARM, WCOOL, FBLUE, FGREEN, FPINK, MAG, CRED,
+  AMB, AMBD, ASPH, BARK, BFAR, BMID, BNEAR, CBLUE, CHURCH, CHURCHD, CHURCHL, CYELL, GOLD, LIGHT, MANTO, SKIN2, STONE, STONEL,
+  TILEW, VOID, WHITE, WOOD, WWARM, WCOOL, FBLUE, FGREEN, FPINK, MAG, CRED,
 } from '../engine/palette';
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
@@ -39,50 +40,88 @@ function buildFar() {
   L(far, 438, 10, 2, 110, BFAR); for (let y = 14; y < 120; y += 6) { Lp(far, 436, y, BFAR); Lp(far, 441, y, BFAR); } // cell tower
 }
 
-/** Arched opening: rect body with a semicircular top. */
-function arch(ly: Uint8Array, x: number, y: number, w: number, h: number, c: number) {
+/** Arched opening: rect body with a semicircular top; into a layer, or with ly = null straight into the frame. */
+function arch(ly: Uint8Array | null, x: number, y: number, w: number, h: number, c: number) {
   const r = w / 2;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const dy = j - r;
     if (j < r && (i + 0.5 - r) ** 2 + dy * dy > r * r) continue;
-    Lp(ly, x + i, y + j, c);
+    if (ly) Lp(ly, x + i, y + j, c); else put(x + i, y + j, c);
   }
 }
-function rustic(x: number, y0: number, w: number, y1: number) {
-  L(mid, x, y0, w, y1 - y0, CHURCHD);
-  for (let y = y0 + 4; y < y1; y += 5) L(mid, x, y, w, 1, CHURCH);
-  for (let y = y0; y < y1; y += 5) Lp(mid, x + (((y / 5) | 0) % 2 ? 3 : w - 4), y + 2, CHURCH);
+interface Glass { x: number; y: number; w: number; h: number }
+/** Framed arched opening: cream surround, `c` inside. Returns the inner rect for night lighting. */
+function opening(x: number, y: number, w: number, h: number, c: number): Glass {
+  arch(mid, x - 1, y - 1, w + 2, h + 1, CHURCHL); arch(mid, x, y, w, h, c);
+  return { x, y, w, h };
+}
+/** Smooth cream pilaster with a shaded right edge. */
+function pilaster(x: number, y0: number, w: number, y1: number) {
+  L(mid, x, y0, w, y1 - y0, CHURCHL); L(mid, x + w - 1, y0, 1, y1 - y0, CHURCH);
+}
+/** Little balustrade: rail on top, balusters every other pixel, plinth below. */
+function balustrade(x0: number, x1: number, y: number, h: number) {
+  L(mid, x0, y, x1 - x0, 2, CHURCHL);
+  for (let x = x0 + 1; x < x1 - 1; x += 2) L(mid, x, y + 2, 1, h - 3, CHURCHL);
+  L(mid, x0, y + h - 1, x1 - x0, 1, CHURCHL);
 }
 
+// Proportions follow the Jun 2025 facade photo: a five-bay ochre front with cream pilasters on a
+// grey granite base, one slender square tower rising from the centre bay (paired windows, coat of
+// arms over the main door, balcony and clock, belfry, a small lantern stage and a pointed spire).
+const F0 = 166, F1 = 314; // facade edges
+const TW0 = 225, TW1 = 255; // tower edges
+const winTower: Glass[] = [], winSide: Glass[] = [], winOuter: Glass[] = [];
+let mainDoor: Glass = { x: 0, y: 0, w: 0, h: 0 };
+
 function buildChurch() {
-  // gable behind the balustrades, rising to the tower
-  for (let x = 186; x < 296; x++) { const top = Math.round(62 - (40 - Math.abs(x - CX)) * 0.4); if (Math.abs(x - CX) < 40) { L(mid, x, top, 1, 62 - top, CHURCH); Lp(mid, x, top, CHURCHL); } }
-  L(mid, 170, 62, 140, 72, CHURCH);
-  L(mid, 166, 134, 148, 6, CHURCHD); L(mid, 166, 134, 148, 1, CHURCHL);
-  for (const [x, w] of [[170, 14], [296, 14], [222, 6], [252, 6]]) rustic(x, 62, w, 134);
-  L(mid, 168, 60, 144, 3, CHURCHL); L(mid, 168, 64, 144, 1, CHURCHL);
-  // balustrades + pinnacles
-  for (const [a, b] of [[184, 222], [258, 296]]) { L(mid, a, 50, b - a, 2, CHURCHL); for (let x = a + 1; x < b; x += 3) L(mid, x, 52, 1, 8, CHURCHL); }
-  for (const x of [170, 296]) { L(mid, x + 1, 42, 12, 18, CHURCHD); L(mid, x - 1, 40, 16, 2, CHURCHL); L(mid, x + 4, 37, 6, 3, CHURCHL); }
-  // tower
-  L(mid, 222, 2, 36, 60, CHURCH); rustic(222, 2, 5, 62); rustic(253, 2, 5, 62);
-  L(mid, 220, 44, 40, 2, CHURCHL); for (let x = 221; x < 259; x += 3) L(mid, x, 38, 1, 6, CHURCHL); L(mid, 220, 37, 40, 1, CHURCHL);
-  L(mid, 220, 0, 40, 2, CHURCHL);
-  L(mid, 225, -28, 30, 28, CHURCH); rustic(225, -28, 4, 0); rustic(251, -28, 4, 0);
-  arch(mid, 231, -24, 6, 20, VOID); arch(mid, 243, -24, 6, 20, VOID);
-  for (let y = -16; y < -4; y += 2) { L(mid, 231, y, 6, 1, CHURCHD); L(mid, 243, y, 6, 1, CHURCHD); }
-  L(mid, 223, -31, 34, 3, CHURCHL);
-  for (let y = 0; y < 34; y++) { const half = Math.round(15 * (1 - y / 34)); L(mid, CX - half, -32 - y, half * 2, 1, TERRA); L(mid, CX, -32 - y, half, 1, y % 3 ? TERRA : CHURCHD); }
-  L(mid, CX - 1, -76, 2, 11, GOLD); L(mid, CX - 4, -73, 8, 2, GOLD);
-  // doors, windows, emblem
-  arch(mid, 230, 108, 20, 26, CHURCHL); arch(mid, 232, 110, 16, 24, WOOD); arch(mid, 233, 111, 14, 7, CYELL);
-  for (const x of [194, 272]) { arch(mid, x, 114, 16, 20, CHURCHL); arch(mid, x + 2, 116, 12, 18, WOOD); arch(mid, x + 3, 117, 10, 5, CYELL); }
-  for (const x of [196, 274]) { arch(mid, x, 76, 12, 24, CHURCHL); arch(mid, x + 2, 78, 8, 21, BNEAR); L(mid, x - 2, 96, 16, 1, VOID); for (let i = x - 2; i < x + 14; i += 2) L(mid, i, 97, 1, 3, VOID); }
-  for (const x of [187, 290]) arch(mid, x, 72, 4, 52, BNEAR);
-  for (const x of [233, 243]) arch(mid, x, 66, 4, 30, BNEAR);
-  for (let i = 0; i < 12; i++) { Lp(mid, 228 + i, 104 - (i >> 1), CHURCHL); Lp(mid, 252 - i, 104 - (i >> 1), CHURCHL); }
-  L(mid, 237, 97, 6, 6, GOLD); L(mid, 238, 98, 4, 4, CBLUE);
-  arch(mid, 238, 52, 4, 7, WWARM);
+  // walls and granite base
+  L(mid, F0, 54, F1 - F0, 76, CHURCH);
+  L(mid, F0 - 1, 130, F1 - F0 + 2, 10, STONE); L(mid, F0 - 1, 130, F1 - F0 + 2, 1, STONEL);
+  for (let y = 132; y < 140; y += 2) for (let x = F0 + ((y >> 1) % 3); x < F1; x += 5) Lp(mid, x, y, STONEL);
+  // side bays: sloped coping rising toward the tower
+  for (let x = 202; x < TW0; x++) {
+    const top = Math.round(52 - (x - 202) * 0.6), m = F0 + F1 - 1 - x;
+    for (const xx of [x, m]) { L(mid, xx, top, 1, 54 - top, CHURCH); L(mid, xx, top, 1, 2, CHURCHL); }
+  }
+  // outer bays: flat cornice with a balustrade
+  for (const [a, b] of [[F0, 202], [278, F1]]) { L(mid, a - 1, 52, b - a + 2, 2, CHURCHL); L(mid, a, 54, b - a, 1, CHURCHD); balustrade(a, b, 45, 7); }
+  // pilasters: corners and between bays, each capped with a small block
+  for (const x of [F0, F1 - 8]) { pilaster(x, 42, 8, 130); L(mid, x - 1, 41, 10, 2, CHURCHL); L(mid, x + 2, 38, 4, 3, CHURCHL); }
+  for (const x of [196, 278]) { pilaster(x, 40, 6, 130); L(mid, x - 1, 39, 8, 2, CHURCHL); L(mid, x + 1, 36, 4, 3, CHURCHL); }
+  // impost band between windows and doors
+  L(mid, F0, 98, F1 - F0, 1, CHURCHL); L(mid, F0, 99, F1 - F0, 1, CHURCHD);
+  // tower shaft from the centre bay up to the belfry
+  L(mid, TW0, -40, TW1 - TW0, 94, CHURCH);
+  pilaster(222, 54, 5, 130); pilaster(253, 54, 5, 130);
+  pilaster(TW0, -40, 3, 54); pilaster(TW1 - 3, -40, 3, 54);
+  L(mid, TW0 - 1, 52, TW1 - TW0 + 2, 2, CHURCHL);
+  // balcony under the clock
+  balustrade(221, 259, 8, 6); L(mid, 221, 14, 38, 2, CHURCHL); L(mid, 222, 16, 36, 1, CHURCHD);
+  // belfry with two tall louvred openings
+  L(mid, 223, -10, 34, 3, CHURCHL); L(mid, 224, -7, 32, 1, CHURCHD);
+  for (const x of [231, 244]) { arch(mid, x - 1, -36, 7, 25, CHURCHL); arch(mid, x, -35, 5, 24, VOID); for (let y = -26; y < -12; y += 2) L(mid, x, y, 5, 1, CHURCHD); }
+  L(mid, 222, -42, 36, 3, CHURCHL); L(mid, 223, -39, 34, 1, CHURCHD);
+  for (const x of [222, 256]) { L(mid, x, -45, 2, 3, CHURCHL); Lp(mid, x, -46, CHURCHL); } // corner finials
+  // lantern stage
+  L(mid, 230, -54, 20, 12, CHURCH); pilaster(230, -54, 2, -42); pilaster(248, -54, 2, -42);
+  for (const x of [234, 243]) arch(mid, x, -52, 3, 8, VOID);
+  L(mid, 228, -56, 24, 2, CHURCHL);
+  // pointed spire with a lit rib, and the cross
+  for (let y = 0; y < 20; y++) {
+    const half = Math.max(0, Math.round(11 * (1 - y / 20)));
+    L(mid, CX - half, -57 - y, half, 1, CHURCH); L(mid, CX, -57 - y, half, 1, CHURCHD); Lp(mid, CX, -57 - y, CHURCHL);
+  }
+  L(mid, CX - 1, -86, 2, 10, BMID); L(mid, CX - 4, -83, 8, 2, BMID);
+  // openings: paired tall tower windows, side bays (window over door), outer bays (tall narrow window)
+  for (const x of [232, 244]) winTower.push(opening(x, 24, 4, 40, BNEAR));
+  for (const cx of [212, 268]) { winSide.push(opening(cx - 2, 66, 4, 26, BNEAR)); opening(cx - 4, 106, 8, 32, WOOD); L(mid, cx, 110, 1, 28, BARK); }
+  for (const cx of [185, 295]) winOuter.push(opening(cx - 2, 70, 4, 48, BNEAR));
+  mainDoor = opening(234, 102, 12, 36, WOOD); L(mid, CX, 106, 1, 32, BARK);
+  // pediment over the main door with the parish coat of arms
+  for (let i = 0; i < 13; i++) { Lp(mid, 228 + i, 96 - Math.round(i * 0.8), CHURCHL); Lp(mid, 252 - i, 96 - Math.round(i * 0.8), CHURCHL); }
+  L(mid, 228, 97, 25, 1, CHURCHL);
+  L(mid, 237, 87, 7, 8, GOLD); L(mid, 238, 88, 5, 6, CBLUE); Lp(mid, 238, 93, GOLD); Lp(mid, 242, 93, GOLD); Lp(mid, CX, 89, TILEW);
 }
 
 function buildSides() {
@@ -122,11 +161,14 @@ function buildGround() {
 }
 
 // ---------- dynamic ----------
-const CHURCHY = new Set([CHURCH, CHURCHD, CHURCHL, TERRA]);
-/** Amber floodlights at the foot of each pilaster, fading upward. */
+const CHURCHY = new Set([CHURCH, CHURCHD, CHURCHL]);
+/** Amber floodlights at the foot of each pilaster and up the tower, fading upward. */
 function uplights() {
   if (!isNight()) return;
-  const bands: [number, number, number, number][] = [[168, 18, 134, 74], [294, 18, 134, 74], [220, 10, 134, 132], [250, 10, 134, 132], [223, 8, 0, 30], [249, 8, 0, 30], [218, 44, 46, 10], [225, 30, -30, 40]];
+  const bands: [number, number, number, number][] = [
+    [F0 - 2, 12, 130, 90], [F1 - 10, 12, 130, 90], [194, 10, 130, 92], [276, 10, 130, 92],
+    [220, 10, 130, 172], [250, 10, 130, 172], [221, 38, 17, 30], [228, 24, -40, 40],
+  ];
   for (const [x0, w, yb, h] of bands) for (let y = yb - h; y < yb; y++) {
     const k = 1 - (yb - y) / h;
     for (let x = x0; x < x0 + w; x++) {
@@ -136,11 +178,11 @@ function uplights() {
       if (b < e * 0.45) put(x, y, LIGHT); else if (b < e * 0.8) put(x, y, AMB); else if (b < e) put(x, y, AMBD);
     }
   }
-  for (const [x, y] of [[CX, -71], [CX - 3, -72], [CX + 3, -72]]) put(x, y, LIGHT);
+  for (const [x, y] of [[CX, -81], [CX - 3, -82], [CX + 3, -82]]) put(x, y, LIGHT);
 }
 
 function clock() {
-  const cy = 22, n = isNight();
+  const cy = 0, n = isNight();
   for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) { const d = i * i + j * j; if (d <= 36) put(CX + i, cy + j, d > 25 ? CHURCHL : n ? LIGHT : WHITE); }
   const h = S.cal.hour, hrs = ((h % 12) / 12) * Math.PI * 2, min = (h % 1) * Math.PI * 2;
   for (let k = 0; k <= 3; k++) put(CX + Math.sin(hrs) * k, cy - Math.cos(hrs) * k, VOID);
@@ -149,10 +191,11 @@ function clock() {
 
 function windows() {
   const n = isNight(), lit = n && (S.festa || S.cal.hour >= 18 && S.cal.hour < 21 || S.cal.weekday === 0 && S.cal.hour < 11);
-  for (const x of [235, 245]) rect(x - 2, 72, 4, 24, lit ? WWARM : BNEAR);
-  for (const x of [198, 276]) rect(x, 82, 8, 13, lit ? WWARM : BNEAR);
-  for (const x of [187, 290]) rect(x, 76, 4, 48, lit ? AMB : BNEAR);
-  if (lit) rect(234, 118, 12, 16, WWARM); // main door open
+  if (lit) {
+    for (const g of [...winTower, ...winSide]) arch(null, g.x, g.y, g.w, g.h, WWARM);
+    for (const g of winOuter) arch(null, g.x, g.y, g.w, g.h, AMB);
+    arch(null, mainDoor.x + 2, mainDoor.y + 6, mainDoor.w - 4, mainDoor.h - 6, WWARM); // main door open
+  }
   for (const f of farWins) put(f.x, f.y, n && f.rank < 0.5 ? (f.rank < 0.1 ? WCOOL : WWARM) : BFAR);
   if (((S.ms / 1000) | 0) % 2 === 0) put(438, 9, MAG);
 }
@@ -189,12 +232,17 @@ export const praca: Scene = {
     setLanes([{ y: 142 }, { y: 144 }, { y: 146 }]);
     setupAnimals({ ground: [143, 145], dogs: 2, sleepSpots: [60, 300], lamps: [{ x: 106, y: 66 }, { x: 130, y: 66 }, { x: 350, y: 66 }, { x: 374, y: 66 }],
       wires: [wireCurve(21, 61, 457, 61, 16), wireCurve(21, 64, 457, 64, 20), wireCurve(21, 68, 457, 68, 13)],
-      walls: [{ x0: 0, x1: 46, y: 101 }, { x0: 104, x1: 160, y: 105 }, { x0: 380, x1: 426, y: 103 }, { x0: 168, x1: 186, y: 60 }] });
+      walls: [{ x0: 0, x1: 46, y: 101 }, { x0: 104, x1: 160, y: 105 }, { x0: 380, x1: 426, y: 103 }, { x0: F0, x1: 196, y: 45 }, { x0: 284, x1: F1, y: 45 }] });
     setCarLanes(158, 172, 'br');
-    configure({ roofs: [{ x0: 168, x1: 312, y: 60 }], tips: [{ x: 170, y: 62, end: 140 }, { x: 309, y: 62, end: 140 }], lamps: LAMPS.map((l) => ({ x: l.x, y: l.top })), ground0: 140, horizon: HORIZON });
+    configure({ roofs: [{ x0: F0, x1: F1, y: 52 }], tips: [{ x: F0 + 1, y: 54, end: 130 }, { x: F1 - 2, y: 54, end: 130 }], lamps: LAMPS.map((l) => ({ x: l.x, y: l.top })), ground0: 140, horizon: HORIZON });
     for (let i = 0; i < 150; i++) update(1 / 30);
   },
   update,
   render,
   debug() { return `active  people x${peopleCount()}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
+  // tap the church (façade, tower or spire) and the bell strikes once
+  tap(x, y) {
+    const tower = x >= 220 && x < 260 && y >= -76 && y < 62, facade = x >= 166 && x < 314 && y >= 37 && y < 140;
+    return tower || facade ? { x: CX, y: -14, sfx: 'bell' } : null;
+  },
 };

@@ -9,6 +9,7 @@ import { tapPeople } from './actors/people';
 import { tapCars } from './actors/cars';
 import { audio } from './audio/audio';
 import { radio } from './audio/radio';
+import { bells } from './audio/bells';
 import { precip, updatePrecip } from './fx/precip';
 import { animalsDebug } from './actors/animals';
 import { brTrafficDebug } from './actors/br-traffic';
@@ -130,14 +131,19 @@ function setCity(id: string) {
   followLive(city);
   settle(simNow(), city); direct(simNow(), city, 0);
   scene = pickScene(city.id); scene.build();
+  syncBells();
   updateHud();
   if (hosted) pageview({ route: '/[city]', path: `/${city.id}` });
 }
+// Esperança's church bells strike the hours (see audio/bells.ts); re-synced on every change that matters.
+const syncBells = () => bells.sync(() => ({ cityId: city.id, utc: city.utc, pinned: simOffset !== 0, near: scene.id === 'praca-matriz' }));
+addEventListener('pagehide', () => bells.dispose());
+addEventListener('pageshow', (e) => { if (e.persisted) syncBells(); }); // back from the bfcache
 const actions: Record<string, () => void> = {
-  sound: () => press('b-sound', audio.toggle()),
+  sound: () => { press('b-sound', audio.toggle()); syncBells(); },
   crt: () => { opts.crt = !opts.crt; press('b-crt', opts.crt); },
   city: () => setCity(CITIES[(CITIES.indexOf(city) + 1) % CITIES.length].id),
-  scene: () => { scene = nextScene(city.id, scene); scene.build(); },
+  scene: () => { scene = nextScene(city.id, scene); scene.build(); syncBells(); },
   music: () => radio.toggle(),
   station: () => radio.nextStation(),
   skip: () => radio.skip(),
@@ -208,7 +214,9 @@ $('view').addEventListener('pointerdown', (e) => {
   const p = tapPeople(x, y);
   if (p) { sfx(p.dog ? 'bark' : 'oi'); emote(p.x, p.y, Math.random() < 0.5 ? '♥' : '!'); return; }
   const c = tapCars(x, y);
-  if (c) { sfx(c.sound); emote(c.x, c.y, '♪'); }
+  if (c) { sfx(c.sound); emote(c.x, c.y, '♪'); return; }
+  const prop = scene.tap?.(x, y);
+  if (prop) { sfx(prop.sfx); emote(prop.x, prop.y, '♪'); }
 });
 
 let idleTimer = 0, wakeLock: WakeLockSentinel | null = null;
@@ -260,7 +268,7 @@ busy    ${S.busy.toFixed(2)}   tree d${S.tree.density.toFixed(2)} p${S.tree.pink
 ${scene.debug()}
 fps     ${fps}   work ${workMs.toFixed(1)} ms   ${backend()}
 drops   ${precip.liveDrops}/${precip.rainCap}  flakes ${precip.liveFlakes}  leaves ${precip.liveLeaves}
-fx      ${fireworksStats()}  fireworks ${S.fireworks}   radio ${radio.status()}${city.br ? `
+fx      ${fireworksStats()}  fireworks ${S.fireworks}   radio ${radio.status()}   bells ${bells.status()}${city.br ? `
 life    ${animalsDebug()}
 traffic ${brTrafficDebug() || '-'}` : ''}`;
   }
