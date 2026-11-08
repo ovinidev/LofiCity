@@ -6,6 +6,10 @@
   --font-ui: "Silkscreen", ui-monospace, "SFMono-Regular", Menlo, monospace;
   --font-data: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   color-scheme: dark;
+  /* HUD sits close to the edges so more of the scene shows, but never under a notch or home bar */
+  --st: max(8px, env(safe-area-inset-top, 0px)); --sb: max(8px, env(safe-area-inset-bottom, 0px));
+  --sl: max(8px, env(safe-area-inset-left, 0px)); --sr: max(8px, env(safe-area-inset-right, 0px));
+  --tap: 32px; /* minimum touch target */
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
@@ -14,51 +18,69 @@ canvas#view { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 10
 body.idle .ui { opacity: 0; pointer-events: none; }
 body.idle { cursor: none; }
 .hud {
-  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); left: max(16px, env(safe-area-inset-left, 0px));
+  position: fixed; top: var(--st); left: var(--sl);
   font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
   display: flex; flex-direction: column; gap: 3px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-  background: var(--panel); border: 1px solid var(--line); padding: 8px 11px; border-radius: 2px; max-width: calc(100% - 32px);
+  background: var(--panel); border: 1px solid var(--line); padding: 8px 11px; border-radius: 2px; max-width: calc(100% - var(--sl) - var(--sr) - 48px);
 }
 .hud .clock { font-size: 22px; color: var(--ink); font-variant-numeric: tabular-nums; text-shadow: 0 0 8px rgba(255, 79, 163, 0.5), 0 1px 2px #000; }
 .hud .sub { color: var(--muted); }
 .hud .hint { color: var(--muted); font-size: 10px; margin-top: 4px; }
 .bar {
-  position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); left: max(16px, env(safe-area-inset-left, 0px));
-  right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px;
+  position: fixed; bottom: var(--sb); left: var(--sl); right: var(--sr); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px;
 }
 .bar button {
   font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; background: var(--panel);
-  color: var(--ink); border: 1px solid var(--line); padding: 9px 11px; border-radius: 2px; cursor: pointer;
+  color: var(--ink); border: 1px solid var(--line); padding: 9px 11px; border-radius: 2px; cursor: pointer; min-height: var(--tap); min-width: var(--tap);
 }
 .bar button:hover { border-color: var(--muted); }
 .bar button[aria-pressed="true"] { color: var(--cyan); border-color: var(--cyan); }
 .bar button:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
 #debug {
-  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); right: max(16px, env(safe-area-inset-right, 0px));
-  max-width: calc(100% - 32px); font: 11px/1.55 var(--font-data); background: var(--panel); color: var(--ink);
+  position: fixed; top: calc(var(--st) + 48px); right: var(--sr);
+  max-width: calc(100% - var(--sl) - var(--sr)); font: 11px/1.55 var(--font-data); background: var(--panel); color: var(--ink);
   border: 1px solid var(--line); padding: 10px 12px; white-space: pre; overflow-x: auto; font-variant-numeric: tabular-nums;
 }
 [hidden] { display: none !important; }
 @media (max-width: 600px) { .bar button { padding: 8px 9px; font-size: 10px; } }
+/* Quick repeated taps on controls must not trigger double-tap zoom; pinch-zoom stays available. */
+.ui, .radio, .eye, .credit, #rotate, button, select, input, a { touch-action: manipulation; }
+
+/* eye: shows/hides the whole HUD; always on screen, faint while idle */
+.eye {
+  position: fixed; top: var(--st); right: var(--sr); z-index: 5;
+  width: 40px; height: 40px; padding: 9px; display: grid; place-items: center; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 2px; cursor: pointer; transition: opacity 0.7s ease, color 0.2s ease;
+}
+.eye svg { width: 100%; height: 100%; display: block; }
+.eye .slash { display: none; }
+.eye[aria-pressed="true"] .slash { display: inline; }
+.eye[aria-pressed="true"] { color: var(--muted); }
+.eye:hover { border-color: var(--muted); }
+.eye:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
+body.idle .eye { opacity: 0.35; }
+body.idle .eye:focus-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .ui { transition: none; } }
 
 /* city selector + temperature */
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hud .city select {
   font: inherit; letter-spacing: inherit; text-transform: uppercase; color: var(--cyan); background: transparent;
-  border: 1px solid var(--line); border-radius: 2px; padding: 3px 6px; cursor: pointer; margin-bottom: 2px;
+  border: 1px solid var(--line); border-radius: 2px; padding: 3px 6px; cursor: pointer; margin-bottom: 2px; min-height: var(--tap);
 }
 .hud .city select option { background: #0c0a1a; color: var(--ink); }
 .hud .city select:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
 .hud .clock { display: flex; align-items: baseline; gap: 10px; }
 .hud .temp { font-size: 15px; color: #ffcf7a; text-shadow: 0 0 8px rgba(255, 179, 71, 0.45), 0 1px 2px #000; }
 .hud .live { color: #7dff8a; }
+.hud .live.stale { color: #ffb347; }
+.hud .live.test { color: #ff7ad9; }
 
 /* radio: compact player bottom-left; the now-playing line stays faintly visible when idle */
 .radio {
-  position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 60px);
+  position: fixed; left: var(--sl); bottom: calc(var(--sb) + var(--tap) + 4px); /* just above the credit */
   font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink);
-  background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: 8px 10px; width: min(340px, calc(100% - 32px));
+  background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: 8px 10px; width: min(340px, calc(100% - var(--sl) - var(--sr)));
   display: flex; flex-direction: column; gap: 6px; transition: opacity 0.7s ease, background 0.7s ease, border-color 0.7s ease;
 }
 .radio .now { display: flex; gap: 8px; align-items: center; min-width: 0; }
@@ -73,44 +95,39 @@ body.idle { cursor: none; }
 .radio .ctl { display: flex; gap: 6px; align-items: center; transition: opacity 0.7s ease; }
 .radio button {
   font: inherit; letter-spacing: inherit; text-transform: inherit; background: transparent; color: var(--ink);
-  border: 1px solid var(--line); border-radius: 2px; padding: 6px 8px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 2px; padding: 6px 8px; cursor: pointer; min-height: var(--tap); min-width: var(--tap);
   white-space: nowrap; flex: none; /* "LO-FI" must not break at its hyphen on phones */
 }
 .radio button:hover { border-color: var(--muted); }
 .radio button:focus-visible, .radio input:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
-.radio input[type="range"] { flex: 1; min-width: 50px; accent-color: var(--neon); }
-/* station identity: Lo-Fi City is warm amber (lamp light, vinyl); Neon FM is magenta and cyan */
+.radio input[type="range"] { flex: 1; min-width: 50px; height: var(--tap); margin: 0; accent-color: var(--neon); }
+/* station identity: Lo-Fi City is warm amber (lamp light, vinyl); Neon FM is magenta and cyan.
+   Named --sc/--sc2 because --st is the top safe-area inset used for positioning. */
 .radio .head { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
 .radio .tag { color: var(--muted); font-size: 8px; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.radio .stations { display: inline-flex; }
+.radio .stations { display: inline-flex; flex: none; }
 .radio .stations button + button { border-left: none; }
-.radio.st-lofi { --st: #ffcf7a; --st2: #ffb347; }
-.radio.st-neon { --st: #ff4fa3; --st2: #4ff0ff; }
-.radio .station { color: var(--st); text-shadow: 0 0 6px color-mix(in srgb, var(--st) 45%, transparent); }
-.radio .eq i { background: var(--st2); }
-.radio.st-lofi, .radio.st-neon { border-left: 2px solid var(--st); }
-.radio .stations button[aria-pressed="true"] { color: var(--st); border-color: var(--st); }
-.radio .ctl button[data-a="play"][aria-pressed="true"] { color: var(--st); }
-.radio.busy .track { color: var(--st2); }
+.radio.st-lofi { --sc: #ffcf7a; --sc2: #ffb347; }
+.radio.st-neon { --sc: #ff4fa3; --sc2: #4ff0ff; }
+.radio .station { color: var(--sc); text-shadow: 0 0 6px color-mix(in srgb, var(--sc) 45%, transparent); }
+.radio .eq i { background: var(--sc2); }
+.radio.st-lofi, .radio.st-neon { border-left: 2px solid var(--sc); }
+.radio .stations button[aria-pressed="true"] { color: var(--sc); border-color: var(--sc); }
+.radio .ctl button[data-a="play"][aria-pressed="true"] { color: var(--sc); }
+.radio.busy .track { color: var(--sc2); }
 .radio.busy .eq i { animation: none; opacity: 0.5; }
 body.idle .radio { background: transparent; border-color: transparent; pointer-events: none; }
 body.idle .radio .ctl { opacity: 0; }
 body.idle .radio:not(.playing) { opacity: 0; }
-/* on narrow screens the bottom of the frame is the scene; the sky under the HUD is free */
-@media (max-width: 600px) {
-  .radio { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 196px); }
-  .radio .ctl { gap: 4px; }
-  .radio button { padding: 6px; }
-  .radio input[type="range"] { min-width: 40px; }
-}
 .radio .lic { color: var(--muted); font-size: 9px; opacity: 0.75; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; }
 .radio .lic:hover { text-decoration: underline; opacity: 1; }
 .radio .track { text-transform: none; }
 body.idle .radio .meta { text-shadow: 0 1px 2px #000, 0 0 6px #000; }
 
-/* author credit, bottom-left under the radio; stays faintly visible when idle */
+/* author credit, bottom-left under the radio; stays faintly visible when idle. The link box is a full
+   touch target even though the text is small. */
 .credit {
-  position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  position: fixed; left: var(--sl); bottom: var(--sb); min-height: var(--tap); display: inline-flex; align-items: center; padding: 0 2px;
   font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.05em; color: var(--muted); text-decoration: none;
   text-shadow: 0 1px 2px #000; opacity: 0.85; transition: opacity 0.7s ease, color 0.2s ease;
 }
@@ -140,13 +157,34 @@ body.idle .credit { opacity: 0.4; }
 
 /* phones held sideways: the frame is short, so the UI gets compact and drops secondary lines */
 @media (max-height: 500px) and (orientation: landscape) {
-  .hud { font-size: 9px; padding: 6px 9px; gap: 2px; top: calc(env(safe-area-inset-top, 0px) + 8px); }
+  .hud { font-size: 9px; padding: 6px 9px; gap: 2px; }
   .hud .clock { font-size: 16px; } .hud .temp { font-size: 12px; }
   .hud .hint, #season { display: none; }
+  .hud .live { display: block; } /* long stale/test badges get their own line instead of breaking into the weather text */
   .hud .city select { padding: 2px 5px; }
-  .radio { width: 280px; font-size: 9px; padding: 6px 8px; gap: 4px; bottom: calc(env(safe-area-inset-bottom, 0px) + 48px); }
+  .radio { width: min(320px, calc(100% - var(--sl) - var(--sr))); font-size: 9px; padding: 6px 8px; gap: 4px; }
+  .radio .ctl { gap: 4px; }
   .radio button { padding: 4px 6px; }
-  .bar { bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); gap: 4px; }
+  .radio input[type="range"] { min-width: 40px; }
+  .bar { gap: 4px; }
   .bar button { padding: 6px 8px; font-size: 9px; }
-  .credit { bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); font-size: 9px; }
+  .credit { font-size: 9px; }
+}
+
+/* phones held upright (<= 600px wide): a smaller HUD, secondary lines dropped, room for the eye button */
+@media (max-width: 600px) {
+  .hud { font-size: 9px; gap: 2px; padding: 6px 9px; max-width: calc(100% - var(--sl) - var(--sr) - 44px); }
+  .hud .clock { font-size: 17px; gap: 8px; } .hud .temp { font-size: 12px; }
+  .hud .hint, #season { display: none; }
+  .hud .live { display: block; } /* long stale/test badges get their own line instead of breaking into the weather text */
+  .hud .city select { padding: 2px 5px; }
+  /* the bottom of the frame is the scene; the sky under the HUD is free */
+  .radio { bottom: auto; top: calc(var(--st) + var(--hud-h, 98px) + 10px); /* --hud-h: measured in main.ts */ font-size: 9px; padding: 6px 8px; gap: 4px; }
+  .radio .ctl { gap: 4px; }
+  .radio button { padding: 5px 6px; }
+  .radio input[type="range"] { min-width: 40px; }
+  .bar { gap: 4px; }
+  .bar button { padding: 7px 7px; font-size: 9px; letter-spacing: 0.03em; }
+  .credit { bottom: calc(var(--sb) + var(--tap) + 4px); font-size: 9px; } /* above the bar, which spans the width */
+  .eye { width: 36px; height: 36px; padding: 8px; }
 }

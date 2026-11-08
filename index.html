@@ -19,7 +19,7 @@
     <label class="city"><span class="sr">Cidade</span><select id="city" title="Trocar cidade (T)"></select></label>
     <span class="clock"><span id="clock">--:--</span><span class="temp" id="temp"></span></span>
     <span class="sub" id="date"></span>
-    <span class="sub"><span class="live" id="live" hidden title="Clima em tempo real (Open-Meteo)">● ao vivo</span> <span id="wx"></span></span>
+    <span class="sub"><span class="live" id="live" hidden title="Clima via Open-Meteo">● ao vivo</span> <span id="wx"></span></span>
     <span class="sub" id="season"></span>
     <span class="hint" id="hint">toque nas coisas que se mexem · R rádio</span>
   </div>
@@ -32,6 +32,14 @@
     <button id="b-scene" title="Próximo cenário (S)">Cenário</button>
     <button id="b-full" title="Tela cheia (Enter)">Tela cheia</button>
   </div>
+
+  <button id="b-hud" class="eye" type="button" aria-pressed="false" aria-label="Ocultar painel" title="Ocultar painel (H)">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+      <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/>
+      <circle cx="12" cy="12" r="2.6"/>
+      <path class="slash" d="M4 20 20 4"/>
+    </svg>
+  </button>
 
   <a class="credit" href="https://github.com/ovinidev" target="_blank" rel="noopener" title="GitHub de ovinidev">@ovinidev</a>
 

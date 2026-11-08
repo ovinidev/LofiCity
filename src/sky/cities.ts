@@ -1,5 +1,6 @@
 /* Cities the app can show. Each one brings its clock, its place on the globe (for the sun,
-   the moon and the live weather), its climate model and its own scenes. */
+   the moon and the live weather), its climate region (only for the calendar season label;
+   it never drives the weather shown) and its own scenes. */
 
 export type CityId = 'esperanca' | 'campina' | 'joaopessoa' | 'areia' | 'remigio' | 'tokyo';
 /** Japan; the Borborema plateau (Agreste); the cooler, wetter, misty Brejo; the hot humid coast. */
@@ -13,6 +14,7 @@ export interface City {
   utc: number;
   lat: number;
   lon: number;
+  /** Climate region: picks the season label ("quadra chuvosa", "verão"...) in the HUD. */
   climate: Climate;
   /** Brazilian city: local traffic, people, animals and calendar. */
   br: boolean;

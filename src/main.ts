@@ -15,9 +15,10 @@ import { animalsDebug } from './actors/animals';
 import { brTrafficDebug } from './actors/br-traffic';
 import { fireworksStats, updateSkyEvents, lightning } from './fx/sky-events';
 import { gradePalette } from './sky/grade';
-import { S, direct, settle } from './sky/state';
+import { S, direct, settle, wxOverride } from './sky/state';
 import { CITIES, type City, cityById } from './sky/cities';
-import { followLive, liveNow } from './sky/live';
+import { followLive, weatherView } from './sky/live';
+import { hudWeather, manualLightningAllowed } from './sky/weather-feed';
 import { updateSky } from './scenes/common';
 import { nextScene, pickScene } from './scenes';
 import { inject, pageview } from '@vercel/analytics';
@@ -73,7 +74,6 @@ const MONTH = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'o
 const pad2 = (n: number) => String(n | 0).padStart(2, '0');
 
 function weatherWord(): string {
-  if (S.typhoon && S.storm > 0.5) return 'tufão';
   if (S.storm > 0.45) return S.snow > S.rain ? 'nevasca' : 'tempestade';
   if (S.snow > 0.6) return 'nevasca';
   if (S.snow > 0.25) return 'neve';
@@ -90,7 +90,9 @@ function weatherWord(): string {
 function seasonWord(): string {
   const m = S.cal.month;
   if (city.br) {
-    const tags = [city.climate === 'litoral' ? (m >= 3 && m <= 7 ? 'inverno chuvoso' : 'verão') : m >= 2 && m <= 6 ? 'quadra chuvosa' : 'estação seca'];
+    const tags: string[] = [];
+    if (city.climate === 'litoral') tags.push(m >= 3 && m <= 7 ? 'inverno chuvoso' : 'verão');
+    else if (m >= 2 && m <= 6) tags.push('quadra chuvosa');
     if (S.festa) tags.push(S.procissao ? 'procissão' : 'festa da padroeira');
     if (S.saoJoao) tags.push('são joão');
     if (S.natal && !S.festa) tags.push('natal');
@@ -110,11 +112,20 @@ function updateHud() {
   const c = S.cal;
   $('clock').textContent = `${pad2(c.hour)}:${pad2((c.hour % 1) * 60)}`;
   $('date').textContent = `${WEEK[c.weekday]} ${c.day} ${MONTH[c.month]} · ${city.utc < 0 ? 'horário de Brasília' : 'horário de Tóquio'}`;
-  const live = simOffset === 0 ? liveNow(city.id) : null;
-  $('temp').textContent = `${Math.round(live ? live.temp : S.temp)}°C`;
-  $('wx').textContent = live ? `${weatherWord()} · sensação ${Math.round(live.feels)}° · umidade ${Math.round(live.humidity)}%` : weatherWord();
-  $('live').hidden = !live;
-  $('season').textContent = seasonWord();
+  // Weather text comes only from a genuine reading (or the clearly labelled #wx= test override).
+  const pinned = simOffset !== 0, v = weatherView(city.id), reading = !pinned && v.kind !== 'unavailable' ? v.feed.now : null;
+  const h = hudWeather({
+    kind: S.wxKind, word: weatherWord(), now: Date.now(), utc: city.utc, pinned, override: wxOverride ?? undefined,
+    temp: reading ? reading.temp : S.temp ?? undefined, feels: reading?.feels, humidity: reading?.humidity, at: reading?.t,
+  });
+  $('temp').textContent = h.temp;
+  $('wx').textContent = h.text;
+  const badge = $('live');
+  badge.hidden = !h.badge;
+  if (h.badge) { badge.textContent = h.badge.text; badge.className = `live ${h.badge.cls}`; }
+  const season = seasonWord();
+  $('season').textContent = season;
+  $('season').hidden = !season; // sertão dry season has no tag: don't leave an empty HUD row
 }
 
 // ---------- controls ----------
@@ -148,7 +159,8 @@ const actions: Record<string, () => void> = {
   music: () => radio.toggle(),
   station: () => radio.nextStation(),
   skip: () => radio.skip(),
-  lightning: () => lightning.strike(),
+  // test tool only (#debug or #wx=); in normal use lightning comes only from real storm data
+  lightning: () => { if (manualLightningAllowed({ debug: showDebug, wxOverride })) lightning.strike(); },
   full: () => {
     const d = document;
     if (d.fullscreenElement) void d.exitFullscreen?.().catch(() => {});
@@ -170,16 +182,52 @@ $('rotate-ok').addEventListener('click', () => {
   try { sessionStorage.setItem('loficity:portrait-ok', '1'); } catch { /* ignore */ }
 });
 
+// Eye button: hides the whole HUD (info, radio, controls, credit) for a clean view. Only DOM state changes,
+// so the radio and ambience keep doing whatever they were doing. `hidden` + `inert` keep the hidden
+// panels out of the tab order and away from taps, so the scene underneath stays tappable.
+const HUD_PARTS = ['.hud', '.radio', '.bar', '.credit'];
+const eye = $('b-hud');
+function setHud(show: boolean, save = true) {
+  const active = document.activeElement;
+  for (const s of HUD_PARTS) {
+    const el = document.querySelector<HTMLElement>(s);
+    if (!el) continue;
+    el.hidden = !show; el.inert = !show;
+    if (!show && active instanceof HTMLElement && el.contains(active)) eye.focus();
+  }
+  document.body.classList.toggle('hud-off', !show);
+  const label = show ? 'Ocultar painel' : 'Mostrar painel';
+  eye.setAttribute('aria-label', label); eye.title = `${label} (H)`;
+  press('b-hud', !show);
+  if (save) try { localStorage.setItem('loficity:hud', show ? 'on' : 'off'); } catch { /* ignore */ }
+}
+actions.hud = () => setHud(document.body.classList.contains('hud-off'));
+eye.addEventListener('click', actions.hud);
+let hudPref: string | null = null;
+try { hudPref = localStorage.getItem('loficity:hud'); } catch { /* storage unavailable */ }
+if (hudPref === 'off') setHud(false, false);
+
+// Upright phones stack the radio under the info panel; publish the panel's real height (it grows when
+// the city or weather line wraps) so the CSS can place the radio right below it.
+const hudEl = document.querySelector<HTMLElement>('.hud');
+if (hudEl) {
+  new ResizeObserver(() => {
+    if (hudEl.offsetHeight) document.documentElement.style.setProperty('--hud-h', `${hudEl.offsetHeight}px`);
+  }).observe(hudEl);
+}
+
 const KEYS: Record<string, string> = {
-  m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', s: 'scene', l: 'lightning', enter: 'full',
+  m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', s: 'scene', l: 'lightning', h: 'hud', enter: 'full',
 };
 addEventListener('keydown', (e) => {
   const tag = (e.target as HTMLElement).tagName;
   if (tag === 'SELECT' || tag === 'INPUT' || (tag === 'BUTTON' && e.key === 'Enter')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser shortcuts (Ctrl +/-, Ctrl+H...) alone
   const a = KEYS[e.key.toLowerCase()];
   if (a) actions[a]();
 });
-$('view').addEventListener('dblclick', actions.full);
+// No dblclick-to-fullscreen on the canvas: two quick taps on something that moves fired it and the
+// page seemed to zoom. Fullscreen stays on the button and Enter.
 // Tap what moves: birds fly off, cats bolt, dogs bark and run, people say hi, vehicles honk.
 $('view').addEventListener('pointerdown', (e) => {
   const f = toFrame(e.clientX, e.clientY), x = f.x + G.camX, y = f.y - G.oy;
@@ -217,7 +265,10 @@ function frame(now: number) {
   if (dt > 0.25) dt = 0.25;
   const t0 = performance.now();
   clock += dt;
+  const hadData = S.wxKind !== 'unavailable';
   direct(simNow(), city, dt, scene.id);
+  // the first genuine reading arrived: rebuild wet streets / snow cover from its past hours
+  if (!hadData && S.wxKind !== 'unavailable') { settle(simNow(), city); direct(simNow(), city, 0, scene.id); }
   updateSky(dt); updateSkyEvents(dt); updatePrecip(dt); scene.update(dt);
   scene.render();
   drawEmotes(dt);
@@ -234,10 +285,10 @@ function frame(now: number) {
     uiT = 0; updateHud();
     if (showDebug) $('debug').textContent =
 `scene   ${scene.name}   frame ${G.W}x${G.H}
-time    ${new Date(simNow()).toISOString().slice(0, 16)}Z   ${city.id}   weather ${S.live ? 'live' : 'model'}
+time    ${new Date(simNow()).toISOString().slice(0, 16)}Z   ${city.id}   weather ${S.wxKind}
 sun     ${S.sunElev.toFixed(1)}°  day ${S.dayK.toFixed(2)}  gold ${S.golden.toFixed(2)}  moon ${S.moonPhase.toFixed(2)}
 wx      rain ${S.rain.toFixed(2)} snow ${S.snow.toFixed(2)} storm ${S.storm.toFixed(2)} cloud ${S.cloud.toFixed(2)}
-        fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp.toFixed(1)}
+        fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp === null ? 'unknown' : S.temp.toFixed(1)}
 busy    ${S.busy.toFixed(2)}  traffic ${S.traffic.toFixed(2)}  birds ${S.birds.toFixed(2)}   tree d${S.tree.density.toFixed(2)} p${S.tree.pink.toFixed(2)} r${S.tree.red.toFixed(2)}
 ${scene.debug()}
 fps     ${fps}   work ${workMs.toFixed(1)} ms   ${backend()}

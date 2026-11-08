@@ -1,14 +1,16 @@
-/* World state derived each frame from the simulated clock and the climate model.
+/* World state derived each frame from the simulated clock and the live weather (Open-Meteo only).
    Only wetness and snow cover are integrated over time; everything else is a function of now. */
 import { clamp, hashf, ss } from '../engine/math';
 import { type City, CITIES, FESTA_PADROEIRA } from './cities';
-import { type Wx, weather } from './climate';
-import { liveAt } from './live';
+import { weatherView } from './live';
 import { birdActivity, density } from './rhythm';
 import { type Cal, calendar, doyOf, inDoy, moonElev, moonHourAngle, moonPhase, solarHour, sunElev } from './time';
+import { type WxKind, sampleAt } from './weather-feed';
 
 export const S = {
-  ms: 0, city: CITIES[0] as City, cal: calendar(0, CITIES[0]) as Cal, live: false,
+  ms: 0, city: CITIES[0] as City, cal: calendar(0, CITIES[0]) as Cal,
+  /** Where the weather comes from: a genuine reading (live / stale), none, or the #wx= test override. */
+  wxKind: 'unavailable' as WxKind | 'override',
   /** Esperança: festa da padroeira (January), São João (June), Christmas lights. */
   festa: false, procissao: false, saoJoao: false, natal: false,
   sunElev: 0, moonElev: 0, moonHA: 0, moonPhase: 0, morning: true,
@@ -18,8 +20,11 @@ export const S = {
   /** Birds leaving and landing on the wires, flocks crossing (rhythm.ts; time only). */
   birds: 0,
   deep: 0, neonOn: true, lampOn: true, stallOpen: true, trains: true,
-  temp: 10, rain: 0.5, snow: 0, storm: 0, cloud: 0.5, fog: 0.3, wind: 0.1, typhoon: false, tsuyu: false,
-  wet: 0.6, snowCover: 0,
+  /** °C from a genuine reading (or the #wx= override); null = unknown (no reading). Never defaulted. */
+  temp: null as number | null, rain: 0, snow: 0, storm: 0, cloud: 0, fog: 0, wind: 0.05,
+  /** Tokyo's rainy season by the calendar (a season tag, not a weather condition). */
+  tsuyu: false,
+  wet: 0, snowCover: 0,
   petals: 0, leaves: 0, fireworks: false,
   tree: { density: 1, pink: 0, red: 0 },
   exposure: 1, flashSky: 0, flashAll: 0, shake: 0,
@@ -68,36 +73,43 @@ function deriveTime(ms: number, city: City) {
   return cal;
 }
 
-/** Optional weather override for previews: #wx=clear|cloudy|rain|snow|storm|fog. */
+interface Wx { temp: number | null; precip: number; rain: number; snow: number; storm: number; cloud: number; fog: number; wind: number }
+/** No genuine reading: a neutral scene with no precipitation, fog or storm. The temperature is
+    unknown (null), not a made-up value: snow cover and melt-wetness stay as they are, people wear
+    the neutral default outfit, and the HUD shows no temperature ("clima indisponível"). */
+const NEUTRAL: Wx = { temp: null, precip: 0, rain: 0, snow: 0, storm: 0, cloud: 0, fog: 0, wind: 0.05 };
+
+/** Test override for previews and screenshots: #wx=clear|cloudy|rain|snow|storm|fog (labelled as a test in the HUD). */
 const FORCE: Record<string, Partial<Wx>> = {
-  clear: { precip: 0, rain: 0, snow: 0, storm: 0, cloud: 0, fog: 0.1 },
-  cloudy: { precip: 0, rain: 0, snow: 0, storm: 0, cloud: 0.6 },
-  rain: { precip: 0.6, rain: 0.6, snow: 0, storm: 0, cloud: 0.95 },
-  snow: { precip: 0.6, rain: 0, snow: 0.6, storm: 0, cloud: 0.95, temp: -2 },
-  storm: { precip: 1, rain: 1, snow: 0, storm: 1, cloud: 1, wind: 0.5 },
-  fog: { precip: 0, rain: 0, snow: 0, storm: 0, cloud: 0.7, fog: 0.9 },
+  clear: { cloud: 0, fog: 0.1 },
+  cloudy: { cloud: 0.6 },
+  rain: { precip: 0.6, rain: 0.6, cloud: 0.95 },
+  snow: { precip: 0.6, snow: 0.6, cloud: 0.95, temp: -2 },
+  storm: { precip: 1, rain: 1, storm: 1, cloud: 1, wind: 0.5 },
+  fog: { cloud: 0.7, fog: 0.9 },
 };
-const force = FORCE[/wx=(\w+)/.exec(location.hash)?.[1] ?? ''];
-/** Live weather when we have it (the model still supplies fog and the seasonal flags), else the model. */
-function wx(ms: number, cal: Cal, city: City): Wx {
-  const model = weather(ms, cal, city.climate);
-  if (force) { S.live = false; return { ...model, ...force }; }
-  const l = liveAt(city.id, ms);
-  S.live = !!l;
-  if (!l) return model;
+const forced = /wx=(\w+)/.exec(location.hash)?.[1] ?? '';
+export const wxOverride: string | null = FORCE[forced] ? forced : null;
+
+/** Weather for the scene: the genuine reading for this city, the test override, or neutral. */
+function wx(ms: number, city: City): Wx {
+  if (wxOverride) { S.wxKind = 'override'; return { ...NEUTRAL, ...FORCE[wxOverride] }; }
+  const v = weatherView(city.id);
+  const l = v.kind === 'unavailable' ? null : sampleAt(v.feed, ms, v.kind === 'stale');
+  if (!l || v.kind === 'unavailable') { S.wxKind = 'unavailable'; return NEUTRAL; }
+  S.wxKind = v.kind;
   const precip = Math.min(1, l.rain + l.snow);
   return {
-    ...model, temp: l.temp, rain: l.rain, snow: l.snow, storm: l.storm, cloud: Math.max(l.cloud, precip > 0.05 ? 0.85 : 0), precip,
-    fog: Math.max(l.fog, model.fog * (1 - l.storm)), wind: l.wind, typhoon: model.typhoon && l.storm > 0.5 && Math.abs(l.wind) > 0.6,
+    temp: l.temp, rain: l.rain, snow: l.snow, storm: l.storm, cloud: Math.max(l.cloud, precip > 0.05 ? 0.85 : 0), precip,
+    fog: l.fog, wind: l.wind,
   };
 }
 
 /** `scene` is the current scene id, for scene-specific rhythms (Esperança's praças). */
 export function direct(ms: number, city: City, dtSim: number, scene = '') {
   const cal = deriveTime(ms, city), h = cal.hour;
-  const w = wx(ms, cal, city);
+  const w = wx(ms, city);
   S.temp = w.temp; S.rain = w.rain; S.snow = w.snow; S.storm = w.storm; S.cloud = w.cloud; S.fog = w.fog;
-  S.typhoon = w.typhoon; S.tsuyu = w.tsuyu;
   S.wind = w.wind;
   integrate(dtSim);
 
@@ -116,6 +128,7 @@ export function direct(ms: number, city: City, dtSim: number, scene = '') {
   const br = city.br, esp = city.id === 'esperanca';
   if (br) { S.petals = 0; S.leaves = 0; S.tree = { density: 1, pink: 0, red: 0 }; }
   else S.tree = treeLook(doy);
+  S.tsuyu = !br && inDoy(doy, doyOf(5, 7), doyOf(6, 19));
   S.festa = esp && inDoy(doy, doyOf(...FESTA_PADROEIRA.from), doyOf(...FESTA_PADROEIRA.to));
   S.procissao = esp && doy === doyOf(...FESTA_PADROEIRA.to) && hourIn(h, 17, 21.5);
   S.saoJoao = br && inDoy(doy, doyOf(5, 1), doyOf(5, 30));
@@ -130,8 +143,10 @@ export function direct(ms: number, city: City, dtSim: number, scene = '') {
 /** Wetness and snow cover follow precipitation with realistic lag. */
 function integrate(dt: number) {
   const drying = S.rain < 0.05 && S.snow < 0.05 ? (1 + 2 * S.dayK) / 5400 : 0;
-  S.wet = clamp(S.wet + (S.rain * (1 - S.wet)) * dt / 600 - drying * dt + S.snowCover * 0.0002 * dt * (S.temp > 1 ? 1 : 0), 0, 1);
-  const melt = S.temp > 1 ? (S.temp - 1) / 7200 + S.rain / 1200 : 0;
+  // unknown temperature (null): no melting at all, snow cover is left as it is
+  const t = S.temp, thawing = t !== null && t > 1;
+  S.wet = clamp(S.wet + (S.rain * (1 - S.wet)) * dt / 600 - drying * dt + S.snowCover * 0.0002 * dt * (thawing ? 1 : 0), 0, 1);
+  const melt = thawing ? (t - 1) / 7200 + S.rain / 1200 : 0;
   S.snowCover = clamp(S.snowCover + S.snow * dt / 1500 - melt * dt, 0, 1);
 }
 
@@ -139,7 +154,8 @@ function integrate(dt: number) {
 export function settle(ms: number, city: City) {
   S.wet = 0; S.snowCover = 0;
   for (let t = ms - 8 * 3.6e6; t < ms; t += 120e3) {
-    const cal = deriveTime(t, city), w = wx(t, cal, city);
+    deriveTime(t, city);
+    const w = wx(t, city);
     S.temp = w.temp; S.rain = w.rain; S.snow = w.snow;
     integrate(120);
   }
