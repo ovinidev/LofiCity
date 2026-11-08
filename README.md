@@ -17,8 +17,12 @@ Lo-fi pixel-art scenes that follow each city's **real clock** and **live weather
   - `Capelinha das Pedras`: the tiny 1925 chapel on the Lajedo do Araçá rock, beside the pool that mirrors it, painted the Matriz's yellow. A quiet spot: no traffic and usually nobody around. Now and then a visitor walks up to take photos, and on some days (more often on Sundays, always on 27 June and 1 January) there is one short daytime mass: the door opens on a lit interior, a priest waits at the door and a handful of people come and go. This is art direction, not the chapel's real schedule: each day's events come from a seed of the local date (so `#at=` shows the same day), all between 07:00 and 17:00, and the weather does not change them.
   - `Praça da Cultura`: the town's postcard square: broad blue steps up to a red plaza, red steps up to the cream-yellow building with its outlined arched blue door, royal palms and an araucária, the red and white "EU ♥ ESPERANÇA" letters with their big heart, craft fairs and the Paixão de Cristo in Holy Week.
   - `Campo da Rodoviária`: the fenced artificial-turf pitch behind a wall of football murals; pickup games, weekend matches, floodlit evenings.
+  - `Centro · Casa de Amigos` (`centro-teatro`): the frontage across the wide avenue through the centre: the tall cream-tiled block with dark glass bands and the "DECORAMA / CASA DE AMIGOS" billboard (lit by its floodlights at night), "ZARB", "JM BOLOS" and "ÓTICAS DINIZ" on the left, the white and red colonial front, "TUDO 10" and "LOJÃO" on the right, motorcycles at the far kerb and the traffic-light pole in the foreground. Two-way traffic on the avenue stops for people on the zebra on the left, as at Praça da Cultura.
+  - `Armazém Paraíba`: the orange store with its round logos and "FIADO SÓ AQUI" banner, goods on the shelves and fridges under "LIQUIDANDO" while it is open, the open lot beside it, the long orange wall ("PEGUE AQUI", "3222-5000", the painted mascot) and a cream colonial front. Motorcycles parked nose-in at the kerb; traffic on the road in front (no zebra).
+  - `Rua Faustino Porto`: a street seen down its length: the pink corner house with its balustered balcony and the "BOLOS · SE FAZ A DIFERENÇA" panel, the modern block with its glass curtain wall on the right, motorcycles at the kerb and a zebra in the foreground. Traffic keeps to its lane (going away on the right, oncoming on the left) and stops while anyone waits at or walks on the zebra; people walk only on the sidewalks and cross on the stripes.
+  - `Rua José Bezerra da Costa`: a long street seen down its length: the low whitewashed wall on the left with cars parked along it, a paved island with a round planter, a median with trees, a kiosk and a double street light, two- and three-storey shops on the right, a blue truck and a white "SUPER ESPERANÇA" van at the kerb. No zebra here: people stay on the sidewalks and traffic runs both ways on the right-hand carriageway.
 
-  The Matriz, Praça da Cultura and Campo da Rodoviária scenes were drawn using Google Maps captures as reference only (Feb 2020, Feb 2025 and Jun 2025); the Matriz and Praça da Cultura also used the owner's own photos, as reference only. They may not match the places today, and none of the images are in the repo.
+  The Matriz, Praça da Cultura and Campo da Rodoviária scenes were drawn using Google Maps captures as reference only (Feb 2020, Feb 2025 and Jun 2025); the Matriz and Praça da Cultura also used the owner's own photos, as reference only. Centro, Armazém Paraíba, Rua Faustino Porto and Rua José Bezerra da Costa were drawn from the owner's photos (Street View captures), as reference only; signs show only the lettering legible in them. They may not match the places today, and none of the images are in the repo.
 
 Esperança's streets are busy with local life: motorcycles of every kind (mototáxi, delivery, the gas man with a botijão), Viação São José buses, the prefeitura school bus, carros-pipa, donkey carts, the carro de som, pickups carrying furniture, a Veraneio now and then; joggers, sun umbrellas and street vendors; street dogs, cats on the walls, birds on the wires, vultures on the thermals and bats around the lamps.
 
@@ -42,13 +46,13 @@ pnpm install
 pnpm dev        # http://localhost:5173
 pnpm build      # dist/index.html, a single self-contained file
 pnpm shot       # screenshots into ./shots (needs a build; NODEBUG=1 hides the debug panel)
-pnpm test       # unit tests for the bell schedule and timer and the daily rhythm (node --test; Node >= 22.18, no extra deps)
+pnpm test       # unit tests for the bell schedule and timer, the daily rhythm, street and depth-traffic rules and the scene list (node --test; Node >= 22.18, no extra deps)
 ```
 
 ## URL options
 
 - `#city=esperanca` (also `campina`, `joaopessoa`, `areia`, `remigio`, `tokyo`)
-- `#scene=praca-matriz`: pin a scene (`praca-matriz`, `rua-comercio`, `capelinha`, `praca-cultura`, `campo-rodoviaria`, `acude-velho`, `cabo-branco`, `centro-areia`, `lagoa-remigio`, `rain-corner`, `neon-alley`, `konbini`, `shrine`)
+- `#scene=praca-matriz`: pin a scene (`praca-matriz`, `rua-comercio`, `capelinha`, `praca-cultura`, `campo-rodoviaria`, `centro-teatro`, `armazem-paraiba`, `rua-faustino`, `rua-jose-bezerra`, `acude-velho`, `cabo-branco`, `centro-areia`, `lagoa-remigio`, `rain-corner`, `neon-alley`, `konbini`, `shrine`)
 - `#at=2026-12-24T22:00`: freeze a moment in the city's time zone (for testing; the UI always uses real time)
 - `#debug`: technical panel (for development)
 - `#wx=rain`: test override for previews (`clear`, `cloudy`, `rain`, `snow`, `storm`, `fog`); the HUD marks it as a test, never as live

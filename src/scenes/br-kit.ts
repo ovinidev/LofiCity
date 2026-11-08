@@ -260,6 +260,10 @@ const FONT: Record<string, string> = {
   L: '100100100100111', M: '101111111101101', N: '110101101101101', O: '010101101101010', P: '110101110100100',
   R: '110101110101101', S: '011100010001110', T: '111010010010010', U: '101101101101111', V: '101101101101010',
   Z: '111001010100111', 'Ç': '011100100100011', '♥': '000101111111010', ' ': '000000000000000',
+  Q: '010101101111011', W: '101101111111101', X: '101101010101101', Y: '101101010010010',
+  '0': '111101101101111', '1': '010110010010111', '2': '110001010100111', '3': '110001010001110', '4': '101101111001001',
+  '5': '111100110001110', '6': '011100111101111', '7': '111001010010010', '8': '111101111101111', '9': '111101111001110',
+  '-': '000000111000000', '.': '000000000000010',
 };
 /** Draw text into a layer (`ly`) or, with ly = null, straight into the frame; `s` scales each pixel. */
 export function text(ly: Layer | null, str: string, x: number, y: number, c: number, s = 1, heart = c) {
@@ -273,6 +277,14 @@ export function text(ly: Layer | null, str: string, x: number, y: number, c: num
   }
 }
 export const textW = (str: string, s = 1) => (str.length * 4 - 1) * s;
+/** Whether cell (u, v) of `str` in the 3x5 font is lit: u counts columns across the whole string
+    (4 per character, the 4th is the gap), v rows 0..4. For signs painted on walls in perspective. */
+export function textBit(str: string, u: number, v: number): boolean {
+  if (u < 0 || v < 0 || v >= 5) return false;
+  const k = Math.floor(u / 4), i = Math.floor(u) % 4;
+  if (k >= str.length || i > 2) return false;
+  return (FONT[str[k]] ?? FONT[' '])[Math.floor(v) * 3 + i] === '1';
+}
 
 /** Easter Sunday (Gregorian), as a day of year; Holy Week events key off it. */
 export function easterDoy(year: number): number {

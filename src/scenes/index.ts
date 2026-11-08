@@ -1,22 +1,26 @@
 import type { CityId } from '../sky/cities';
 import { acudeVelho } from './acude-velho';
+import { armazemParaiba } from './armazem-paraiba';
 import { caboBranco } from './cabo-branco';
 import { centroAreia } from './centro-areia';
 import { lagoaRemigio } from './lagoa-remigio';
 import { campoRodoviaria } from './campo-rodoviaria';
 import { capelinha } from './capelinha';
+import { centroTeatro } from './centro-teatro';
 import { konbini } from './konbini';
 import { neonAlley } from './neon-alley';
 import { pracaCultura } from './praca-cultura';
 import { praca } from './praca-matriz';
 import { rainCorner } from './rain-corner';
 import { ruaComercio } from './rua-comercio';
+import { ruaFaustino } from './rua-faustino';
+import { ruaJoseBezerra } from './rua-jose-bezerra';
 import { shrine } from './shrine';
 import type { Scene } from './types';
 
 export const SCENES: Record<CityId, Scene[]> = {
   tokyo: [rainCorner, neonAlley, konbini, shrine],
-  esperanca: [praca, ruaComercio, capelinha, pracaCultura, campoRodoviaria],
+  esperanca: [praca, ruaComercio, capelinha, pracaCultura, campoRodoviaria, centroTeatro, armazemParaiba, ruaFaustino, ruaJoseBezerra],
   campina: [acudeVelho],
   joaopessoa: [caboBranco],
   areia: [centroAreia],
