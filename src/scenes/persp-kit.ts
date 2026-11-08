@@ -147,6 +147,9 @@ export function makeCars(n: number): PCar[] {
 }
 
 /** Spawn one vehicle if the hour and the entry point allow it; `laneX` gives the lane for each direction. */
+/** A rider without a helmet (helmet colour sentinel, never a palette index). */
+export const NO_HELMET = 255;
+
 export function spawnCar(cars: PCar[], road: DepthRoad, laneX: (dir: 1 | -1) => number, buses = true) {
   const c = cars.find((o) => !o.on);
   if (!c) return;
@@ -155,7 +158,7 @@ export function spawnCar(cars: PCar[], road: DepthRoad, laneX: (dir: 1 | -1) => 
   if (!canEnter(cars, dir, LEN[kind], road)) return;
   c.kind = kind; c.len = LEN[kind]; c.dir = dir; c.X = laneX(dir);
   c.body = kind === 'bus' ? TILEW : kind === 'moto' ? rpick([CRED, CRED, VOID, CBLUE, STONEL]) : rpick([TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, STONE]);
-  c.rider = rpick([CRED, CBLUE, VOID, CYELL, TILEW, FGREEN]); c.helmet = rpick([VOID, VOID, TILEW, CRED, CBLUE]);
+  c.rider = rpick([CRED, CBLUE, VOID, CYELL, TILEW, FGREEN]); c.helmet = rpick([VOID, VOID, VOID, TILEW, CRED, CBLUE, NO_HELMET]); // most wear one
   c.cruise = (kind === 'moto' ? 9 : kind === 'bus' ? 6 : 7.5) * (0.85 + rr() * 0.3); c.sp = c.cruise; // m/s, town speeds
   c.z = dir > 0 ? road.zNear : road.zFar; c.on = true;
 }
@@ -177,7 +180,11 @@ export function drawCarP(v: View, c: { z: number; dir: number; kind: PKind; body
   const head = n ? WHITE : CBEIGE, tail = n ? MAG : MAGD;
   if (c.kind === 'moto') {
     R(-1, 1, 6, 0, VOID); R(-2, 2, 9, 5, c.body); R(-3.5, 3.5, 10, 9, STEEL); // tyre, body, handlebar
-    if (!parked) { R(-2.6, 2.6, 15, 8.5, c.rider); R(-1.8, 1.8, 18, 14.5, c.helmet); }
+    if (!parked) {
+      R(-2.6, 2.6, 15, 8.5, c.rider);
+      if (c.helmet !== NO_HELMET) R(-1.8, 1.8, 18, 14.5, c.helmet);
+      else { R(-1.4, 1.4, 17.5, 14.5, front ? SKIN2 : HAIR1); R(-1.4, 1.4, 17.8, 16.6, HAIR1); } // bare head: face or back of the head
+    }
     R(-0.8, 0.8, 8, 6.5, parked ? BNEAR : front ? head : tail);
   } else {
     const bus = c.kind === 'bus', hw = bus ? 12.5 : 8.5, H = bus ? 30 : c.kind === 'van' ? 19 : c.kind === 'pickup' ? 16 : 14.5;

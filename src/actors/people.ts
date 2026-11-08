@@ -1,7 +1,8 @@
 /* Pedestrians assembled from parts: height, skin, hair, clothes, accessories and companions.
    Who appears depends on the hour (commuters, students, kids with randoseru, elderly,
-   night owls), the weekday, the weather (umbrellas) and the season (coats and scarves,
-   tees, yukata on festival nights). Drawn procedurally in world space, side view. */
+   night owls), the weekday, the weather and the season (coats and scarves, tees, yukata on
+   festival nights). Umbrellas and waiting under a shelter follow only the real weather state
+   (rain-rules.ts), never unknown weather. Drawn procedurally in world space, side view. */
 import { G, put, rect } from '../engine/gfx';
 import { bay, mulberry32, type Rng } from '../engine/math';
 import {
@@ -11,6 +12,7 @@ import {
 import { peopleCap } from '../sky/rhythm';
 import { S } from '../sky/state';
 import { allowedArchetypes } from './street-rules';
+import { type Shelter, WET_KEEP, opensUmbrella, raining, shelterAt, shelterWait } from './rain-rules';
 
 const enum Kind { Walk, Bike, Chair }
 const enum Top { Jacket, Suit, Coat, Tee, Sailor, Gakuran, Yukata, Shirt }
@@ -24,6 +26,8 @@ export interface Person {
   bag: Bag; bagC: number; umb: number; stoop: boolean; cane: boolean; dog: number; phone: boolean; box: number; light: boolean;
   /** Esperança extras: jogging, a sun umbrella, a pushcart. */
   run: boolean; sun: boolean; push: number;
+  /** Seconds left waiting out the rain under a shelter, and whether they already did. */
+  wait: number; waited: boolean;
 }
 
 export interface Lane { y: number }
@@ -42,13 +46,21 @@ const P: Person[] = Array.from({ length: POOL }, () => ({
   on: false, x: 0, dir: 1, sp: 0, ph: 0, lane: 0, kind: Kind.Walk, H: 16, skin: SKIN1, hair: HAIR1, hairStyle: Hair.Short,
   hat: 0, hatC: 0, top: Top.Jacket, topC: 0, bottomC: 0, skirt: false, accent: 255, scarf: 255, bag: Bag.None, bagC: 0,
   umb: 255, stoop: false, cane: false, dog: 255, phone: false, box: 255, light: false, run: false, sun: false, push: 255,
+  wait: 0, waited: false,
 }));
 let lanes: Lane[] = [{ y: 145 }];
 let bikes = true;
+let shelters: Shelter[] = [];
 
 /** Sets the scene's pavement lanes (clearing everyone). `bikes: false` keeps cyclists and delivery
-    riders out of this scene; any scene that calls setLanes without it gets them back. */
-export function setLanes(l: Lane[], opts: { bikes?: boolean } = {}) { lanes = l; bikes = opts.bikes ?? true; for (const p of P) p.on = false; }
+    riders out of this scene; any scene that calls setLanes without it gets them back. `shelters`
+    are covered stretches (an awning, a bus shelter) where people without an umbrella wait out real
+    rain; a scene that passes none has none. */
+export function setLanes(l: Lane[], opts: { bikes?: boolean; shelters?: Shelter[] } = {}) {
+  lanes = l; bikes = opts.bikes ?? true; shelters = opts.shelters ?? []; for (const p of P) p.on = false;
+}
+/** Precipitation people react to, from the real weather state only (live / stale reading or the #wx= test). */
+const wetNow = (min?: number) => raining(S.wxKind, S.rain, S.snow, min);
 
 const SKINS: [number, number][] = [[SKIN1, 0.34], [SKIN2, 0.34], [SKIN3, 0.2], [SKIN4, 0.12]];
 const SKINS_BR: [number, number][] = [[SKIN1, 0.18], [SKIN2, 0.34], [SKIN3, 0.3], [SKIN4, 0.18]];
@@ -91,7 +103,7 @@ function dress(p: Person, a: Archetype) {
   p.H = 15 + ((r() * 3) | 0); p.skin = weighted(S.city.br ? SKINS_BR : SKINS); p.hair = weighted([[HAIR1, 0.62], [HAIR2, 0.3], [CORNG, 0.04], [CBEIGE, 0.04]]);
   p.hairStyle = female ? pick([Hair.Long, Hair.Bob, Hair.Bun, Hair.Long]) : pick([Hair.Short, Hair.Short, Hair.Spiky]);
   p.hat = 0; p.skirt = false; p.accent = 255; p.scarf = 255; p.bag = Bag.None; p.stoop = false; p.cane = false;
-  p.dog = 255; p.phone = false; p.box = 255; p.kind = Kind.Walk; p.run = false; p.sun = false; p.push = 255;
+  p.dog = 255; p.phone = false; p.box = 255; p.kind = Kind.Walk; p.run = false; p.sun = false; p.push = 255; p.wait = 0; p.waited = false;
   const br = S.city.br;
   p.top = cold ? Top.Coat : cool ? Top.Jacket : hot ? Top.Tee : pick([Top.Jacket, Top.Tee, Top.Shirt]);
   p.topC = pick([CNAVY, VOID, CBEIGE, CGREEN, CRED, CBLUE, STEEL, CYELL]);
@@ -172,8 +184,8 @@ function dress(p: Person, a: Archetype) {
   }
   if (cold && p.top !== Top.Yukata && p.scarf === 255 && r() < 0.45) p.scarf = pick([CRED, CYELL, WHITE, CBEIGE, CGREEN]);
   if (cold && p.hat === 0 && r() < 0.25) { p.hat = 1; p.hatC = pick([CRED, CNAVY, CBEIGE, VOID, CYELL]); }
-  const wet = S.rain + S.snow > 0.08;
-  p.umb = wet && r() < 0.9 ? pick(UMBS) : p.sun ? p.umb : 255;
+  const wet = wetNow();
+  p.umb = opensUmbrella(S.wxKind, S.rain, S.snow, r()) ? pick(UMBS) : p.sun ? p.umb : 255;
   if (wet && p.umb === 255) p.sp *= 1.3; // hurrying without one
 }
 
@@ -206,8 +218,22 @@ export function tickSpawns(dt: number, density = 1) {
 }
 
 export function updatePeople(dt: number) {
+  const wet = shelters.length > 0 && wetNow();
   for (const p of P) {
     if (!p.on) continue;
+    if (p.wait > 0) { // standing under a shelter until the rain stops or they give up
+      p.wait = wet ? p.wait - dt : 0;
+      continue;
+    }
+    if (wet) {
+      const sh = shelterAt(shelters, p.x);
+      if (sh) {
+        const waiting = P.reduce((n, o) => n + (o.on && o.wait > 0 && o.x >= sh.x0 && o.x <= sh.x1 ? 1 : 0), 0);
+        const onFoot = p.kind === Kind.Walk && !p.run && p.push === 255;
+        p.wait = shelterWait({ wet, umbrella: p.umb !== 255, onFoot, waited: p.waited, waiting, cap: sh.cap }, r());
+        if (p.wait > 0) { p.waited = true; p.ph = 2; continue; } // feet together
+      }
+    }
     p.x += p.dir * p.sp * dt;
     p.ph += dt * (p.kind === Kind.Bike ? 6 : p.sp * 0.42);
     if (p.x < G.camX - 40 || p.x > G.camX + G.W + 40) p.on = false;
@@ -232,6 +258,9 @@ export const bikeCount = () => P.reduce((n, p) => n + (p.on && p.kind === Kind.B
 
 export const peopleCount = () => P.reduce((n, p) => n + (p.on ? 1 : 0), 0);
 
+/** Open rain umbrellas and people sheltering right now (debug panel). */
+export const rainDebug = () => `umb ${P.filter((p) => p.on && p.umb !== 255 && !p.sun).length} shelter ${P.filter((p) => p.on && p.wait > 0).length}`;
+
 // ---------- drawing ----------
 const STRIDE = [2, 1, 0, 1];
 
@@ -251,7 +280,7 @@ function head(p: Person, hx: number, y: number, f: number) {
 }
 
 function umbrella(p: Person, ux: number, yTop: number) {
-  if (p.umb === 255 || (S.rain + S.snow < 0.06 && !p.sun)) return;
+  if (p.umb === 255 || (!p.sun && !wetNow(WET_KEEP))) return;
   const c = p.umb;
   rect(ux - 3, yTop, 7, 1, c);
   rect(ux - 4, yTop + 1, 9, 1, c);

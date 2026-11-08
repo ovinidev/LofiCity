@@ -308,6 +308,7 @@ function drawFiel(f: Fiel) {
 type RKind = 'moto' | 'car' | 'pickup' | 'bus';
 interface RCar { on: boolean; y: number; dir: 1 | -1; sp: number; kind: RKind; body: number; rider: number; helmet: number }
 const rr = mulberry32(0x7a11);
+const NO_HELMET = 255; // rider without a helmet (never a palette index)
 const rpick = <T>(a: readonly T[]): T => a[(rr() * a.length) | 0];
 const RC: RCar[] = Array.from({ length: 7 }, () => ({ on: false, y: 0, dir: 1 as const, sp: 1, kind: 'car' as RKind, body: TILEW, rider: CRED, helmet: VOID }));
 const Y_FAR = 136, Y_NEAR = 192; // spawn / despawn rows (192 is below the frame)
@@ -325,7 +326,7 @@ function spawnCar() {
   const k = rr(), h = S.cal.hour;
   c.kind = k < 0.45 ? 'moto' : k < 0.85 ? 'car' : k < 0.95 || h < 6 || h > 22 ? 'pickup' : 'bus';
   c.body = c.kind === 'bus' ? TILEW : c.kind === 'moto' ? rpick([CRED, CRED, VOID, CBLUE, STONEL]) : rpick([TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, STONE]);
-  c.rider = rpick([CRED, CBLUE, VOID, CYELL, TILEW, FGREEN]); c.helmet = rpick([VOID, VOID, TILEW, CRED, CBLUE]);
+  c.rider = rpick([CRED, CBLUE, VOID, CYELL, TILEW, FGREEN]); c.helmet = rpick([VOID, VOID, VOID, TILEW, CRED, CBLUE, NO_HELMET]); // most wear one
   c.sp = (c.kind === 'moto' ? 1.2 : c.kind === 'bus' ? 0.8 : 1) * (0.85 + rr() * 0.3);
   c.dir = dir; c.y = y; c.on = true;
 }
@@ -353,7 +354,9 @@ function drawRoadCar(c: RCar) {
   const head = n ? WHITE : CBEIGE, tail = n ? MAG : MAGD;
   if (c.kind === 'moto') {
     R(-1, 1, 3.5, 0, VOID); R(-1.6, 1.6, 6, 3, c.body);
-    R(-2.2, 2.2, 11, 5.5, c.rider); R(-1.6, 1.6, 13.5, 10.5, c.helmet);
+    R(-2.2, 2.2, 11, 5.5, c.rider);
+    if (c.helmet !== NO_HELMET) R(-1.6, 1.6, 13.5, 10.5, c.helmet);
+    else { R(-1.2, 1.2, 13, 10.5, front ? SKIN2 : HAIR1); R(-1.2, 1.2, 13.3, 12.2, HAIR1); } // bare head: face or back of the head
     R(-0.6, 0.6, 5.5, 4.2, front ? head : tail);
   } else {
     const bus = c.kind === 'bus', hw = bus ? 10.5 : 8.5, H = bus ? 20 : c.kind === 'pickup' ? 13.5 : 12.5;

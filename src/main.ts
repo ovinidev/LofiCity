@@ -5,7 +5,7 @@ import { backend, initPost, layout, opts, present, toFrame } from './engine/post
 import { sfx } from './audio/sfx';
 import { drawEmotes, emote } from './fx/emotes';
 import { tapAnimals } from './actors/animals';
-import { tapPeople } from './actors/people';
+import { rainDebug, tapPeople } from './actors/people';
 import { tapCars } from './actors/cars';
 import { audio } from './audio/audio';
 import { radio } from './audio/radio';
@@ -289,6 +289,7 @@ time    ${new Date(simNow()).toISOString().slice(0, 16)}Z   ${city.id}   weather
 sun     ${S.sunElev.toFixed(1)}°  day ${S.dayK.toFixed(2)}  gold ${S.golden.toFixed(2)}  moon ${S.moonPhase.toFixed(2)}
 wx      rain ${S.rain.toFixed(2)} snow ${S.snow.toFixed(2)} storm ${S.storm.toFixed(2)} cloud ${S.cloud.toFixed(2)}
         fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp === null ? 'unknown' : S.temp.toFixed(1)}
+people  ${rainDebug()}
 busy    ${S.busy.toFixed(2)}  traffic ${S.traffic.toFixed(2)}  birds ${S.birds.toFixed(2)}   tree d${S.tree.density.toFixed(2)} p${S.tree.pink.toFixed(2)} r${S.tree.red.toFixed(2)}
 ${scene.debug()}
 fps     ${fps}   work ${workMs.toFixed(1)} ms   ${backend()}

@@ -297,7 +297,8 @@ export const centroTeatro: Scene = {
   name: 'Centro · Casa de Amigos',
   build() {
     if (!built) { buildFar(); buildLeft(); buildBlock(); buildRight(); buildFront(); buildGround(); built = true; }
-    setLanes([{ y: 142 }, { y: 144 }, { y: 146 }], { bikes: false });
+    // in real rain, people without an umbrella wait under the shop canopy (well clear of the zebra)
+    setLanes([{ y: 142 }, { y: 144 }, { y: 146 }], { bikes: false, shelters: [{ x0: 186, x1: 298, cap: 4 }] });
     setupAnimals({ ground: [143, 145], dogs: 2, sleepSpots: [40, 330], lamps: LAMPS.map((l) => ({ x: l.x + 14, y: l.top })),
       wires: [wireCurve(166, 68, 480, 40, 10), wireCurve(0, 46, 166, 68, 6)],
       walls: [{ x0: 297, x1: 364, y: 93 }, { x0: 57, x1: 124, y: 62 }] });

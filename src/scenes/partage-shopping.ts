@@ -256,7 +256,8 @@ export const partage: Scene = {
   name: 'Partage Shopping',
   build() {
     if (!built) { buildFar(); buildWall(); buildLogoBlock(); buildLouvres(); buildFront(); buildGround(); built = true; }
-    setLanes([{ y: 142 }, { y: 145 }, { y: 147 }]);
+    // in real rain, people without an umbrella wait under the entrance canopy or the bus shelter
+    setLanes([{ y: 142 }, { y: 145 }, { y: 147 }], { shelters: [{ x0: 256, x1: 312, cap: 3 }, { x0: 434, x1: 470, cap: 3 }] });
     setupAnimals({ ground: [143, 147], dogs: 1, sleepSpots: [150, 470], lamps: LAMPS.map((l) => ({ x: l.x + 14, y: l.top })),
       walls: [{ x0: WALL0 + 4, x1: WALL1 - 4, y: WALL_TOP - 1 }, { x0: LOUV + 4, x1: WW - 4, y: LOUV_TOP - 1 }, { x0: 432, x1: 472, y: 117 }] });
     setCarLanes(162, 175, 'br');

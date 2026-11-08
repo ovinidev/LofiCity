@@ -1,33 +1,42 @@
 /* Traffic of a town in the Paraíba Agreste. Motorcycles dominate (mototáxis in vests with a
-   passenger, delivery boxes, the gas man with a botijão, scooters); then hatchbacks, sedans,
-   SUVs and small pickups carrying botijões, melons or a wardrobe from the furniture shops; the
-   odd Veraneio or Kombi; the carro de som crawling by with speakers on the roof; carros-pipa
-   bringing water in the dry season; donkey carts; and Viação São José buses and micro-buses.
+   passenger, delivery boxes, the gas man with a botijão, scooters, trail bikes and quiet
+   electric scooters with no exhaust); most riders wear a helmet, some don't. Then hatchbacks,
+   sedans, SUVs and small pickups carrying botijões, melons or a wardrobe from the furniture shops;
+   the odd Fusca, Veraneio or Kombi; white passenger vans; the carro de som crawling by with
+   speakers on the roof; carros-pipa bringing water in the dry season; donkey carts; and Viação
+   São José buses and micro-buses.
    Two lanes: the far lane drives left, the near lane right. Slower vehicles hold up the cars
-   behind them; motorcycles weave past. */
+   behind them; motorcycles weave past, riding beside (drawn between the lanes) while level with a
+   bigger vehicle. At a zebra crossing everyone queues without overlapping (street-rules.ts). */
 import { G, put, rect } from '../engine/gfx';
 import { bay, mulberry32 } from '../engine/math';
 import {
-  BARK, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CORNG, CRED, CYELL, HALO, LEDW, LIGHT, MAG, MAGD, SKIN2, SKIN3,
+  BARK, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CORNG, CRED, CYELL, HAIR1, HAIR2, HALO, LEDW, LIGHT, MAG, MAGD, SKIN1, SKIN2, SKIN3, SKIN4,
   STEEL, STONE, STONEL, TILEW, VOID, WCOOL, WDIM, WOOD, AMB,
 } from '../engine/palette';
 import { S, hourIn } from '../sky/state';
-import { overlaps, yieldLimit } from './street-rules';
+import { besideAny, holdLimit, leadX, overlaps, yieldLimit } from './street-rules';
 
-type Kind = 'moto' | 'hatch' | 'sedan' | 'suv' | 'pickup' | 'veraneio' | 'kombi' | 'som' | 'pipa' | 'carroca' | 'bus' | 'micro' | 'escolar';
-type MotoKind = 'plain' | 'mototaxi' | 'delivery' | 'gas' | 'scooter';
+type Kind = 'moto' | 'hatch' | 'sedan' | 'suv' | 'pickup' | 'fusca' | 'veraneio' | 'kombi' | 'van' | 'som' | 'pipa' | 'carroca' | 'bus' | 'micro' | 'escolar';
+type MotoKind = 'plain' | 'mototaxi' | 'delivery' | 'gas' | 'scooter' | 'trail' | 'eletrica';
 type Load = 'none' | 'gas' | 'melon' | 'furniture' | 'sacks';
 interface V {
   on: boolean; kind: Kind; x: number; dir: number; sp: number; cruise: number; lane: number; len: number;
-  body: number; body2: number; rider: number; helmet: number; pillion: boolean; moto: MotoKind; load: Load; ph: number;
+  body: number; body2: number; rider: number; helmet: number; pillion: boolean; pHelmet: boolean; mk: MotoKind; load: Load; ph: number;
+  skin: number; hair: number; pTop: number; pSkin: number;
+  /** A motorcycle (for the queue rules), whether it rides beside a bigger vehicle, and how far it has moved aside (0..1, drawing). */
+  moto: boolean; beside: boolean; sideK: number;
 }
+/** No helmet: the rider's hair and face show. */
+const NO_HELMET = 255;
 
 const r = mulberry32(0xb4a1);
 const pick = <T>(a: readonly T[]): T => a[(r() * a.length) | 0];
 const POOL = 8;
 const VS: V[] = Array.from({ length: POOL }, () => ({
   on: false, kind: 'hatch' as Kind, x: 0, dir: 1, sp: 0, cruise: 0, lane: 0, len: 26, body: TILEW, body2: TILEW, rider: CRED,
-  helmet: VOID, pillion: false, moto: 'plain' as MotoKind, load: 'none' as Load, ph: 0,
+  helmet: VOID, pillion: false, pHelmet: true, mk: 'plain' as MotoKind, load: 'none' as Load, ph: 0, skin: SKIN2, hair: HAIR1, pTop: CBEIGE, pSkin: SKIN2,
+  moto: false, beside: false, sideK: 0,
 }));
 let laneY = [158, 172], spawnT = 0.3;
 
@@ -45,13 +54,13 @@ export const vehicleNearCrossing = () => !!crossing && VS.some((v) => v.on && ov
 /** Whether any vehicle's body overlaps world x0..x1 (debug check). */
 export const vehicleBetween = (x0: number, x1: number) => VS.some((v) => v.on && overlaps(v.x, v.len, x0, x1));
 
-const LEN: Record<Kind, number> = { moto: 12, hatch: 26, sedan: 31, suv: 31, pickup: 31, veraneio: 34, kombi: 28, som: 27, pipa: 42, carroca: 34, bus: 66, micro: 44, escolar: 50 };
+const LEN: Record<Kind, number> = { moto: 12, hatch: 26, sedan: 31, suv: 31, pickup: 31, fusca: 24, veraneio: 34, kombi: 28, van: 38, som: 27, pipa: 42, carroca: 34, bus: 66, micro: 44, escolar: 50 };
 const CAR_COLORS = [TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, CNAVY, STONE, CBEIGE];
 
 function choose(v: V) {
   const h = S.cal.hour, day = hourIn(h, 6, 18.5), late = h >= 23 || h < 5;
   const w: [Kind, number][] = [
-    ['moto', 44], ['hatch', 18], ['sedan', 6], ['suv', 5], ['pickup', 8], ['veraneio', 1.5], ['kombi', 2],
+    ['moto', 44], ['hatch', 18], ['sedan', 6], ['suv', 5], ['pickup', 8], ['fusca', 1.5], ['veraneio', 1.5], ['kombi', 2], ['van', 2.5],
     ['som', day ? 2.5 : 0], ['pipa', day ? (S.cal.month >= 8 || S.cal.month <= 1 ? 4 : 1.5) : 0], ['carroca', day ? 4 : 0],
     ['bus', late ? 0 : 3], ['micro', late ? 0 : 2],
     // prefeitura school buses at the start and end of each school shift on weekdays
@@ -64,16 +73,25 @@ function choose(v: V) {
   let q = r() * t; v.kind = 'hatch';
   for (const [k, x] of w) { q -= x; if (q <= 0) { v.kind = k; break; } }
   v.len = LEN[v.kind]; v.body = pick(CAR_COLORS); v.body2 = TILEW; v.pillion = false; v.load = 'none'; v.ph = r() * 6;
+  v.moto = v.kind === 'moto'; v.beside = false; v.sideK = 0;
   switch (v.kind) {
     case 'moto': {
-      v.moto = pick(['plain', 'plain', 'mototaxi', 'mototaxi', 'delivery', 'gas', 'scooter'] as const);
-      v.body = pick([CRED, CRED, VOID, CBLUE, STONEL, TILEW, CNAVY]);
-      v.rider = pick([CRED, CBLUE, VOID, CYELL, TILEW, CGREEN, STONE]); v.helmet = pick([VOID, VOID, TILEW, CRED, CBLUE, CYELL]);
-      v.pillion = v.moto === 'mototaxi' || (v.moto === 'plain' && r() < 0.3);
-      if (v.moto === 'mototaxi') v.rider = pick([CYELL, CORNG]);
-      v.cruise = v.moto === 'scooter' ? 42 : 52 + r() * 22; break;
+      v.mk = pick(['plain', 'plain', 'plain', 'mototaxi', 'mototaxi', 'delivery', 'gas', 'scooter', 'trail', 'eletrica'] as const);
+      v.body = v.mk === 'eletrica' ? pick([TILEW, CBLUE, VOID, CRED, STONEL]) : pick([CRED, CRED, VOID, CBLUE, STONEL, TILEW, CNAVY]);
+      v.rider = pick([CRED, CBLUE, VOID, CYELL, TILEW, CGREEN, STONE]);
+      v.skin = pick([SKIN1, SKIN2, SKIN2, SKIN3, SKIN3, SKIN4]); v.hair = pick([HAIR1, HAIR1, HAIR2]);
+      // most riders wear a helmet: mototáxi drivers always; least often on the electric scooters
+      const helmetP = v.mk === 'mototaxi' ? 1 : v.mk === 'eletrica' ? 0.5 : v.mk === 'delivery' || v.mk === 'gas' ? 0.92 : 0.82;
+      v.helmet = r() < helmetP ? pick([VOID, VOID, TILEW, CRED, CBLUE, CYELL]) : NO_HELMET;
+      v.pillion = v.mk === 'mototaxi' || ((v.mk === 'plain' || v.mk === 'trail') && r() < 0.3) || (v.mk === 'eletrica' && r() < 0.12);
+      v.pHelmet = r() < (v.mk === 'mototaxi' ? 0.75 : 0.6);
+      v.pTop = pick([CBEIGE, CRED, TILEW, CBLUE]); v.pSkin = pick([SKIN1, SKIN2, SKIN3, SKIN4]);
+      if (v.mk === 'mototaxi') v.rider = pick([CYELL, CORNG]);
+      v.cruise = v.mk === 'eletrica' ? 30 + r() * 10 : v.mk === 'scooter' ? 42 : 52 + r() * 22; break;
     }
     case 'pickup': v.load = pick(['none', 'gas', 'melon', 'furniture', 'sacks'] as const); v.cruise = 42 + r() * 12; break;
+    case 'fusca': v.body = pick([CBEIGE, CBLUE, CRED, TILEW, CGREEN, CYELL, STONEL]); v.cruise = 38 + r() * 10; break;
+    case 'van': v.body = pick([TILEW, TILEW, TILEW, STONEL]); v.cruise = 44 + r() * 10; break;
     case 'veraneio': v.body = pick([CBEIGE, CGREEN, WOOD, CRED, CNAVY]); v.cruise = 36 + r() * 8; break;
     case 'kombi': v.body = pick([CBLUE, CRED, CBEIGE, CGREEN]); v.cruise = 34 + r() * 8; break;
     case 'som': v.body = pick([TILEW, CRED, CBLUE]); v.cruise = 14 + r() * 4; break;
@@ -101,29 +119,33 @@ export function updateBr(dt: number, density = 1) {
   // roughly one vehicle every 2-6 s at a busy hour, a trickle late at night
   spawnT -= dt * (0.02 + 0.36 * S.traffic) * density;
   if (spawnT <= 0) { spawnT = 0.6 + r() * 1.2; spawn(); }
+  const on = VS.filter((v) => v.on);
+  const zc = crossing, occupied = !!zc && zc.occupied(), held: V[] = [];
+  // a motorcycle level with a bigger vehicle in its lane rides beside it, between the lanes; one
+  // coming up to a queue at an occupied crossing stops behind instead (it only stays beside if it already was)
+  for (const v of on) {
+    const queuing = !!zc && occupied && !v.beside && yieldLimit(leadX(v), v.dir, zc.x0 - STOP_GAP, zc.x1 + STOP_GAP, true) < Infinity;
+    v.beside = besideAny(v, on, queuing ? 0 : 6);
+  }
   // with a zebra crossing, vehicles are moved front-first so each sees where the one ahead stopped
-  const zc = crossing, occupied = !!zc && zc.occupied(), held = new Set<V>();
-  const order = zc ? VS.filter((v) => v.on).sort((a, b) => b.x * b.dir - a.x * a.dir) : VS;
-  for (const v of order) {
-    if (!v.on) continue;
-    // follow a slower vehicle ahead in the same lane (motorcycles squeeze past)
+  if (zc) on.sort((a, b) => leadX(b) * b.dir - leadX(a) * a.dir);
+  for (const v of on) {
+    // follow a slower vehicle ahead in the same lane: cars follow the bigger vehicles (they overtake
+    // motorcycles, which then ride beside); motorcycles weave past those but follow other motorcycles in their row
     let sp = v.cruise;
-    if (v.kind !== 'moto') for (const o of VS) {
-      if (o === v || !o.on || o.lane !== v.lane || o.kind === 'moto') continue;
+    for (const o of on) {
+      if (o === v || o.lane !== v.lane || (v.moto ? !o.moto || o.beside !== v.beside : o.moto)) continue;
       const gap = v.dir > 0 ? o.x - (v.x + v.len) : v.x - (o.x + o.len);
       if (gap > 0 && gap < 14) sp = Math.min(sp, o.sp * (gap < 6 ? 0.6 : 1));
     }
     let lim = Infinity;
     if (zc) {
-      // stop before the stripes while someone is on (or stepping onto) them; queue behind anyone held there
-      lim = yieldLimit(v.dir > 0 ? v.x + v.len : v.x, v.dir, zc.x0 - STOP_GAP, zc.x1 + STOP_GAP, occupied);
-      for (const o of held) {
-        if (o.lane !== v.lane) continue;
-        const gap = v.dir > 0 ? o.x - (v.x + v.len) : v.x - (o.x + o.len);
-        if (gap >= 0) lim = Math.min(lim, Math.max(0, gap - 3));
-      }
-      if (lim < Infinity) { held.add(v); sp = Math.min(sp, lim * 1.5); } // ease down toward the line
+      // stop before the stripes while someone is on (or stepping onto) them; queue behind anyone
+      // held in the same row, a few px back, never overlapping
+      lim = holdLimit(v, held, zc.x0 - STOP_GAP, zc.x1 + STOP_GAP, occupied);
+      if (lim < Infinity) { held.push(v); sp = Math.min(sp, lim * 1.5); } // ease down toward the line
     }
+    v.sideK += ((v.beside ? 1 : 0) - v.sideK) * Math.min(1, dt * 6);
     v.sp += (sp - v.sp) * Math.min(1, dt * 2);
     const move = Math.min(v.sp * dt, lim);
     if (move < v.sp * dt) v.sp = move / dt;
@@ -178,23 +200,37 @@ function car(x0: number, y: number, L: number, f: number, body: number, opt: { h
 }
 
 function drawMoto(v: V, y: number) {
-  const f = v.dir, x0 = Math.round(v.x), n = night();
+  const f = v.dir, x0 = Math.round(v.x), n = night(), k = v.mk;
   const front = f > 0 ? x0 + 11 : x0, back = f > 0 ? x0 : x0 + 11;
+  const up = k === 'trail' ? 1 : 0; // trail bikes sit taller
   wheel(x0 + 2, y, 1); wheel(x0 + 9, y, 1);
-  if (v.moto === 'scooter') { rect(x0 + 2, y - 4, 8, 2, v.body); rect(front - 2 * f, y - 7, 2, 4, v.body); }
-  else { rect(x0 + 3, y - 5, 6, 2, v.body); rect(x0 + 4, y - 6, 3, 1, v.body); put(front - f, y - 6, STEEL); put(front - f, y - 7, STEEL); rect(x0 + 3, y - 3, 5, 1, STEEL); }
-  const rx = x0 + 5 + (f > 0 ? 0 : 1);
-  rect(rx, y - 11, 2, 6, v.rider); rect(rx + f, y - 9, 2, 1, v.rider); put(rx + 2 * f, y - 8, SKIN2);
-  rect(rx + (f > 0 ? 1 : -1), y - 6, 2, 1, CNAVY);
-  rect(rx, y - 14, 3, 3, v.helmet); put(rx + (f > 0 ? 2 : 0), y - 13, n ? STONEL : WCOOL);
-  if (v.moto === 'mototaxi') { put(rx, y - 10, VOID); put(rx + 1, y - 9, VOID); } // vest number
-  if (v.pillion) { const px = rx - 3 * f; rect(px, y - 10, 2, 5, pick2(v.ph, [CBEIGE, CRED, TILEW, CBLUE])); rect(px, y - 13, 2, 3, VOID); }
-  if (v.moto === 'delivery') { rect(back + (f > 0 ? -1 : -3), y - 12, 5, 5, CRED); rect(back + (f > 0 ? 0 : -2), y - 11, 3, 1, TILEW); }
-  if (v.moto === 'gas') { rect(back + (f > 0 ? -1 : -2), y - 10, 4, 5, CBLUE); rect(back + (f > 0 ? 0 : -1), y - 11, 2, 1, STEEL); }
+  if (k === 'scooter' || k === 'eletrica') {
+    rect(x0 + 2, y - 4, 8, 2, v.body); rect(front - 2 * f, y - 7, 2, 4, v.body);
+    if (k === 'scooter') put(back + 2 * f, y - 2, STEEL); // small muffler by the rear wheel
+    else { rect(x0 + 4, y - 3, 4, 1, STEEL); put(x0 + 5, y - 4, n ? LEDW : CGREEN); } // battery under the deck, charge light; no exhaust
+  } else {
+    rect(x0 + 3, y - 5 - up, 6, 2, v.body); rect(x0 + 4, y - 6 - up, 3, 1, v.body);
+    put(front - f, y - 6 - up, STEEL); put(front - f, y - 7 - up, STEEL);
+    if (k === 'trail') { put(front, y - 4, v.body); put(front - f, y - 4, v.body); rect(x0 + 3, y - 4, 5, 1, STEEL); put(back + f, y - 5, STEEL); } // high fender, exhaust up the side
+    else rect(x0 + 3, y - 3, 5, 1, STEEL);
+  }
+  const rx = x0 + 5 + (f > 0 ? 0 : 1), ry = y - up;
+  rect(rx, ry - 11, 2, 6, v.rider); rect(rx + f, ry - 9, 2, 1, v.rider); put(rx + 2 * f, ry - 8, v.skin);
+  rect(rx + (f > 0 ? 1 : -1), ry - 6, 2, 1, CNAVY);
+  if (v.helmet !== NO_HELMET) { rect(rx, ry - 14, 3, 3, v.helmet); put(rx + (f > 0 ? 2 : 0), ry - 13, n ? STONEL : WCOOL); }
+  else { rect(rx, ry - 13, 3, 2, v.skin); rect(rx, ry - 14, 3, 1, v.hair); put(rx + (f > 0 ? 0 : 2), ry - 13, v.hair); } // bare head
+  if (k === 'mototaxi') { put(rx, ry - 10, VOID); put(rx + 1, ry - 9, VOID); } // vest number
+  if (v.pillion) {
+    const px = rx - 3 * f;
+    rect(px, ry - 10, 2, 5, v.pTop);
+    if (v.pHelmet) rect(px, ry - 13, 2, 3, VOID);
+    else { rect(px, ry - 12, 2, 2, v.pSkin); rect(px, ry - 13, 2, 1, v.hair === HAIR1 ? HAIR2 : HAIR1); }
+  }
+  if (k === 'delivery') { rect(back + (f > 0 ? -1 : -3), y - 12, 5, 5, CRED); rect(back + (f > 0 ? 0 : -2), y - 11, 3, 1, TILEW); }
+  if (k === 'gas') { rect(back + (f > 0 ? -1 : -2), y - 10, 4, 5, CBLUE); rect(back + (f > 0 ? 0 : -1), y - 11, 2, 1, STEEL); }
   put(front, y - 6, n ? LEDW : STONEL); put(back, y - 5, n ? MAG : MAGD);
   if (n) for (let i = 1; i < 18; i++) for (let j = -1; j <= 1; j++) { const x = front + i * f, yy = y - 5 + j + Math.round(i * 0.15); if (bay(x - G.camX, yy + G.oy) < 0.28 * (1 - i / 18)) put(x, yy, HALO); }
 }
-const pick2 = (ph: number, a: number[]) => a[Math.floor(ph * 10) % a.length];
 
 function drawPickup(v: V, y: number) {
   const f = v.dir, x0 = Math.round(v.x), L = v.len;
@@ -212,6 +248,34 @@ function drawVeraneio(v: V, y: number) {
   car(x0, y, L, f, v.body, { h: 6, roof: 5, cab: [0.08, 0.78], roofC: TILEW, boxy: true, wins: 3 });
   rect(x0, y - 6, L, 1, STONEL); // chrome strip
   put(f > 0 ? x0 + L - 1 : x0, y - 7, night() ? LEDW : TILEW); // round headlamp
+}
+
+/** Fusca: round fenders and a domed cabin, round headlamp. */
+function drawFusca(v: V, y: number) {
+  const f = v.dir, x0 = Math.round(v.x), L = v.len, n = night();
+  rect(x0 + 1, y - 8, L - 2, 5, v.body); rect(x0, y - 6, L, 2, v.body);
+  const c0 = x0 + 5, c1 = x0 + L - 5, w = c1 - c0;
+  rect(c0 + 2, y - 13, w - 4, 1, v.body); rect(c0 + 1, y - 12, w - 2, 1, v.body); rect(c0, y - 11, w, 3, v.body);
+  const half = (w >> 1) - 2;
+  rect(c0 + 2, y - 11, half, 2, n ? WDIM : WCOOL); rect(c0 + 3 + half, y - 11, half, 2, n ? WDIM : WCOOL);
+  rect(x0, y - 4, L, 1, STONE);
+  wheel(x0 + 5, y); wheel(x0 + L - 6, y);
+  put(f > 0 ? x0 + L - 2 : x0 + 1, y - 8, n ? LEDW : TILEW); // round headlamp on the fender
+  lights(f > 0 ? x0 + L - 1 : x0, f > 0 ? x0 : x0 + L - 1, y - 5, f);
+}
+
+/** White passenger van (transporte alternativo): tall box, short sloped nose, a row of windows. */
+function drawVan(v: V, y: number) {
+  const f = v.dir, x0 = Math.round(v.x), L = v.len, n = night(), top = y - 18;
+  const box0 = f > 0 ? x0 : x0 + 6, bw = L - 6, nose = f > 0 ? x0 + L - 6 : x0;
+  rect(box0, top, bw, 15, v.body); rect(nose, top + 7, 6, 8, v.body);
+  for (let j = 0; j < 6; j++) rect(f > 0 ? nose + j : nose + 5 - j, top + 1 + j, 1, 6 - j, v.body); // windscreen slope
+  rect(f > 0 ? box0 + bw - 3 : box0, top + 2, 3, 5, n ? WDIM : WCOOL); // windscreen
+  for (let wx = box0 + (f > 0 ? 3 : 5); wx < box0 + bw - 8; wx += 7) rect(wx, top + 2, 5, 4, n ? WDIM : WCOOL);
+  rect(x0, top + 9, L, 1, STONEL);
+  rect(x0, y - 4, L, 1, STONE);
+  wheel(x0 + 6, y); wheel(x0 + L - 7, y);
+  lights(f > 0 ? x0 + L - 1 : x0, f > 0 ? x0 : x0 + L - 1, y - 6, f);
 }
 
 function drawKombi(v: V, y: number) {
@@ -281,18 +345,31 @@ function drawCarroca(v: V, y: number) {
   rect(px, y - 18, 3, 7, CBEIGE); rect(px, y - 21, 3, 3, SKIN3); rect(px - 1, y - 22, 5, 1, WOOD); rect(px, y - 23, 3, 1, WOOD);
 }
 
-/** Viação São José buses and micro-buses, in green and yellow. */
+/** Viação São José buses and micro-buses, painted after the company's own photo of car 0853 on
+    empresasaojosetransporte.com.br: yellow body and roof, a dark window band, green low at the
+    front sweeping up toward the rear, a yellow "S" mark on the green and "São José" in green on the
+    yellow. No destination text: none is legible in a source we could check, so there is no
+    roof board and the top of the windscreen stays blank. */
 function drawBus(v: V, y: number, micro: boolean) {
   const f = v.dir, x0 = Math.round(v.x), L = v.len, n = night(), H = micro ? 15 : 18, top = y - H - 3;
-  // yellow upper body with the windows and the name, green skirt with a wavy edge
-  rect(x0, top, L, H, CYELL); rect(x0, top + H - 6, L, 6, CGREEN);
-  for (let i = 0; i < L; i++) put(x0 + i, top + H - 6 + Math.round(Math.sin((i / L) * Math.PI * 2 * f) * 1), CGREEN);
-  for (let wx = x0 + 3; wx < x0 + L - 9; wx += 7) rect(wx, top + 1, 5, 5, n ? LIGHT : WDIM);
-  const wsx = f > 0 ? x0 + L - 7 : x0 + 1; rect(wsx, top + 2, 6, H - 8, n ? WCOOL : WDIM);
-  rect(f > 0 ? x0 + L - 14 : x0 + 9, top + 3, 4, H - 4, BNEAR); // door
-  drawText4('SAO JOSE', x0 + (L >> 1) - 15, top + 6, CGREEN);
-  rect(x0 + 2, top - 3, micro ? 22 : 36, 3, VOID);
-  drawText4(micro ? 'ESPERANCA' : 'CAMPINA', x0 + 3, top - 8, n ? AMB : CYELL);
+  rect(x0, top, L, H, CYELL);
+  // dark window band, windows lit at night
+  const wh = micro ? 5 : 6;
+  rect(x0 + 1, top + 1, L - 2, wh, VOID);
+  for (let wx = x0 + 3; wx < x0 + L - 9; wx += 7) rect(wx, top + 2, 5, wh - 2, n ? LIGHT : WDIM);
+  // green sweep: full height below the windows at the front, rising to a thin band at the rear
+  const g0 = top + wh + 2, bot = y - 4;
+  for (let i = 0; i < L; i++) {
+    const u = f > 0 ? (L - 1 - i) / (L - 1) : i / (L - 1); // 0 at the nose, 1 at the tail
+    const gb = Math.round(bot - (bot - g0 - 1) * Math.min(1, Math.max(0, (u - 0.2) / 0.4)));
+    rect(x0 + i, g0, 1, gb - g0 + 1, CGREEN);
+  }
+  const wsx = f > 0 ? x0 + L - 7 : x0 + 1;
+  rect(wsx, top + 1, 6, 1, VOID); rect(wsx, top + 2, 6, H - 8, n ? WCOOL : WDIM); // windscreen, blank top
+  const door = f > 0 ? x0 + L - 14 : x0 + 9;
+  rect(door, top + 3, 4, H - 4, BNEAR);
+  drawText4('S', f > 0 ? door - 4 : door + 5, micro ? g0 : g0 + 1, CYELL); // the company's S mark behind the door
+  if (!micro) drawText4('SAO JOSE', f > 0 ? x0 + 2 : x0 + L - 33, bot - 5, CGREEN); // on the yellow near the tail
   wheel(x0 + 8, y, 3); wheel(x0 + L - 10, y, 3);
   lights(f > 0 ? x0 + L - 1 : x0, f > 0 ? x0 : x0 + L - 1, y - 6, f, 30);
 }
@@ -309,16 +386,21 @@ function drawEscolar(v: V, y: number) {
   lights(f > 0 ? x0 + L - 1 : x0, f > 0 ? x0 : x0 + L - 1, y - 6, f, 28);
 }
 
+/** How far a motorcycle riding beside moves toward the other lane: into the gap between the lanes. */
+const besideOffset = (v: V) => Math.round(v.sideK * (laneY[1] - laneY[0]) * 0.45) * (v.lane === 0 ? 1 : -1);
+
 function drawV(v: V) {
-  const y = laneY[v.lane], x0 = Math.round(v.x), f = v.dir;
+  const y = laneY[v.lane] + (v.moto ? besideOffset(v) : 0), x0 = Math.round(v.x), f = v.dir;
   switch (v.kind) {
     case 'moto': drawMoto(v, y); break;
     case 'hatch': car(x0, y, v.len, f, v.body, { cab: [0.15, 0.72] }); break;
     case 'sedan': car(x0, y, v.len, f, v.body, { cab: [0.25, 0.66] }); break;
     case 'suv': car(x0, y, v.len, f, v.body, { h: 6, roof: 5, cab: [0.12, 0.72], boxy: true, wins: 3 }); rect(x0 + 6, y - 15, v.len - 12, 1, STEEL); break;
     case 'pickup': drawPickup(v, y); break;
+    case 'fusca': drawFusca(v, y); break;
     case 'veraneio': drawVeraneio(v, y); break;
     case 'kombi': drawKombi(v, y); break;
+    case 'van': drawVan(v, y); break;
     case 'som': drawSom(v, y); break;
     case 'pipa': drawPipa(v, y); break;
     case 'carroca': drawCarroca(v, y); break;
@@ -329,10 +411,10 @@ function drawV(v: V) {
 }
 
 const HORN: Record<Kind, 'moto' | 'car' | 'kombi' | 'bus' | 'truck' | 'bray' | 'som'> = {
-  moto: 'moto', hatch: 'car', sedan: 'car', suv: 'car', pickup: 'car', veraneio: 'kombi', kombi: 'kombi', som: 'som',
+  moto: 'moto', hatch: 'car', sedan: 'car', suv: 'car', pickup: 'car', fusca: 'kombi', veraneio: 'kombi', kombi: 'kombi', van: 'car', som: 'som',
   pipa: 'truck', carroca: 'bray', bus: 'bus', micro: 'bus', escolar: 'bus',
 };
-const TALL: Record<Kind, number> = { moto: 15, hatch: 13, sedan: 13, suv: 15, pickup: 14, veraneio: 15, kombi: 16, som: 24, pipa: 17, carroca: 24, bus: 28, micro: 24, escolar: 24 };
+const TALL: Record<Kind, number> = { moto: 15, hatch: 13, sedan: 13, suv: 15, pickup: 14, fusca: 13, veraneio: 15, kombi: 16, van: 18, som: 24, pipa: 17, carroca: 24, bus: 22, micro: 19, escolar: 24 };
 /** A tapped vehicle: which horn to play and where to show the reaction. */
 export function tapBr(x: number, y: number) {
   for (const v of VS) {
@@ -343,9 +425,15 @@ export function tapBr(x: number, y: number) {
   return null;
 }
 
+/** Far lane, then the motorcycles riding beside (between the lanes), then the near lane. */
 export function drawBr() {
-  for (const v of VS) if (v.on && v.lane === 0) drawV(v);
-  for (const v of VS) if (v.on && v.lane === 1) drawV(v);
+  const aside = (v: V) => v.moto && v.sideK > 0.05;
+  for (const v of VS) if (v.on && v.lane === 0 && !aside(v)) drawV(v);
+  for (const v of VS) if (v.on && v.lane === 0 && aside(v)) drawV(v);
+  for (const v of VS) if (v.on && v.lane === 1 && aside(v)) drawV(v);
+  for (const v of VS) if (v.on && v.lane === 1 && !aside(v)) drawV(v);
 }
 
-export const brTrafficDebug = () => VS.filter((v) => v.on).map((v) => (v.kind === 'moto' ? v.moto : v.kind)).join(',');
+/** Vehicles on screen (debug panel): `-` marks a rider without a helmet, `^` one riding beside. */
+export const brTrafficDebug = () => VS.filter((v) => v.on)
+  .map((v) => (v.moto ? `${v.mk}${v.helmet === NO_HELMET ? '-' : ''}${v.beside ? '^' : ''}` : v.kind)).join(',');
