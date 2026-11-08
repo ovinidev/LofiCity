@@ -5,19 +5,20 @@
    white LED lamp posts and the Virgin on her tiled pedestal fills the left and the front; on the
    right, R. Manoel Rodrigues de Oliveira (the road toward Campina Grande) runs past the church behind
    a yellow-painted curb, with shops, poles and wires on its far side. The road is drawn in
-   perspective, receding toward the church, and all traffic stays on it. */
+   perspective, receding toward the church, and all traffic stays on it. It is one-way here: every
+   vehicle drives up it, away from the viewer, tail lights showing; nothing comes the other way. */
 import { G, L, Lp, WW, blitLayer, getW, newLayer, put, rect, sx, sy } from '../engine/gfx';
 import { bay, mulberry32 } from '../engine/math';
 import {
   AMB, AMBD, ASPH, BARK, BFAR, BMID, BNEAR, CBLUE, CHURCH, CHURCHD, CHURCHL, CYELL, GOLD, HAIR1, HAIR2, HAIR3, LIGHT, MANTO,
-  SKIN1, SKIN2, SKIN3, SKIN4, STEEL, STONE, STONEL, CBEIGE, MAGD, WDIM, HALO,
+  SKIN1, SKIN2, SKIN3, SKIN4, STEEL, STONE, STONEL, CBEIGE, MAGD, WDIM,
   TILEW, VOID, WHITE, WOOD, WWARM, WCOOL, FBLUE, FGREEN, FPINK, MAG, CRED,
 } from '../engine/palette';
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { anyoneBetween, bikeCount, drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
-import { yieldLimit } from '../actors/street-rules';
+import { CROSS0, CROSS1, ROAD_VY, STOP_ROW, spawnAway, stepRoad } from '../actors/matriz-road';
 import { setCarLanes } from '../actors/cars';
 import { type Tree, drawTree, makeTree } from '../actors/trees';
 import { type MassState, massState } from '../sky/rhythm';
@@ -42,10 +43,8 @@ const hotelWins: TowerWin[] = [];
 
 // The road, in perspective: its left (plaza) curb and right (shops) curb converge just past the church's
 // right corner. Row 140 is the foot of the façade; the road is 28 px wide there and widens to the bottom.
-const ROAD_VY = 133.9; // where the curbs would meet
 const xl = (y: number) => 316 - 1.35 * (y - 140), xr = (y: number) => 344 + 3.25 * (y - 140);
 const laneX = (y: number, u: number) => xl(y) + u * (xr(y) - xl(y));
-const CROSS0 = 141, CROSS1 = 147; // zebra crossing rows: the pedestrian lanes cross the road here
 /** Ground at world (x, y) from row 134 down: plaza pavers, yellow curbs, asphalt with paint, sidewalk. */
 function groundAt(x: number, y: number): number {
   const a = xl(y), b = xr(y), w = b - a;
@@ -55,7 +54,8 @@ function groundAt(x: number, y: number): number {
   if (x >= b) return CYELL;
   const u = (x - a) / w, depth = 60 / (y - ROAD_VY);
   if (y >= CROSS0 && y < CROSS1) return Math.floor(((x - 324) / (y - ROAD_VY)) * 2.2) & 1 ? ASPH : TILEW; // zebra (WHITE would glow at night)
-  if (Math.abs(u - 0.5) * w < Math.max(0.5, w * 0.012) && (depth | 0) % 2 === 0) return TILEW; // dashed centre line
+  // one-way, as in the street photo: no centre line; a dashed line sets off the parking strip by the shops
+  if (Math.abs(u - 0.8) * w < Math.max(0.5, w * 0.01) && (depth | 0) % 2 === 0) return TILEW;
   if (Math.abs(u - 0.035) * w < Math.max(0.5, w * 0.008)) return TILEW; // edge line by the plaza curb
   return wr() < 0.08 ? STONE : ASPH;
 }
@@ -302,62 +302,54 @@ function drawFiel(f: Fiel) {
 }
 
 // ---------- traffic: only on the road right of the church, in perspective ----------
-// Facing the church, Brazilian traffic keeps right: vehicles heading away (toward the church and on
-// past it) use the right lane and show their tail lights; oncoming ones use the left lane, headlights
-// on. Each vehicle is a front/rear view scaled by its row; they stop for anyone on the zebra.
+// One-way (rules in actors/matriz-road.ts): every vehicle enters below the frame and drives up the
+// road, away from the viewer, toward the church and on past it, tail lights showing. It keeps to the
+// lane left of the dashed parking strip. Each vehicle is a rear view scaled by its row; they stop
+// for anyone on the zebra.
 type RKind = 'moto' | 'car' | 'pickup' | 'bus';
-interface RCar { on: boolean; y: number; dir: 1 | -1; sp: number; kind: RKind; body: number; rider: number; helmet: number }
+interface RCar { on: boolean; y: number; sp: number; kind: RKind; body: number; rider: number; helmet: number }
 const rr = mulberry32(0x7a11);
 const NO_HELMET = 255; // rider without a helmet (never a palette index)
 const rpick = <T>(a: readonly T[]): T => a[(rr() * a.length) | 0];
-const RC: RCar[] = Array.from({ length: 7 }, () => ({ on: false, y: 0, dir: 1 as const, sp: 1, kind: 'car' as RKind, body: TILEW, rider: CRED, helmet: VOID }));
-const Y_FAR = 136, Y_NEAR = 192; // spawn / despawn rows (192 is below the frame)
-const laneU = (c: RCar) => (c.dir > 0 ? 0.28 : 0.72);
+const RC: RCar[] = Array.from({ length: 7 }, () => ({ on: false, y: 0, sp: 1, kind: 'car' as RKind, body: TILEW, rider: CRED, helmet: VOID }));
+const LANE_U = 0.42; // centre of the driving lane, across the road (0 = plaza curb, 1 = shops' curb)
 // 1 at row 146, where a car is about a person's height; damped (^0.7) so near vehicles don't swamp the frame
 const scaleAt = (y: number) => ((xr(y) - xl(y)) / 56) ** 0.7;
-const gapAt = (y: number) => 2 + (y - ROAD_VY) * 0.5;
-let rcT = 0.5;
+let rcT = 0.5, held = 0, towardViewer = 0;
 
 function spawnCar() {
-  const c = RC.find((o) => !o.on);
+  const c = spawnAway(RC);
   if (!c) return;
-  const dir = rr() < 0.5 ? 1 : -1, y = dir > 0 ? Y_FAR : Y_NEAR;
-  if (RC.some((o) => o.on && o.dir === dir && Math.abs(o.y - y) < gapAt(y) + 2)) return;
   const k = rr(), h = S.cal.hour;
   c.kind = k < 0.45 ? 'moto' : k < 0.85 ? 'car' : k < 0.95 || h < 6 || h > 22 ? 'pickup' : 'bus';
   c.body = c.kind === 'bus' ? TILEW : c.kind === 'moto' ? rpick([CRED, CRED, VOID, CBLUE, STONEL]) : rpick([TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, STONE]);
   c.rider = rpick([CRED, CBLUE, VOID, CYELL, TILEW, FGREEN]); c.helmet = rpick([VOID, VOID, VOID, TILEW, CRED, CBLUE, NO_HELMET]); // most wear one
   c.sp = (c.kind === 'moto' ? 1.2 : c.kind === 'bus' ? 0.8 : 1) * (0.85 + rr() * 0.3);
-  c.dir = dir; c.y = y; c.on = true;
 }
 
 function updateTraffic(dt: number) {
   rcT -= dt * (0.06 + 0.6 * S.busy);
   if (rcT <= 0) { rcT = 0.6 + rr() * 2; spawnCar(); }
   const crossing = anyoneBetween(xl(144) - 4, xr(144) + 4) || FIEIS.some((f) => f.on && f.x > xl(141) - 4 && f.x < xr(141) + 4);
-  for (const c of RC) {
-    if (!c.on) continue;
-    let v = c.sp * 40 * (0.1 + ((c.y - ROAD_VY) / 46) ** 1.5) * dt; // faster as it nears the viewer
-    for (const o of RC) if (o !== c && o.on && o.dir === c.dir && (o.y - c.y) * c.dir > 0) v = Math.min(v, Math.max(0, Math.abs(o.y - c.y) - gapAt(Math.max(o.y, c.y))));
-    v = Math.min(v, yieldLimit(c.y, c.dir, CROSS0 - 1, CROSS1 + 2, crossing)); // stop short of the zebra; a vehicle already on it carries on
-    c.y += c.dir * v;
-    if (c.y > Y_NEAR + 1 || c.y < Y_FAR - 0.5) c.on = false;
-  }
+  const before = RC.map((c) => c.y);
+  stepRoad(RC, dt, crossing); // stop short of the zebra; a vehicle already on it carries on
+  held = crossing ? RC.filter((c) => c.on && c.y >= STOP_ROW && c.y < STOP_ROW + 0.5).length : 0;
+  RC.forEach((c, i) => { if (c.on && c.y > before[i]) towardViewer++; }); // debug: must stay 0 (one-way)
 }
 
-/** One vehicle seen from the front (oncoming) or the back (going away), at its row's scale. */
+/** One vehicle seen from the back (going away), at its row's scale. */
 function drawRoadCar(c: RCar) {
-  const k = scaleAt(c.y), cx = laneX(c.y, laneU(c)), gy = Math.round(c.y), n = isNight(), front = c.dir > 0;
+  const k = scaleAt(c.y), cx = laneX(c.y, LANE_U), gy = Math.round(c.y), n = isNight();
   const X = (u: number) => Math.round(cx + u * k), Y = (h: number) => Math.round(gy - h * k);
   // rect between unit coords: u across (0 = lane centre), h height above the road
   const R = (u0: number, u1: number, h1: number, h0: number, col: number) => rect(X(u0), Y(h1), Math.max(1, X(u1) - X(u0)), Math.max(1, Y(h0) - Y(h1)), col);
-  const head = n ? WHITE : CBEIGE, tail = n ? MAG : MAGD;
+  const tail = n ? MAG : MAGD;
   if (c.kind === 'moto') {
     R(-1, 1, 3.5, 0, VOID); R(-1.6, 1.6, 6, 3, c.body);
     R(-2.2, 2.2, 11, 5.5, c.rider);
     if (c.helmet !== NO_HELMET) R(-1.6, 1.6, 13.5, 10.5, c.helmet);
-    else { R(-1.2, 1.2, 13, 10.5, front ? SKIN2 : HAIR1); R(-1.2, 1.2, 13.3, 12.2, HAIR1); } // bare head: face or back of the head
-    R(-0.6, 0.6, 5.5, 4.2, front ? head : tail);
+    else R(-1.2, 1.2, 13.3, 10.5, HAIR1); // bare head: the back of it
+    R(-0.6, 0.6, 5.5, 4.2, tail);
   } else {
     const bus = c.kind === 'bus', hw = bus ? 10.5 : 8.5, H = bus ? 20 : c.kind === 'pickup' ? 13.5 : 12.5;
     R(-hw - 0.5, hw + 0.5, 0.6, -0.4, VOID); // shadow
@@ -366,15 +358,11 @@ function drawRoadCar(c: RCar) {
     if (bus) { R(-hw + 1.5, hw - 1.5, H - 2, H - 10, n ? LIGHT : WDIM); R(-hw, hw, 9, 8, FGREEN); }
     else { R(-hw + 2, hw - 2, H, 8, c.body); R(-hw + 3, hw - 3, H - 0.8, 8.2, n ? WDIM : WCOOL); }
     R(-hw, hw, 3, 2, STEEL); // bumper
-    R(-2, 2, 5, 3.4, front ? BNEAR : TILEW); // grille / number plate
-    R(-hw + 0.5, -hw + 3, 6.5, 5, front ? head : tail); R(hw - 3, hw - 0.5, 6.5, 5, front ? head : tail);
+    R(-2, 2, 5, 3.4, TILEW); // number plate
+    R(-hw + 0.5, -hw + 3, 6.5, 5, tail); R(hw - 3, hw - 0.5, 6.5, 5, tail);
   }
-  if (!n) return;
-  if (front) { // headlight pool on the road ahead of it (toward the viewer)
-    const len = Math.round(12 * k), hw = (c.kind === 'moto' ? 3 : 9) * k;
-    for (let j = 1; j <= len; j++) for (let x = Math.floor(cx - hw - j * 0.4); x <= cx + hw + j * 0.4; x++)
-      if (bay(sx(x), sy(gy + j)) < 0.3 * (1 - j / (len + 1))) put(x, gy + j, HALO);
-  } else for (let j = 1; j <= Math.round(3 * k); j++) for (let x = X(-8); x <= X(8); x++) if (bay(sx(x), sy(gy + j)) < 0.12) put(x, gy + j, MAGD);
+  if (!n) return; // red tail-light glow on the road just behind it
+  for (let j = 1; j <= Math.round(3 * k); j++) for (let x = X(-8); x <= X(8); x++) if (bay(sx(x), sy(gy + j)) < 0.12) put(x, gy + j, MAGD);
 }
 
 function drawTraffic(near: boolean) {
@@ -428,12 +416,12 @@ export const praca: Scene = {
   },
   update,
   render,
-  debug() { return `active  people x${peopleCount()}  bici x${bikeCount()}  road x${RC.filter((c) => c.on).length}  fiéis x${FIEIS.filter((f) => f.on).length}  mass ${mass.active ? 'on' : mass.doorsOpen ? 'doors' : 'off'}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
+  debug() { return `active  people x${peopleCount()}  bici x${bikeCount()}  road x${RC.filter((c) => c.on).length} held ${held} oncoming ${towardViewer}  fiéis x${FIEIS.filter((f) => f.on).length}  mass ${mass.active ? 'on' : mass.doorsOpen ? 'doors' : 'off'}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
   // tap a vehicle and it honks; tap the church (façade, tower or spire) and the bell strikes once
   tap(x, y) {
     for (const c of RC) {
       if (!c.on) continue;
-      const k = scaleAt(c.y), cx = laneX(c.y, laneU(c)), hw = (c.kind === 'bus' ? 11 : c.kind === 'moto' ? 3 : 9) * k + 2;
+      const k = scaleAt(c.y), cx = laneX(c.y, LANE_U), hw = (c.kind === 'bus' ? 11 : c.kind === 'moto' ? 3 : 9) * k + 2;
       if (Math.abs(x - cx) <= hw && y <= c.y + 2 && y >= c.y - (c.kind === 'bus' ? 21 : 14) * k - 2) return { x: cx, y: c.y - 14 * k, sfx: c.kind === 'moto' ? 'moto' : c.kind === 'bus' ? 'bus' : 'car' };
     }
     const tower = x >= 220 && x < 260 && y >= -76 && y < 62, facade = x >= 166 && x < 314 && y >= 37 && y < 140;
