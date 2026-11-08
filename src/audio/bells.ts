@@ -11,58 +11,26 @@
    One timer at most, armed only while it could ring (ambient sound on, city Esperança, real
    clock). sync() clears before re-arming, so it can be called freely; missed hours (tab in the
    background, machine asleep, reload, sound switched on late) are never replayed: a timer that
-   fires late stays silent and just arms the next hour. Rules live in bells-schedule.ts. */
+   fires late stays silent and just arms the next hour. Rules live in bells-schedule.ts, the timer
+   in bells-scheduler.ts; this file only wires them to the real clock and Web Audio. */
 import { audio } from './audio';
-import { nextTargetMs, strikesToRing } from './bells-schedule';
+import { createBellScheduler } from './bells-scheduler.ts';
 
-export interface BellContext {
-  cityId: string;
-  /** City's fixed UTC offset, hours. */
-  utc: number;
-  /** A #at= moment is pinned. */
-  pinned: boolean;
-  /** The church is on screen (Praça da Matriz). */
-  near: boolean;
-}
-
-const CITY = 'esperanca';
-let timer = 0, target = 0, get: (() => BellContext) | null = null;
-
-const wanted = (c: BellContext) => audio.isOn() && c.cityId === CITY && !c.pinned;
-
-function clear() { if (timer) clearTimeout(timer); timer = 0; }
-
-function arm(prev?: number) {
-  const c = get!();
-  target = nextTargetMs(Date.now(), c.utc, prev);
-  timer = window.setTimeout(fire, Math.max(0, target - Date.now()));
-}
-
-function fire() {
-  timer = 0;
-  if (!get) return;
-  const c = get(), fired = target;
-  const n = strikesToRing({
-    targetMs: fired, nowMs: Date.now(), utcOffsetH: c.utc,
-    soundOn: audio.isOn(), audioReady: audio.ready(), inCity: c.cityId === CITY, pinned: c.pinned,
-  });
-  if (n) audio.ringHour(n, c.near);
-  if (wanted(c)) arm(fired);
-}
-
-/** Re-evaluate after the sound toggle, a city change or a scene change. Idempotent. */
-function sync(ctx: () => BellContext) {
-  get = ctx;
-  const c = ctx();
-  clear();
-  if (wanted(c)) arm();
-  else if (c.cityId !== CITY || c.pinned) audio.cancelPeal(); // left town mid-peal (muting cancels it in audio.toggle)
-}
-
-/** Stop everything: no timer, no peal. sync() starts it again. */
-function dispose() { clear(); audio.cancelPeal(); }
+const s = createBellScheduler({
+  now: () => Date.now(),
+  setTimer: (fn, ms) => window.setTimeout(fn, ms),
+  clearTimer: (id) => clearTimeout(id),
+  soundOn: () => audio.isOn(),
+  audioReady: () => audio.ready(),
+  ring: (n, near) => audio.ringHour(n, near),
+  cancelPeal: () => audio.cancelPeal(),
+});
 
 export const bells = {
-  sync, dispose,
-  status: () => (timer ? `next ${new Date(target).toISOString().slice(11, 16)}Z` : 'off'),
+  sync: s.sync,
+  dispose: s.dispose,
+  status: () => {
+    const t = s.armedFor();
+    return t ? `next ${new Date(t).toISOString().slice(11, 16)}Z` : 'off';
+  },
 };

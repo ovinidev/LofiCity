@@ -43,16 +43,16 @@ const STATIONS: Station[] = [
     ],
   },
   {
-    id: 'neon', name: 'Neon FM', tag: 'vaporwave · synthwave · chillwave',
+    // Vaporwave only: every album was uploaded to its netlabel's collection and is tagged
+    // "vaporwave" on archive.org. Synthwave/retrowave/chillwave releases (Enough Records, Demonic
+    // Sweaters, Evenings, Kansas Beach Patrol) were dropped in Nov 2026: they are not vaporwave.
+    id: 'neon', name: 'Neon FM', tag: 'vaporwave · retrofuturismo',
     albums: [
-      'enrmp345_herr_doktor_-_199x', // Herr Doktor - 199X, Enough Records, synthwave, CC BY-NC-SA 3.0
-      'enrmp397_herr_doktor_-_time_for_love', // Herr Doktor - Time for Love, Enough Records, retrowave, CC BY-NC-SA 3.0
-      'enrcmp23_-_meet_me_at_kuiper_s', // V/A - Meet Me at Kuiper's, Enough Records, synthwave, CC BY-NC-SA 4.0
-      'DemonicSweatersNumberJohnnyFive', // Demonic Sweaters - Number Johnny Five, Lunar Flower, synthwave, CC BY-NC-ND 3.0
-      'Mam135-Evenings-NorthDormEp', // Evenings - North Dorm EP, Mine All Mine, chillwave/glo-fi, CC BY-NC-ND 3.0
-      'KSBPCoast2Coast', // Kansas Beach Patrol - Coast to Coast, chillwave/glo-fi, CC BY 3.0
-      '2003-toyota-corolla', // 2003 Toyota Corolla - 2003 Toyota Corolla, hanahata, vaporwave/dreampunk, CC BY-SA 4.0
-      'MeavyBoy-Arokin-No_Sleep', // Meavy Boy / Arokin - No Sleep, Spettro Records, vaporwave, CC BY-NC-ND 4.0
+      'SR193-Meavy_Boy-Column', // Meavy Boy - Column, Spettro Records; description "Genre: vaporwave, retrofuturism, ambient, neon gazing"; CC BY-NC-ND 4.0
+      'MeavyBoy-EP', // Meavy Boy - EP 71 to 20, Spettro Records; subjects vaporwave, retrofuturism; CC BY-NC-ND 4.0
+      'MeavyBoy-Arokin-No_Sleep', // Meavy Boy / Arokin - No Sleep, Spettro Records; subject vaporwave; CC BY-NC-ND 4.0
+      'AROKIN-Sleepless_Arcade', // Arokin - Sleepless Arcade, Spettro Records; subjects vaporwave, chillwave; CC BY-NC-ND 4.0
+      '2003-toyota-corolla', // 2003 Toyota Corolla, hanahata netlabel; subjects vaporwave, dreampunk; CC BY-SA 4.0
     ],
   },
 ];
@@ -259,9 +259,13 @@ for (const p of players) {
   });
 }
 
+/** After giving up, the listener's next Tocar/Próxima is a fresh try: forget the failures (likely an outage). */
+function freshTry() {
+  if (fails >= MAX_FAILS) { fails = 0; badAlbums.clear(); badTracks.clear(); }
+}
 function start() {
   playing = true;
-  if (fails >= MAX_FAILS) { fails = 0; badAlbums.clear(); } // a fresh try after giving up
+  freshTry();
   if (!current || status) void next();
   else { void audio().play().catch(() => {}); }
   render();
@@ -283,7 +287,7 @@ function setStation(i: number) {
   if (playing) void next(); else render();
 }
 function nextStation() { setStation((si + 1) % STATIONS.length); }
-function skip() { playing = true; void next(); }
+function skip() { playing = true; freshTry(); void next(); }
 
 // ---------- panel ----------
 function render() {
@@ -333,7 +337,6 @@ function mount(e: HTMLElement) {
 
 export const radio = {
   mount, toggle, nextStation, skip,
-  isPlaying: () => playing && !audio().paused,
   /** The listener has the radio on (playing, loading or retrying), so the ambience should step aside. */
   isOn: () => playing,
   status: () => `${station().id} ${playing ? (current ? `"${current.title}" ${audio().currentTime.toFixed(0)}s` : 'loading') : 'off'}${status ? ` [${status}]` : ''} fails ${fails}`,

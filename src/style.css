@@ -74,6 +74,7 @@ body.idle { cursor: none; }
 .radio button {
   font: inherit; letter-spacing: inherit; text-transform: inherit; background: transparent; color: var(--ink);
   border: 1px solid var(--line); border-radius: 2px; padding: 6px 8px; cursor: pointer;
+  white-space: nowrap; flex: none; /* "LO-FI" must not break at its hyphen on phones */
 }
 .radio button:hover { border-color: var(--muted); }
 .radio button:focus-visible, .radio input:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
@@ -96,7 +97,12 @@ body.idle .radio { background: transparent; border-color: transparent; pointer-e
 body.idle .radio .ctl { opacity: 0; }
 body.idle .radio:not(.playing) { opacity: 0; }
 /* on narrow screens the bottom of the frame is the scene; the sky under the HUD is free */
-@media (max-width: 600px) { .radio { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 196px); } }
+@media (max-width: 600px) {
+  .radio { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 196px); }
+  .radio .ctl { gap: 4px; }
+  .radio button { padding: 6px; }
+  .radio input[type="range"] { min-width: 40px; }
+}
 .radio .lic { color: var(--muted); font-size: 9px; opacity: 0.75; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; }
 .radio .lic:hover { text-decoration: underline; opacity: 1; }
 .radio .track { text-transform: none; }

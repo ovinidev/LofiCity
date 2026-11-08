@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "shot": "node scripts/shot.mjs",
-    "test": "node --test \"test/*.test.ts\""
+    "test": "node --test \"test/*.test.ts\"",
+    "radio-check": "node scripts/radio-check.mjs"
   },
   "devDependencies": {
     "playwright": "^1.65.0",

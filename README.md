@@ -33,7 +33,7 @@ pnpm install
 pnpm dev        # http://localhost:5173
 pnpm build      # dist/index.html, a single self-contained file
 pnpm shot       # screenshots into ./shots (needs a build; NODEBUG=1 hides the debug panel)
-pnpm test       # unit tests for the bell schedule (node --test; Node >= 22.18, no extra deps)
+pnpm test       # unit tests for the bell schedule and timer (node --test; Node >= 22.18, no extra deps)
 ```
 
 ## URL options
@@ -56,7 +56,7 @@ T city, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M ambie
 - `src/fx`: rain, snow, petals and leaves, lightning, fireworks
 - `src/actors`: pedestrians, cars and motorcycles, trees
 - `src/scenes`: shared passes, the Esperança prop kit (`br-kit.ts`) and one file per scene
-- `src/audio`: generative ambience, synthesized SFX and church bells (`bells-schedule.ts` holds the pure, tested rules), and the radio
+- `src/audio`: generative ambience, synthesized SFX and church bells (`bells-schedule.ts` holds the pure rules and `bells-scheduler.ts` the timer, both unit-tested), and the radio
 - `test`: `node --test` unit tests
 
 ## Credits
@@ -64,7 +64,7 @@ T city, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M ambie
 - **Weather**: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). No API key; refreshes every 10 minutes and falls back to the simulated climate if the network fails.
 - **Music**: streamed from the [Internet Archive](https://archive.org/), released by their labels under Creative Commons licenses. The radio shows each track's artist, album and license with a link to the original page.
   - **Lo-Fi City** (amber; lo-fi beats, instrumental hip-hop): 15 albums from the [Dusted Wax Kingdom](https://archive.org/details/dustedwaxkingdom) netlabel (CC BY-NC-ND 3.0/4.0).
-  - **Neon FM** (magenta; vaporwave, synthwave, chillwave): Herr Doktor and the *Meet Me at Kuiper's* compilation (Enough Records, CC BY-NC-SA), Demonic Sweaters (CC BY-NC-ND), Evenings (Mine All Mine, CC BY-NC-ND), Kansas Beach Patrol (CC BY), 2003 Toyota Corolla (CC BY-SA) and Meavy Boy / Arokin (Spettro Records, CC BY-NC-ND).
+  - **Neon FM** (magenta; vaporwave): Meavy Boy (*Column*, *EP 71 to 20*), Meavy Boy / アロキン (*No Sleep*) and アロキン (*Sleepless Arcade*), all from the [Spettro Records](https://archive.org/details/spettrorec) netlabel (CC BY-NC-ND 4.0), and 2003 Toyota Corolla from the hanahata netlabel (CC BY-SA 4.0).
   - The album list is in `src/audio/radio.ts`. Intros, interludes, skits, vocal features and tracks under 75 s or over 8 min are skipped. If a track or album fails, the radio skips ahead with a short pause between tries, and after 5 failures in a row it stops and says so.
   - The music is **not** part of this repository or its MIT license, and the NC licenses forbid commercial use.
 
