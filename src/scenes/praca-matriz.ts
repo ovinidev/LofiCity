@@ -18,7 +18,7 @@ import { opensUmbrella } from '../actors/rain-rules';
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
-import { anyoneBetween, bikeCount, drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
+import { anyoneBetween, bikeCount, cocoNow, drawPeople, peopleCount, setCocoStand, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { CROSS0, CROSS1, ROAD_VY, STOP_ROW, spawnAway, stepRoad } from '../actors/matriz-road';
 import { setCarLanes } from '../actors/cars';
 import { type Tree, drawTree, makeTree } from '../actors/trees';
@@ -26,7 +26,7 @@ import { type MassState, massState } from '../sky/rhythm';
 import { S } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
-  type Lamp, type Opening, type Palm, type TowerWin, bandeirolas, bulbs, cart, casa, christmasStar, drawOpenings, drawPalm,
+  type Lamp, type Opening, type Palm, type TowerWin, bandeirolas, bulbs, cart, cocoCart, casa, christmasStar, drawOpenings, drawPalm,
   drawTowerWins, fogueira, isNight, lampLight, lampPool, lampPost, lampRoadPool, nightSpill, pole, wire, wireCurve,
 } from './br-kit';
 import type { Scene } from './types';
@@ -401,7 +401,7 @@ function render() {
   if (S.natal) for (const l of LAMPS) christmasStar(l.x + 1, l.top - 12, 1);
   if (S.festa || S.saoJoao) { bandeirolas(96, 70, 222, 58, 8, 0); bandeirolas(258, 58, 364, 70, 8, 3); if (S.festa) { bulbs(0, 74, 82, 70, 6); bulbs(378, 70, 480, 74, 6); } }
   if (S.saoJoao && S.cal.day >= 22 && S.cal.day <= 24 && S.cal.hour >= 18) fogueira(440, 146);
-  cart(282, 146, S.stallOpen);
+  cart(282, 146, S.stallOpen); if (cocoNow()) cocoCart(282, 146);
   drawAnimalsPerched(); drawTraffic(false); for (const f of FIEIS) if (f.on) drawFiel(f); drawPeople(); drawAnimalsGround();
   drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 156); drawTraffic(true); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
@@ -417,6 +417,7 @@ export const praca: Scene = {
       built = true;
     }
     setLanes([{ y: 142 }, { y: 144 }, { y: 146 }], { bikes: false }); // only people on foot cross in front of the church
+    setCocoStand(288, 145); // customers at the cart on hot days (they buy, then drink beside it)
     setupAnimals({ ground: [143, 145], dogs: 2, sleepSpots: [60, 250], lamps: LAMPS.flatMap((l) => [{ x: l.x - 13, y: l.top }, { x: l.x + 14, y: l.top }]),
       wires: WIRES.slice(0, 3).map(([a, b, c, d, g]) => wireCurve(a, b, c, d, g)),
       walls: [{ x0: 0, x1: 92, y: 63 }, { x0: 96, x1: 152, y: 104 }, { x0: 390, x1: 436, y: 66 }, { x0: F0, x1: 196, y: 45 }, { x0: 284, x1: F1, y: 45 }] });

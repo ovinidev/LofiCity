@@ -2,7 +2,8 @@
    Who appears depends on the hour (commuters, students, kids with randoseru, elderly,
    night owls), the weekday, the weather and the season (coats and scarves, tees, yukata on
    festival nights). Umbrellas and waiting under a shelter follow only the real weather state
-   (rain-rules.ts), never unknown weather. Drawn procedurally in world space, side view. */
+   (rain-rules.ts), never unknown weather; on really hot days (a real reading, heat-rules.ts) some carry
+   water or a coconut, stop for a sip and buy at a coconut-water cart. Drawn procedurally in world space, side view. */
 import { G, put, rect } from '../engine/gfx';
 import { bay, mulberry32, type Rng } from '../engine/math';
 import {
@@ -13,6 +14,7 @@ import { peopleCap } from '../sky/rhythm';
 import { S } from '../sky/state';
 import { allowedArchetypes } from './street-rules';
 import { type Shelter, WET_KEEP, opensUmbrella, raining, shelterAt, shelterWait } from './rain-rules';
+import { BUY_SECS, SIP_SECS, type HeatLevel, buysCoco, cocoOpen, heatLevel, pickDrink, sipGap, sipRaise } from './heat-rules';
 
 const enum Kind { Walk, Bike, Chair }
 const enum Top { Jacket, Suit, Coat, Tee, Sailor, Gakuran, Yukata, Shirt }
@@ -28,6 +30,9 @@ export interface Person {
   run: boolean; sun: boolean; push: number;
   /** Seconds left waiting out the rain under a shelter, and whether they already did. */
   wait: number; waited: boolean;
+  /** Hot days: 0 none, 1 water bottle, 2 coconut; seconds to the next sip, seconds into a sip (-1 = not
+      drinking) and seconds left buying at the coconut cart. */
+  drink: number; sip: number; sipT: number; buy: number;
 }
 
 export interface Lane { y: number }
@@ -46,19 +51,30 @@ const P: Person[] = Array.from({ length: POOL }, () => ({
   on: false, x: 0, dir: 1, sp: 0, ph: 0, lane: 0, kind: Kind.Walk, H: 16, skin: SKIN1, hair: HAIR1, hairStyle: Hair.Short,
   hat: 0, hatC: 0, top: Top.Jacket, topC: 0, bottomC: 0, skirt: false, accent: 255, scarf: 255, bag: Bag.None, bagC: 0,
   umb: 255, stoop: false, cane: false, dog: 255, phone: false, box: 255, light: false, run: false, sun: false, push: 255,
-  wait: 0, waited: false,
+  wait: 0, waited: false, drink: 0, sip: 0, sipT: -1, buy: 0,
 }));
 let lanes: Lane[] = [{ y: 145 }];
 let bikes = true;
 let shelters: Shelter[] = [];
+let stand: { x: number; y: number } | null = null;
 
 /** Sets the scene's pavement lanes (clearing everyone). `bikes: false` keeps cyclists and delivery
     riders out of this scene; any scene that calls setLanes without it gets them back. `shelters`
     are covered stretches (an awning, a bus shelter) where people without an umbrella wait out real
     rain; a scene that passes none has none. */
 export function setLanes(l: Lane[], opts: { bikes?: boolean; shelters?: Shelter[] } = {}) {
-  lanes = l; bikes = opts.bikes ?? true; shelters = opts.shelters ?? []; for (const p of P) p.on = false;
+  lanes = l; bikes = opts.bikes ?? true; shelters = opts.shelters ?? []; stand = null; for (const p of P) p.on = false;
 }
+/** Where customers stand at the scene's coconut-water cart (world x, ground y); call after setLanes. Only
+    walkers on a lane within a few px of `y` stop there, and only while cocoNow() says it is open. */
+export function setCocoStand(x: number, y: number) { stand = { x, y }; }
+/** Heat level from the real reading only (heat-rules.ts); Paraíba cities only, Tokyo keeps its own look. */
+export const heatNow = (): HeatLevel =>
+  S.city.br ? heatLevel({ kind: S.wxKind, temp: S.temp, dayK: S.dayK, cloud: S.cloud, rain: S.rain, snow: S.snow }) : 0;
+/** Whether the coconut-water cart sells right now (daytime and real heat). */
+export const cocoNow = () => cocoOpen(heatNow(), S.cal.hour);
+/** Who can hold a drink: on foot with a free hand (no cane, briefcase, dog, cart or umbrella), not jogging. */
+const freeHand = (p: Person) => p.kind === Kind.Walk && !p.run && p.push === 255 && p.dog === 255 && !p.cane && p.bag !== Bag.Briefcase && p.umb === 255;
 /** Precipitation people react to, from the real weather state only (live / stale reading or the #wx= test). */
 const wetNow = (min?: number) => raining(S.wxKind, S.rain, S.snow, min);
 
@@ -187,6 +203,9 @@ function dress(p: Person, a: Archetype) {
   const wet = wetNow();
   p.umb = opensUmbrella(S.wxKind, S.rain, S.snow, r()) ? pick(UMBS) : p.sun ? p.umb : 255;
   if (wet && p.umb === 255) p.sp *= 1.3; // hurrying without one
+  p.drink = 0; p.sip = 0; p.sipT = -1; p.buy = 0;
+  const lvl = heatNow();
+  if (lvl && freeHand(p)) { const d = pickDrink(lvl, r(), r()); p.drink = d === 'coco' ? 2 : d === 'water' ? 1 : 0; p.sip = sipGap(lvl, r()); }
 }
 
 /** Adds one pedestrian (or a couple) entering from a screen edge. Returns how many spawned. */
@@ -198,6 +217,7 @@ export function spawnPerson(couple = false): number {
   for (const p of P) {
     if (p.on) continue;
     dress(p, a);
+    if (n > 1) p.drink = 0; // couples walk on together, no one stops for a sip
     if (made === 1) { p.sp = sp; } else sp = p.sp;
     p.on = true; p.dir = dir; p.lane = lane; p.ph = r() * 4;
     p.x = dir > 0 ? G.camX - 16 - made * 9 : G.camX + G.W + 16 + made * 9;
@@ -219,11 +239,23 @@ export function tickSpawns(dt: number, density = 1) {
 
 export function updatePeople(dt: number) {
   const wet = shelters.length > 0 && wetNow();
+  const lvl = heatNow(), coco = stand !== null && cocoOpen(lvl, S.cal.hour);
+  let buying = coco && P.some((o) => o.on && o.buy > 0);
   for (const p of P) {
     if (!p.on) continue;
     if (p.wait > 0) { // standing under a shelter until the rain stops or they give up
       p.wait = wet ? p.wait - dt : 0;
       continue;
+    }
+    if (p.buy > 0) { // at the coconut cart, then a first sip right there
+      p.buy -= dt;
+      if (p.buy <= 0) { p.buy = 0; p.drink = 2; p.sipT = 0; p.sip = sipGap(lvl, r()); }
+      continue;
+    }
+    if (p.sipT >= 0) { // stopped for a sip
+      p.sipT += dt;
+      if (p.sipT < SIP_SECS) continue;
+      p.sipT = -1; p.sip = sipGap(lvl, r());
     }
     if (wet) {
       const sh = shelterAt(shelters, p.x);
@@ -234,7 +266,13 @@ export function updatePeople(dt: number) {
         if (p.wait > 0) { p.waited = true; p.ph = 2; continue; } // feet together
       }
     }
-    p.x += p.dir * p.sp * dt;
+    if (p.drink && lvl && !wet) { p.sip -= dt; if (p.sip <= 0) { p.sipT = 0; p.ph = 2; continue; } }
+    const nx = p.x + p.dir * p.sp * dt;
+    if (coco && stand && !p.drink && freeHand(p) && Math.abs((lanes[p.lane]?.y ?? -99) - stand.y) <= 4
+      && (p.x - stand.x) * (nx - stand.x) <= 0 && buysCoco(lvl, coco, buying, r())) {
+      p.x = stand.x; p.buy = BUY_SECS; p.ph = 2; buying = true; continue;
+    }
+    p.x = nx;
     p.ph += dt * (p.kind === Kind.Bike ? 6 : p.sp * 0.42);
     if (p.x < G.camX - 40 || p.x > G.camX + G.W + 40) p.on = false;
   }
@@ -283,7 +321,7 @@ export const bikeCount = () => P.reduce((n, p) => n + (p.on && p.kind === Kind.B
 export const peopleCount = () => P.reduce((n, p) => n + (p.on ? 1 : 0), 0);
 
 /** Open rain umbrellas and people sheltering right now (debug panel). */
-export const rainDebug = () => `umb ${P.filter((p) => p.on && p.umb !== 255 && !p.sun).length} shelter ${P.filter((p) => p.on && p.wait > 0).length}`;
+export const rainDebug = () => `umb ${P.filter((p) => p.on && p.umb !== 255 && !p.sun).length} shelter ${P.filter((p) => p.on && p.wait > 0).length} heat ${heatNow()} drink ${P.filter((p) => p.on && p.drink).length}`;
 
 // ---------- drawing ----------
 const STRIDE = [2, 1, 0, 1];
@@ -325,6 +363,23 @@ function drawDog(dx: number, yF: number, f: number, c: number, ph: number, hand:
   for (let i = 0; i <= n; i++) { const t = i / (n || 1); put(hx + (ex - hx) * t, hy + (ey - hy) * t + Math.sin(t * Math.PI) * 1.5, VOID); }
 }
 
+/** A water bottle (clear blue, white cap) or a green coconut with a straw, held down at the hand (hx, hy). */
+function drinkInHand(d: number, hx: number, hy: number) {
+  if (d === 1) { put(hx, hy + 1, CBLUE); put(hx, hy + 2, CBLUE); }
+  else { rect(hx, hy, 2, 2, CGREEN); put(hx, hy - 1, WHITE); }
+}
+/** The drink raised: at the chest, then tipped up to the mouth with the head back (`full`). */
+function drinkRaised(d: number, hx: number, yT: number, f: number, full: boolean) {
+  if (!full) {
+    if (d === 1) { put(hx + 2 * f, yT, CBLUE); put(hx + 2 * f, yT + 1, CBLUE); put(hx + 2 * f, yT - 1, WHITE); }
+    else { rect(Math.min(hx + 2 * f, hx + 3 * f), yT, 2, 2, CGREEN); put(hx + 2 * f, yT - 1, WHITE); }
+    return;
+  }
+  put(hx + f, yT - 1, VOID); // mouth open, chin up
+  if (d === 1) { put(hx + 2 * f, yT - 1, WHITE); put(hx + 3 * f, yT - 2, CBLUE); put(hx + 3 * f, yT - 3, CBLUE); put(hx + 4 * f, yT - 3, CBLUE); }
+  else { put(hx + 2 * f, yT - 1, WHITE); rect(Math.min(hx + 3 * f, hx + 4 * f), yT - 3, 2, 2, CGREEN); }
+}
+
 const STRIDE_RUN = [3, 0, 3, 0];
 function drawWalker(p: Person, yGround: number) {
   const f = p.dir, X = Math.round(p.x), H = p.H, fr = (p.ph | 0) & 3, s = p.run ? STRIDE_RUN[fr] : STRIDE[fr];
@@ -355,7 +410,9 @@ function drawWalker(p: Person, yGround: number) {
   // arm swing (hand)
   const armX = X + [-1, 0, 1, 0][fr] * f * (p.cane ? 0 : 1) + (p.cane ? 2 * f : 0);
   const sleeve = p.top === Top.Tee ? p.skin : p.topC;
-  put(armX, yT + 2, sleeve); put(armX, yT + 3, sleeve); put(armX, yT + 4, p.skin);
+  const raise = p.drink ? sipRaise(p.sipT) : 0;
+  if (raise > 0) { put(hx + 2 * f, yT + 1, sleeve); put(hx + 2 * f, yT + (raise < 1 ? 2 : 0), p.skin); } // arm up to the chest, then the mouth
+  else { put(armX, yT + 2, sleeve); put(armX, yT + 3, sleeve); put(armX, yT + 4, p.skin); if (p.drink) drinkInHand(p.drink, armX, yT + 4); }
   if (p.scarf !== 255) { rect(X - tw, yT, tw * 2 + 1, 1, p.scarf); put(X - (tw + 1) * f, yT + 1, p.scarf); }
   // bags
   if (p.bag === Bag.Backpack) rect(X - (tw + 2) * f + (f < 0 ? -1 : 0) + (f > 0 ? 0 : 1), yT + 1, 2, 4, p.bagC);
@@ -364,6 +421,7 @@ function drawWalker(p: Person, yGround: number) {
   if (p.bag === Bag.Briefcase) rect(armX - 1, yT + 5, 3, 2, p.bagC);
   if (p.cane) for (let y = yT + 4; y <= yF; y++) put(X + 3 * f, y, BARK);
   head(p, hx, yHead, f);
+  if (raise > 0) drinkRaised(p.drink, hx, yT, f, raise >= 1);
   umbrella(p, X + f, yHead - 5);
   if (p.dog !== 255) drawDog(X + 9 * f, yF, f, p.dog, p.ph, [armX, yT + 4]);
   if (p.push !== 255) { // pushcart: box on a wheel, handles to the hands

@@ -26,6 +26,17 @@ const ctx = (o: Partial<SpeechCtx> & { wx?: Partial<WxCtx> } = {}): SpeechCtx =>
 const texts = (c: SpeechCtx) => new Set(candidates(c).map((p) => p.t));
 const seq = (vals: number[]) => { let i = 0; return () => vals[i++ % vals.length]; };
 
+test('the feira vendors and shoppers of Rua José Bezerra always have lines, only feira lines, and weather lines only with a real reading', () => {
+  for (const role of ['vendor', 'shopper'] as const) for (const hour of HOURS) {
+    const c = ctx({ scene: 'rua-jose-bezerra', hour, role, wx: { kind: 'unavailable', temp: null } });
+    assert.ok(candidates(c).length >= 3, `${role} at ${hour}h`);
+    for (const p of candidates(c)) { assert.equal(p.scene, 'rua-jose-bezerra'); assert.ok(!p.wx); }
+    for (const scene of ['praca-matriz', 'rua-faustino']) assert.equal(candidates(ctx({ scene, hour, role })).length, 0, `${role} lines leak into ${scene}`);
+  }
+  assert.ok(texts(ctx({ scene: 'rua-jose-bezerra', role: 'vendor', wx: { kind: 'live', rain: 0.6 } })).has('Chuva não espanta freguês!'));
+  assert.ok(!texts(ctx({ scene: 'rua-jose-bezerra', role: 'passerby' })).has('Olha a laranja docinha!'), 'passers-by do not call out prices');
+});
+
 test('the pool is authored, non-empty, deduplicated and short enough for a bubble', () => {
   assert.ok(PHRASES.length >= 100, `only ${PHRASES.length} phrases`);
   const seen = new Set<string>();
@@ -76,6 +87,25 @@ test('heat phrases only with a real temperature at or above the threshold', () =
   assert.ok([...texts(ctx({ wx: { kind: 'stale', temp: 32 } }))].some((t) => heat.has(t)));
   // "esse sol" lines are for daytime only
   assert.ok(!texts(ctx({ hour: 22, wx: { kind: 'live', temp: 31 } })).has('Esse sol tá de lascar!'));
+});
+
+test('the hot-day lines (water, coconut water) need a real hot reading; the coconut ones only by day', () => {
+  const hot = ['Haja calor!', 'Tá um forno, visse?', 'Só água pra aguentar esse calor.', 'Bora tomar uma água de coco, visse?', 'Água de coco geladinha, que delícia!'];
+  for (const t of hot) assert.equal(PHRASES.find((p) => p.t === t)?.wx, 'heat', t);
+  for (const { city, scene } of ALL) for (const hour of HOURS) {
+    for (const wx of [{ kind: 'unavailable', temp: 35 }, { kind: 'live', temp: null }, { kind: 'live', temp: HOT_C - 1 }] as const) {
+      const got = texts(ctx({ city, scene, hour, wx }));
+      for (const t of hot) assert.ok(!got.has(t), `${t} without real heat (${scene} ${hour}h)`);
+    }
+  }
+  const day = texts(ctx({ hour: 13, wx: { kind: 'live', temp: 33 } })), night = texts(ctx({ hour: 22, wx: { kind: 'live', temp: 33 } }));
+  for (const t of hot) assert.ok(day.has(t), t);
+  assert.ok(night.has('Haja calor!') && !night.has('Bora tomar uma água de coco, visse?'));
+  assert.ok(![...texts(ctx({ city: 'tokyo', scene: 'konbini', hour: 13, wx: { kind: 'live', temp: 33 } }))].some((t) => hot.includes(t)));
+  // no repeats: drawing over and over with the history never returns a recent line while others fit
+  let recent: string[] = [];
+  const c = ctx({ hour: 13, wx: { kind: 'live', temp: 33 } }), r = seq([0.1, 0.5, 0.9, 0.3, 0.7]);
+  for (let i = 0; i < 40; i++) { const t = pickPhrase(c, recent, r)!; assert.ok(!recent.includes(t)); recent = remember(recent, t); }
 });
 
 test('cold phrases only with a real low temperature (lower threshold for Tokyo)', () => {
