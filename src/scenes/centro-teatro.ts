@@ -29,6 +29,7 @@ import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '.
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
+import { drawShopFronts, setShopFronts, shopFrontDebug, updateShopFronts } from '../actors/shopfront';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
 import {
   brQueued, brSignalStats, setBrCrossing, setBrOneWay, setBrSignal, vehicleBetween, vehicleNearCrossing,
@@ -327,7 +328,7 @@ function update(dt: number) {
   updateAnimals(dt);
   sigT += dt;
   const before = CROSSERS.map((c) => c.on && c.phase === 'cross');
-  tickSpawns(dt, S.festa || S.saoJoao ? 1.8 : 1.1); updatePeople(dt); updateCrossers(dt); updateCars(dt, 1);
+  tickSpawns(dt, S.festa || S.saoJoao ? 1.8 : 1.1); updatePeople(dt); updateCrossers(dt); updateCars(dt, 1); updateShopFronts(dt);
   if (CROSSERS.some((c, i) => c.on && c.phase === 'cross' && !before[i]) && sig().phase !== 'red') badStarts++;
   if (onRoad() && vehicleBetween(ZEBRA0, ZEBRA1)) conflicts++;
 }
@@ -344,7 +345,7 @@ function render() {
   nightSpill(shops, shopsOpen()); drawSignals();
   if (S.natal) christmasStar(LAMPS[0].x + 14, LAMPS[0].top - 10, 1);
   if (S.festa || S.saoJoao) bandeirolas(166, 76, 378, 62, 10, 3);
-  drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
+  drawAnimalsPerched(); drawPeople(); drawShopFronts(); drawAnimalsGround();
   drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 158); parked(); for (const c of CROSSERS) if (c.on) drawCrosser(c); drawCars();
   blitLayer(near); drawNearSignals();
   drawRipples(); drawFog(FOG); drawNearPrecip();
@@ -358,6 +359,8 @@ export const centroTeatro: Scene = {
     if (!built) { buildFar(); buildLeft(); buildBlock(); buildRight(); buildFront(); buildGround(); built = true; }
     // in real rain, people without an umbrella wait under the shop canopy (well clear of the zebra)
     setLanes([{ y: 142 }, { y: 144 }, { y: 146 }], { bikes: false, shelters: [{ x0: 186, x1: 298, cap: 4 }] });
+    // the shop floor under the canopy and the shops either side: staff out front, customers at every door
+    setShopFronts([{ doors: shops.map((o) => o.x + (o.w >> 1)), y: 144, vendors: [108, 186, 365], weight: 1.8, open: shopsOpen, vest: CBLUE }]);
     setupAnimals({ ground: [143, 145], dogs: 2, sleepSpots: [40, 330], lamps: LAMPS.map((l) => ({ x: l.x + 14, y: l.top })),
       wires: [wireCurve(166, 68, 480, 40, 10), wireCurve(0, 46, 166, 68, 6)],
       walls: [{ x0: 297, x1: 364, y: 93 }, { x0: 57, x1: 124, y: 62 }] });
@@ -375,7 +378,7 @@ export const centroTeatro: Scene = {
   render,
   debug() {
     const s = sig(), st = brSignalStats();
-    return `active  people x${peopleCount()}  sinal ${s.phase} ${s.left.toFixed(0)}s pedestre ${pedestrianLight(s, CROSS_TIME) === 'walk' ? 'siga' : 'pare'}`
+    return `active  people x${peopleCount()}  ${shopFrontDebug()}  sinal ${s.phase} ${s.left.toFixed(0)}s pedestre ${pedestrianLight(s, CROSS_TIME) === 'walk' ? 'siga' : 'pare'}`
       + `  parados x${brQueued()} furou-vermelho ${st.redRuns} contramao ${st.wrongWay}`
       + `  faixa x${onRoad()} travessias ${crossings} conflitos ${conflicts} fora-de-fase ${badStarts}  lojas ${shopsOpen() ? 'abertas' : 'fechadas'}`;
   },

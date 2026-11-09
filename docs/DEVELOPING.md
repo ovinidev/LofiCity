@@ -19,7 +19,9 @@ Lo-fi pixel-art scenes that follow each city's **real clock** and **live weather
   The five newer Campina scenes were drawn from Google Street View captures (Dec 2024 to Jan 2025, plus 360° photos posted to Google Maps for the park) and Wikimedia Commons photos, as reference only; none of the images are in the repo, and signs show only the lettering legible in them. Opening hours, bus frequency and festival details are art direction, not real timetables.
 - **João Pessoa**: `Orla do Cabo Branco`, the sea where the sun rises first in the Americas, jangadas, coconut palms and the triangular lighthouse on the cliff, its beam sweeping the sky at night.
 - **Areia**: `Centro Histórico`, the listed colonial town of the Brejo: casario with iron balconies, the Câmara Municipal, the Teatro Minerva (1859), a cachaça shop, cobbles and mist.
-- **Remígio**: `Lagoa de Remígio`, the round lagoon with royal palms, houses up the hill, the matriz on top and ducks on the water.
+- **Remígio**:
+  - `Lagoa de Remígio`: the round lagoon with royal palms, houses up the hill, the matriz on top and ducks on the water.
+  - `Cinema · Remígio`: the inside of a movie theatre seen from the back row: a wide, gently curved screen, rows of black reclining seats on both sides of a central aisle with blue LED step lights, small blue wall lights, a few people seated, a latecomer walking down the aisle and two people standing by the front left. The screen plays a code-drawn, generic superhero action movie: short seeded shots (armoured flyer against a caped green villain, a shield thrower, a hammer that calls lightning, a helicopter and an explosion over a city at night, close-up brawls, black trailer cards) with flashes, camera shake and black cuts. No logos, title or real frames. The room is lit only by the screen: seats, heads and walls pick up its average colour, so an explosion brightens the room. Indoors, so the weather plays no part (it never sets or fakes any). Sessions are art direction, not a real timetable (`src/scenes/cinema-rules.ts`): one every 2h30 from 14:00 (14:00, 16:30, 19:00, 21:30), each opening with a 12-minute pre-show (house lights half up, a slide with the session time) before the film; outside 14:00-23:00 the screen is dark with a lit `SALA VAZIA` notice, the house lights are dimly on and the room is empty. Shots follow a seeded order per session, so `#at=` always shows the same frame. Tapping someone in the audience gets a whispered movie line. Drawn from a photo of a modern multiplex supplied by the owner, as reference only; it is not in the repo.
 - **Tokyo**: `Esquina da chuva` (rain corner), `Beco neon` (neon alley), `Rua do konbini` (konbini street), `Santuário` (shrine). Japanese seasons: sakura, tsuyu, momiji, year-end snow, hanabi.
 - **Esperança, Paraíba, Brazil** (Brasília time). Local calendar: the patron saint's festival in January, Holy Week, São João in June, Christmas.
   - `Praça da Matriz`: the yellow Nossa Senhora do Bom Conselho church with its slender clock tower and spire, seen from the street: the paved praça with trees and lamps on the left, and on the right the road toward Campina Grande behind a yellow curb, with shops, poles and wires across it. Traffic only uses that road, drawn in perspective (going away in the right lane, oncoming in the left), and stops for people on the zebra crossing.
@@ -49,9 +51,9 @@ The bubbles are silent and come from an authored pool of gentle pt-BR lines with
 
 **Daily rhythm**: crowds, traffic and birds follow each city's own clock, interpolated smoothly between hours (and `#at=` moments). Esperança, Campina Grande and João Pessoa all use Brasília time (UTC-3, the same as Fortaleza, no daylight saving), and so do the weekday and calendar.
 
-- Esperança's Praça da Matriz and Praça da Cultura are busiest from 14h to 15h. Around 17h the birds get busy, flying back to the trees and wires (this depends on the time only, not the temperature). From 19h the streets thin out; 21–23h and 00–05h are nearly empty, with just the odd dog or passer-by.
+- Esperança's Praça da Matriz and Praça da Cultura are busiest from 14h to 15h, and every city is livelier through the day than at night. Car traffic in the Paraíba towns builds up as the day goes on and peaks at 17–18h. At the shops (Armazém Paraíba most of all, Rua do Comércio, Centro · Casa de Amigos) vendors stand out front while the shop is open, and customers keep walking in and coming out with bags. Around 17h the birds get busy, flying back to the trees and wires (this depends on the time only, not the temperature). From 19h the streets thin out; 21–23h and 00–05h are nearly empty, with just the odd dog or passer-by.
 - Campina Grande and João Pessoa are busier by day and in the evening, but still have few people out from 00h to 05h.
-- **Mass at the Matriz**: the doors open, the nave is lit and a small congregation gathers by the church on Sundays at 07, 09, 16 and 19h, and Monday to Friday at 19h. Assumptions, not an official parish timetable: each mass lasts 1 hour, and there is no Saturday mass. The rest of the praça stays quiet.
+- **Mass at the Matriz**: mass is every day at 18h (Sundays also 07 and 09h): the doors open, the nave is lit and a small congregation gathers by the church. The doors also stand open every day from 09 to 12h and from 16 to 19h, when single people drop in to pray and come out again. Assumptions, not an official parish timetable: each mass lasts 1 hour. The rest of the praça stays quiet.
 - Weather is never made up here: only real rain, storms and snow from Open-Meteo (live or stale) scale these crowd levels down; with no reading ("clima indisponível") the rhythm runs unscaled.
 
 ## Run
@@ -79,7 +81,7 @@ Nothing is uploaded or posted; the person sends the link or image themselves. Th
 ## URL options
 
 - `#city=esperanca` (also `campina`, `joaopessoa`, `areia`, `remigio`, `tokyo`)
-- `#scene=praca-matriz`: pin a scene (`praca-matriz`, `rua-comercio`, `capelinha`, `praca-cultura`, `campo-rodoviaria`, `centro-teatro`, `armazem-paraiba`, `rua-faustino`, `rua-jose-bezerra`, `rua-manoel-rodrigues`, `acude-velho`, `piramide-parque-do-povo`, `estacao-velha`, `parque-da-crianca`, `partage-shopping`, `terminal-integracao`, `cabo-branco`, `centro-areia`, `lagoa-remigio`, `rain-corner`, `neon-alley`, `konbini`, `shrine`)
+- `#scene=praca-matriz`: pin a scene (`praca-matriz`, `rua-comercio`, `capelinha`, `praca-cultura`, `campo-rodoviaria`, `centro-teatro`, `armazem-paraiba`, `rua-faustino`, `rua-jose-bezerra`, `rua-manoel-rodrigues`, `acude-velho`, `piramide-parque-do-povo`, `estacao-velha`, `parque-da-crianca`, `partage-shopping`, `terminal-integracao`, `cabo-branco`, `centro-areia`, `lagoa-remigio`, `cinema-remigio`, `rain-corner`, `neon-alley`, `konbini`, `shrine`)
 - `#at=2026-12-24T22:00`: freeze a moment in the city's time zone (for testing; the UI always uses real time)
 - `#debug`: technical panel (for development)
 - `#wx=rain`: test override for previews (`clear`, `cloudy`, `rain`, `snow`, `storm`, `fog`); the HUD marks it as a test, never as live
@@ -91,7 +93,7 @@ T city map, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M a
 
 The city map is a pixel map of Paraíba with a pin per city, generated from the city registry; cities outside Paraíba (Tóquio) are listed under it. Esc, the × button or a tap outside closes it without changing the city.
 
-The eye button (top-right) hides the whole HUD, credit included, for a clean view; the choice is remembered. Hiding it does not pause the radio. Fullscreen is on the button and Enter only (no double-click), so quick taps on the scene never resize it.
+The eye button (top-right) hides the whole HUD, credit included, for a clean view; the choice is remembered. Hiding it does not pause the radio. The radio tries to start by itself on load; browsers block that until the page has had a gesture, so it then starts on the first tap or key press (unless the listener already used the radio controls). Fullscreen is on the button and Enter only (no double-click), so quick taps on the scene never resize it.
 
 ## Layout
 

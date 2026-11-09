@@ -21,6 +21,7 @@ import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
+import { drawShopFronts, setShopFronts, shopFrontDebug, updateShopFronts } from '../actors/shopfront';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
@@ -163,7 +164,7 @@ function parked() {
 
 function update(dt: number) {
   updateAnimals(dt);
-  tickSpawns(dt, S.festa || S.saoJoao ? 1.6 : 1); updatePeople(dt); updateCars(dt, 0.9);
+  tickSpawns(dt, S.festa || S.saoJoao ? 1.6 : 1); updatePeople(dt); updateCars(dt, 0.9); updateShopFronts(dt);
 }
 
 const FOG = [{ y: 106, h: 8, sp: 0.5 }];
@@ -177,7 +178,7 @@ function render() {
   blitLayer(front);
   lampLight(LAMP); lampPool(LAMP); nightSpill(shops, storeOpen());
   if (S.festa || S.saoJoao) bandeirolas(113, 44, 480, 30, 14, 5);
-  drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
+  drawAnimalsPerched(); drawPeople(); drawShopFronts(); drawAnimalsGround();
   drawStreet(street); lampRoadPool(LAMP, 158); parked(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
@@ -188,6 +189,8 @@ export const armazemParaiba: Scene = {
   build() {
     if (!built) { buildFar(); buildStore(); buildRight(); buildFront(); buildGround(); built = true; }
     setLanes([{ y: 140 }, { y: 142 }, { y: 144 }], { bikes: false });
+    // the busiest door in town: vendors in red vests out front, customers going in anywhere along the open front
+    setShopFronts([{ doors: [60, 98, 143, 196], y: 143, vendors: [124, 163, 226], weight: 3, open: storeOpen, vest: CRED }]);
     setupAnimals({ ground: [141, 144], dogs: 2, sleepSpots: [250, 300], lamps: [],
       wires: [wireCurve(113, 36, 480, 22, 14), wireCurve(113, 38, 480, 30, 16)],
       walls: [{ x0: 292, x1: 386, y: 107 }, { x0: 0, x1: 20, y: 69 }] });
@@ -198,5 +201,5 @@ export const armazemParaiba: Scene = {
   },
   update,
   render,
-  debug() { return `active  people x${peopleCount()}  loja ${storeOpen() ? 'aberta' : 'fechada'}`; },
+  debug() { return `active  people x${peopleCount()}  ${shopFrontDebug()}  loja ${storeOpen() ? 'aberta' : 'fechada'}`; },
 };
