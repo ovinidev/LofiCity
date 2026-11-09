@@ -1,7 +1,8 @@
 // Run with `pnpm test` (node --test; Node >= 22.18 strips the TypeScript types natively).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextVisitIn, vendorCount, visitIsExit, visitorCap } from '../src/actors/shop-rules.ts';
+import { customerRain, nextVisitIn, vendorCount, visitIsExit, visitorCap } from '../src/actors/shop-rules.ts';
+import { HURRY, UMBRELLA_SHARE, opensUmbrella } from '../src/actors/rain-rules.ts';
 import { density, peopleCap } from '../src/sky/rhythm.ts';
 
 const brt = (iso: string) => Date.parse(`${iso}-03:00`);
@@ -48,4 +49,29 @@ test('town car traffic builds up through the day, peaks at 17-18h and is quiet a
   assert.ok(t('17:30') >= t('15:00') && t('17:30') >= 0.95);
   assert.ok(t('22:00') < t('17:00') / 5 && t('03:00') <= 0.05);
   assert.equal(t('12:00', 'praca-matriz'), t('12:00', 'rua-comercio'), 'same traffic curve in every Esperança scene');
+});
+
+// ---------- shop-front customers in the rain (through rain-rules.ts, like every walker) ----------
+const ROLLS = Array.from({ length: 200 }, (_, i) => (i + 0.5) / 200);
+
+test('customers in real rain or snow open an umbrella like the pedestrians, the rest hurry', () => {
+  for (const kind of ['live', 'stale', 'override'] as const) for (const [rain, snow] of [[0.5, 0], [0, 0.4], [0.2, 0.1]]) {
+    let umb = 0;
+    for (const roll of ROLLS) {
+      const c = customerRain(kind, rain, snow, roll);
+      assert.equal(c.umbrella, opensUmbrella(kind, rain, snow, roll));
+      assert.equal(c.speedK, c.umbrella ? 1 : HURRY);
+      if (c.umbrella) umb++;
+    }
+    assert.ok(Math.abs(umb / ROLLS.length - UMBRELLA_SHARE) < 0.02);
+  }
+});
+
+test('dry or unknown weather changes nothing for customers: no umbrella, normal pace', () => {
+  for (const roll of ROLLS) {
+    assert.deepEqual(customerRain('live', 0, 0, roll), { umbrella: false, speedK: 1 });
+    assert.deepEqual(customerRain('live', 0.05, 0, roll), { umbrella: false, speedK: 1 }); // a trace under the threshold
+    assert.deepEqual(customerRain('unavailable', 1, 1, roll), { umbrella: false, speedK: 1 });
+    assert.deepEqual(customerRain('live', Number.NaN, 0, roll), { umbrella: false, speedK: 1 });
+  }
 });
