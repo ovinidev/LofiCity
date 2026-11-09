@@ -2,7 +2,8 @@
 // Partage Shopping's hours, shared by its street front and its inside (src/scenes/partage-rules.ts).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SHUTTER_MIN, doorTap, hoursOn, insideCrowd, mallOpen, shutterAt } from '../src/scenes/partage-rules.ts';
+import { SHUTTER_MIN, cinemaDoorTap, doorTap, hoursOn, insideCrowd, mallOpen, shutterAt } from '../src/scenes/partage-rules.ts';
+import { doorTap as roomDoor } from '../src/scenes/cinema-rules.ts';
 
 const MINUTES = Array.from({ length: 24 * 60 }, (_, m) => m / 60);
 const N = 10;
@@ -54,4 +55,13 @@ test('the crowd inside: nobody while closed, thins out before closing, busier ev
   assert.ok(insideCrowd(2, 19) > insideCrowd(2, 15));
   assert.ok(insideCrowd(6, 15) > insideCrowd(2, 15));
   assert.ok(insideCrowd(2, 22 - 5 / 60) < insideCrowd(2, 21));
+});
+
+test('the cinema door inside the mall: in only while both the mall and the cinema are open', () => {
+  for (let d = 0; d < 7; d++) for (const h of MINUTES) {
+    const c = cinemaDoorTap(d, h);
+    assert.equal(c.enter, mallOpen(d, h) && roomDoor(h).enter, `day ${d} ${h}`);
+  }
+  assert.deepEqual(cinemaDoorTap(1, 11), { enter: false, say: 'Fechado, volta às 14h' }); // mall open, cinema not yet
+  assert.equal(cinemaDoorTap(1, 15).enter, true);
 });

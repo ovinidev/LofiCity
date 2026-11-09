@@ -351,6 +351,7 @@ $('view').addEventListener('pointerdown', (e) => {
   const c = tapCars(x, y);
   if (c) { sfx(c.sound); if (c.board) board(c.board); else emote(c.x, c.y, '♪'); return; }
   const prop = scene.tap?.(x, y);
+  if (prop?.leave) { leaveBus(); return; } // the SAÍDA sign inside the bus
   // a door (e.g. the cinema in Remígio): the same scene change as the scene button, then the new scene's hint
   const to = prop?.goto ? sceneById(city.id, prop.goto) : null;
   if (to) { enterScene(to); const h = scene.hint?.(); if (h) say(h.text, h); return; }

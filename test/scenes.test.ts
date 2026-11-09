@@ -70,8 +70,8 @@ test('only scenes whose photo shows a zebra wire up a crossing', () => {
 
 const CAMPINA_NEW = ['piramide-parque-do-povo', 'estacao-velha', 'parque-da-crianca', 'partage-shopping', 'terminal-integracao'];
 
-test('Campina Grande has Açude Velho first, then the five new scenes (the mall followed by its inside), then the bus interior', () => {
-  const ids = [...CAMPINA_NEW]; ids.splice(ids.indexOf('partage-shopping') + 1, 0, 'partage-interior');
+test('Campina Grande has Açude Velho first, then the five new scenes (the mall followed by its inside and its cinema), then the bus interior', () => {
+  const ids = [...CAMPINA_NEW]; ids.splice(ids.indexOf('partage-shopping') + 1, 0, 'partage-interior', 'cinema-partage');
   assert.deepEqual(table.get('campina')!.map(sceneId), ['acude-velho', ...ids, 'onibus']);
 });
 
@@ -94,6 +94,24 @@ test('Partage Shopping: the street door and the SAÍDA inside point at each othe
   assert.ok(line.includes('`partage-interior`'), 'partage-interior in the #scene list');
   const at = Date.parse('2026-11-09T14:30-03:00');
   assert.deepEqual(density('campina', 'partage-interior', at), density('campina', 'partage-shopping', at));
+});
+
+test('the Partage cinema: the shared room, its own film order, in and out through the mall', () => {
+  const cine = read('src/scenes/cinema-partage.ts'), inside = read('src/scenes/partage-interior.ts');
+  assert.match(cine, /\.\.\.cinemaRoom\(\{ exitTo: 'partage-interior'/);
+  assert.doesNotMatch(cine, /salt: 0 \}/, 'not the same film as Remígio');
+  assert.match(inside, /goto: 'cinema-partage'/);
+  assert.match(inside, /cinemaDoorTap\(wd\(\), hr\(\)\)/, 'door from the shared rules');
+  const line = read('docs/DEVELOPING.md').split('\n').find((l) => l.startsWith('- `#scene='))!;
+  assert.ok(line.includes('`cinema-partage`'));
+});
+
+test('the bus has a lit SAÍDA like the mall and the cinema: tapping it gets off', () => {
+  const bus = read('src/scenes/onibus.ts');
+  assert.match(bus, /saidaSign\(EXIT\.x, EXIT\.y, EXIT\.w\)/);
+  assert.match(bus, /if \(onExit\(x, y\)\) return \{ [^}]*leave: true \}/);
+  assert.match(read('src/main.ts'), /if \(prop\?\.leave\) \{ leaveBus\(\); return; \}/);
+  assert.match(read('src/scenes/partage-interior.ts'), /saidaSign\(/, 'the same sign as the mall');
 });
 
 test('people.ts: indoor lanes never open an umbrella, hurry or reach for a heat drink', () => {
@@ -145,7 +163,8 @@ test('the cinema front never sets the weather and shares the room schedule; the 
   assert.match(front, /from '\.\/cinema-rules'/, 'board, queue and door come from the shared schedule');
   assert.doesNotMatch(front, /\b(16\.5|21\.5|BLOCK_MIN)\b/, 'no session times copied into the scene');
   assert.match(front, /goto: 'cinema-remigio'/);
-  assert.match(room, /goto: 'cinema-facade-remigio'/);
+  assert.match(room, /exitTo: 'cinema-facade-remigio'/);
+  assert.match(room, /goto: o\.exitTo/);
   // the zebra is in the photo, so the crossing is wired; the road stays two-way (direction unknown)
   assert.match(front, /setBrCrossing\(\{/);
   assert.doesNotMatch(front, /setBrOneWay|setBrSignal/);

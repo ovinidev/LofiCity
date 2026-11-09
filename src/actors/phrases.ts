@@ -112,7 +112,7 @@ export const PHRASES: Phrase[] = [
   ...group({ scene: 'partage-shopping' }, ['Vou pegar um cineminha.', 'Bora tomar um açaí no shopping?']),
   ...group({ scene: 'partage-shopping', wx: 'heat' }, ['Ar-condicionado do shopping, que delícia!']),
   // inside the mall (src/scenes/partage-interior.ts): shoppers in the corridors and the coffee kiosk
-  ...group({ scene: 'partage-interior' }, ['Só vim olhar as vitrines.', 'Tô procurando um presente.', 'Bora lanchar depois?', 'Achei um tênis massa!', 'Esse shopping tá cheio hoje!']),
+  ...group({ scene: 'partage-interior' }, ['Só vim olhar as vitrines.', 'Tô procurando um presente.', 'Bora lanchar depois?', 'Achei um tênis massa!', 'Esse shopping tá cheio hoje!', 'Bora pegar um filme lá em cima?']),
   ...group({ scene: 'partage-interior', tod: ['noite'] }, ['Daqui a pouco fecha, bora!']),
   ...group({ scene: 'partage-interior', wx: 'heat' }, ['Aqui dentro tá fresquinho!']),
   ...group({ scene: 'partage-interior', wx: 'rain' }, ['Vou esperar a chuva passar aqui dentro.']),
@@ -130,6 +130,12 @@ export const PHRASES: Phrase[] = [
   ...group({ scene: 'cinema-remigio', who: ['attendee'] }, [
     'Psiu! O filme já começou.', 'Passa a pipoca, visse?', 'Eita, que explosão!', 'Essa luta tá arretada!',
     'Fica até o fim, tem cena extra.', 'Quem é esse de capa verde?', 'Vixe, derrubou todo mundo!', 'Desliga o celular, por favor.',
+  ]),
+
+  // the cinema inside Partage Shopping (src/scenes/cinema-partage.ts): the same whispers, its own lines
+  ...group({ scene: 'cinema-partage', who: ['attendee'] }, [
+    'Shhh, já vai começar!', 'Me dá um pouco da pipoca?', 'Vixe, que pancada!', 'Esse aí é o vilão, visse?',
+    'Depois do filme, um lanche?', 'Ô, abaixa a cabeça aí!', 'Que efeito massa!', 'Tira o pé da cadeira, por favor.',
   ]),
 
   // the street front of the cinema (src/scenes/cinema-facade-remigio.ts): passers-by, the queue at

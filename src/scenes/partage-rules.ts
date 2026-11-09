@@ -7,8 +7,12 @@
    14h-20h. The shops pull their shutters down one after another over the last minutes before
    closing; the people inside thin out over the same minutes.
 
+   The cinema on the upper floor keeps the cinema schedule of cinema-rules.ts (14:00-23:00); its door
+   inside the mall opens while both the mall and the cinema are.
+
    Keep this file free of TS-only runtime syntax (enums, namespaces): `node --test` runs it by
    stripping the types. */
+import { doorTap as cinemaDoor } from './cinema-rules.ts';
 
 /** [opening, closing) local hours for a weekday (0 = Sunday). */
 export function hoursOn(weekday: number): readonly [number, number] {
@@ -51,4 +55,11 @@ export function insideCrowd(weekday: number, hour: number): number {
   const eve = hour >= 17 ? 1.4 : 1, wkend = weekday === 0 || weekday === 6 ? 1.3 : 1;
   const left = (hoursOn(weekday)[1] - hour) * 60;
   return 1.2 * eve * wkend * (left < SHUTTER_MIN ? Math.max(0.1, left / SHUTTER_MIN) * 0.5 : 1);
+}
+
+/** The cinema's door inside the mall: in while the mall is open and a session is on (or about to be);
+    otherwise the cinema's own note ("Fechado, volta às 14h"). */
+export function cinemaDoorTap(weekday: number, hour: number): { enter: true } | { enter: false; say: string } {
+  if (!mallOpen(weekday, hour)) return doorTap(weekday, hour);
+  return cinemaDoor(hour);
 }

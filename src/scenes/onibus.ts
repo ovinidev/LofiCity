@@ -6,7 +6,8 @@
    facing us.
 
    Reached by tapping a bus in a street scene (that bus's interior: São José, micro-ônibus, the
-   prefeitura school bus, or the STTP bus at Campina's terminal); "Sair do ônibus" goes back. In
+   prefeitura school bus, or the STTP bus at Campina's terminal); "Sair do ônibus", or the lit SAÍDA
+   sign on the ceiling (as in the mall and the cinema), goes back. In
    Campina Grande it is also one of the city's scenes. Drawn from Creative Commons photos of Brazilian
    city-bus interiors (credits in docs/DEVELOPING.md); the street outside is generic for each city.
 
@@ -27,6 +28,7 @@ import { setBrLanes } from '../actors/br-traffic';
 import { setCarLanes } from '../actors/cars';
 import { S } from '../sky/state';
 import { drawSky } from './common';
+import { saidaSign } from './br-kit';
 import {
   type BusCity, type BusSkin, CYCLE_S, LANDSCAPE, type Landscape, SEATS, defaultSkin, distance, drive, inService, load, riders, seating,
 } from './onibus-rules';
@@ -350,7 +352,13 @@ function render() {
   const spots = [30, 140, 262, 380];
   for (let j = 0; j < n.standing; j++) standing(spots[j], (Math.imul(dv.stop + 1, 0x9e3779b1) ^ (j * 7919) ^ seed) >>> 0, t, dv.speed > 0);
   blitLayer(c.front);
+  saidaSign(EXIT.x, EXIT.y, EXIT.w); // always lit, like the SAÍDA of the mall and the cinema
 }
+
+/** The lit SAÍDA sign on the ceiling panel, centred so it stays in view on a phone: tapping it gets off
+    (the same as the "Sair do ônibus" button), as the SAÍDA does in the mall and the cinema. */
+const EXIT = { x: 227, y: -8, w: 27, h: 10 };
+const onExit = (x: number, y: number) => x >= EXIT.x - 6 && x <= EXIT.x + EXIT.w + 6 && y >= EXIT.y - 6 && y <= EXIT.y + EXIT.h + 4;
 
 export const onibus: Scene = {
   id: 'onibus',
@@ -374,8 +382,9 @@ export const onibus: Scene = {
     const s = state;
     return `ônibus  ${skin}  ${running() ? (s.atStop ? 'parado no ponto' : `rodando ${Math.round(s.speed * 100)}%`) : 'recolhido'}  parada ${s.stop}  sentados ${s.seated}  em pé ${s.standing}  carga ${Math.round(s.load * 100)}%  luz ${light.k.toFixed(2)}`;
   },
-  hint() { return { x: 240, y: 40, text: 'Toque em SAIR DO ÔNIBUS pra descer' }; },
+  hint() { return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y + EXIT.h, text: 'Toque na SAÍDA pra descer' }; },
   tap(x, y) {
+    if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, leave: true };
     for (let i = boxes.length - 1; i >= 0; i--) {
       const b = boxes[i];
       if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return { x: b.hx, y: b.hy, speaker: { role: b.kid ? 'pupil' : 'rider' } };
