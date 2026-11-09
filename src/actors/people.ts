@@ -41,7 +41,7 @@ function weighted<T>(items: [T, number][]): T {
   return items[0][0];
 }
 
-const POOL = 18;
+const POOL = 26;
 const P: Person[] = Array.from({ length: POOL }, () => ({
   on: false, x: 0, dir: 1, sp: 0, ph: 0, lane: 0, kind: Kind.Walk, H: 16, skin: SKIN1, hair: HAIR1, hairStyle: Hair.Short,
   hat: 0, hatC: 0, top: Top.Jacket, topC: 0, bottomC: 0, skirt: false, accent: 255, scarf: 255, bag: Bag.None, bagC: 0,
@@ -211,7 +211,7 @@ let spawnT = 0.5;
     no floor and the crowd is capped by the hour's level (rhythm.ts), so late nights stay nearly empty. */
 export function tickSpawns(dt: number, density = 1) {
   const br = S.city.br;
-  spawnT -= dt * (br ? 0.47 * S.busy : 0.05 + 0.42 * S.busy) * density;
+  spawnT -= dt * (br ? 0.8 * S.busy : 0.05 + 0.42 * S.busy) * density;
   if (spawnT > 0) return;
   spawnT = 0.5 + r() * 1.5;
   if (!br || peopleCount() < peopleCap(S.busy * density)) spawnPerson();

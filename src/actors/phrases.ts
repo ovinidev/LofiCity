@@ -6,12 +6,13 @@
    tod:   only at those times of day. wx: only when the REAL weather shows it (see weatherTags).
    who:   who may say it (default: an ordinary passer-by). The Capelinha has no passers-by, only its
           scripted visitors, the priest and the congregation, so its phrases name their roles; the
-          players at the Campo da Rodoviária speak as 'player'; the feira on Rua José Bezerra has its
-          'vendor's and 'shopper's, who only exist while the market runs. */
+          players at the Campo da Rodoviária and in the Praça da Cultura kick-about speak as 'player',
+          the volleyball players there as 'volley' and the school's students as 'student'; the feira on
+          Rua José Bezerra has its 'vendor's and 'shopper's, who only exist while the market runs. */
 
 export type Tod = 'manha' | 'tarde' | 'noite' | 'madrugada';
 export type WxTag = 'heat' | 'cold' | 'rain' | 'snow';
-export type Role = 'passerby' | 'visitor' | 'attendee' | 'priest' | 'player' | 'vendor' | 'shopper';
+export type Role = 'passerby' | 'visitor' | 'attendee' | 'priest' | 'player' | 'volley' | 'student' | 'vendor' | 'shopper';
 export interface Phrase { t: string; city?: string; scene?: string; tod?: Tod[]; wx?: WxTag; who?: Role[] }
 
 type Opt = Omit<Phrase, 't'>;
@@ -44,6 +45,17 @@ export const PHRASES: Phrase[] = [
   ...group({ scene: 'praca-matriz', tod: ['noite'] }, ['A Matriz iluminada é outra coisa.']),
   ...group({ scene: 'praca-cultura' }, ['Praça da Cultura é o point!', 'Bora sentar um pouco na praça?']),
   ...group({ scene: 'praca-cultura', tod: ['noite'] }, ['Será que hoje tem forró?']),
+  ...group({ scene: 'praca-cultura', tod: DAY }, ['A meninada adora jogar bola aqui.', 'De tarde a praça vira quadra!']),
+  // the school's students (weekday shifts, src/scenes/praca-cultura-schedule.ts) and the teenagers playing
+  ...group({ scene: 'praca-cultura', who: ['student'] }, ['Hoje tem prova de matemática!', 'Esqueci o caderno em casa…', 'Cadê o pessoal da minha sala?', 'Fiz o dever de casa, ufa!', 'Tô de olho no recreio!', 'A merenda hoje tá boa, visse?']),
+  ...group({ scene: 'praca-cultura', who: ['student'], tod: ['manha'] }, ['Que sono, acordei cedinho…', 'Bom dia, professora!']),
+  ...group({ scene: 'praca-cultura', who: ['student'], tod: ['tarde'] }, ['Depois da aula tem vôlei na praça!']),
+  ...group({ scene: 'praca-cultura', who: ['student'], wx: 'rain' }, ['Vixe, a mochila vai molhar!']),
+  ...group({ scene: 'praca-cultura', who: ['student'], wx: 'heat' }, ['Calor danado pra estudar!']),
+  ...group({ scene: 'praca-cultura', who: ['player'] }, ['Golzinho na praça é tradição!', 'Chuta, chuta!', 'Toca pra mim!', 'Vale gol de longe?', 'Quem perder sai!', 'A mochila é a trave, visse?']),
+  ...group({ scene: 'praca-cultura', who: ['player'], wx: 'heat' }, ['Pausa pra água, galera!']),
+  ...group({ scene: 'praca-cultura', who: ['volley'] }, ['Levanta, levanta!', 'Minha! Minha!', 'Saque viagem, hein?', 'Ponto nosso!', 'Bora mais um set?', 'Corta essa bola!']),
+  ...group({ scene: 'praca-cultura', who: ['volley'], wx: 'heat' }, ['Que sol pra jogar vôlei!']),
   ...group({ scene: 'armazem-paraiba' }, ['Vou dar uma olhada no Armazém Paraíba.', 'Tem promoção no Armazém!', 'Comprei um liquidificador novo!']),
   ...group({ scene: 'rua-comercio' }, ['O comércio tá movimentado.', 'Vou ali na farmácia.', 'Achei um chinelo baratinho!']),
   ...group({ scene: 'campo-rodoviaria' }, ['Tem pelada no campo hoje?', 'Vou pegar o ônibus pra Campina.', 'Bora uma resenha?']),
@@ -74,6 +86,9 @@ export const PHRASES: Phrase[] = [
   ...group({ scene: 'rua-jose-bezerra', who: ['shopper'], tod: ['tarde'] }, ['Vim pegar a xepa!']),
   ...group({ scene: 'rua-jose-bezerra', who: ['shopper'], wx: 'rain' }, ['Ainda bem que a lona cobre!']),
   ...group({ scene: 'rua-jose-bezerra', who: ['shopper'], wx: 'heat' }, ['Vou levar uma melancia pra refrescar.']),
+  ...group({ scene: 'rua-manoel-rodrigues' }, ['Daqui dá pra ver a torre da Matriz!', 'Vou passar na farmácia rapidinho.', 'Deixei a moto ali no meio-fio.', 'Esse sinal lá na frente demora, viu?', 'Rua de comércio é outra coisa.']),
+  ...group({ scene: 'rua-manoel-rodrigues', tod: ['manha'] }, ['Cedinho e o comércio já tá abrindo.']),
+  ...group({ scene: 'rua-manoel-rodrigues', tod: ['noite'] }, ['De noite a rua fica mais calminha.']),
 
   // ---------- Capelinha das Pedras: only its visitors, the priest and the congregation ----------
   ...group({ scene: 'capelinha', who: ['visitor'] }, ['Que vista lá de cima!', 'Vou tirar uma foto da Capelinha.', 'Essa capelinha é um encanto.', 'Subir até aqui valeu a pena!', 'Que pedra enorme, né?']),
@@ -98,7 +113,13 @@ export const PHRASES: Phrase[] = [
   ...group({ city: 'joaopessoa', tod: ['manha'] }, ['Aqui o sol nasce primeiro!']),
   ...group({ city: 'joaopessoa', tod: ['noite'] }, ['Brisa do mar de noite é bom demais.']),
   ...group({ city: 'areia' }, ['Areia tem cada casarão lindo!', 'Bora comer uma rapadura?', 'Que ladeira, hein!']),
-  ...group({ city: 'remigio' }, ['A lagoa tá bonita hoje.', 'Remígio é puro sossego.', 'Bora sentar na beira da lagoa?']),
+  ...group({ city: 'remigio' }, ['Remígio é puro sossego.']),
+  ...group({ scene: 'lagoa-remigio' }, ['A lagoa tá bonita hoje.', 'Bora sentar na beira da lagoa?']),
+  // the audience in the cinema (src/scenes/cinema-remigio.ts): only movie talk, whispered
+  ...group({ scene: 'cinema-remigio', who: ['attendee'] }, [
+    'Psiu! O filme já começou.', 'Passa a pipoca, visse?', 'Eita, que explosão!', 'Essa luta tá arretada!',
+    'Fica até o fim, tem cena extra.', 'Quem é esse de capa verde?', 'Vixe, derrubou todo mundo!', 'Desliga o celular, por favor.',
+  ]),
 
   // ---------- Tóquio (pt-BR simples, com um toque de japonês) ----------
   ...group(TK, ['Konnichiwa!', 'Arigatô!', 'Sumimasen, com licença!', 'Tóquio nunca dorme.', 'Vou pegar um onigiri.', 'Oi, tudo bem? Genki?']),

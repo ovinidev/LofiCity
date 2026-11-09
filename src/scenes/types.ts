@@ -12,6 +12,10 @@ export interface Scene {
   update(dt: number): void;
   render(): void;
   debug(): string;
+  /** Optional, for indoor scenes that light themselves: called after the global palette grade and
+      may overwrite PAL32 (the sun and the sky do not reach an interior). Post-processing then
+      treats the frame as night (bloom on lit pixels). */
+  grade?(): void;
   /** Optional: a tappable prop or person at world (x, y) — where to show the emote and what to play,
       or, for a person, who speaks (a silent speech bubble instead of a sound). */
   tap?(x: number, y: number): { x: number; y: number; sfx?: Sfx; speaker?: Speaker } | null;
