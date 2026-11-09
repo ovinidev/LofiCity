@@ -13,6 +13,9 @@ export interface Scene {
   update(dt: number): void;
   render(): void;
   debug(): string;
+  /** Optional: the world x the camera centres on when the frame is narrower than the world (portrait),
+      or null for the default centred view; read every frame, so it may follow what is happening. */
+  focusX?(): number | null;
   /** Optional, for indoor scenes that light themselves: called after the global palette grade and
       may overwrite PAL32 (the sun and the sky do not reach an interior). Post-processing then
       treats the frame as night (bloom on lit pixels). */

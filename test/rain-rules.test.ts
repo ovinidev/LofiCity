@@ -84,6 +84,13 @@ test('unknown weather changes nothing: no umbrella, no sun umbrella, normal pace
     assert.deepEqual(pickUmbrella('unavailable', rain, snow, null, 1, 0, roll, roll), { umbrella: false, sun: false, speedK: 1 });
 });
 
+test('parasolWeather is exactly the old inline side-on sombrinha condition (people.ts now calls it)', () => {
+  // the expression people.ts used before it shared the helper
+  const legacy = (t: number | null, dayK: number, cloud: number) => t !== null && t > 26 && dayK > 0.6 && cloud < 0.5;
+  for (const t of [null, Number.NaN, -5, 0, 20, 25.9, 26, 26.01, 27, 31, 40]) for (const dayK of [0, 0.3, 0.6, 0.61, 1]) for (const cloud of [0, 0.2, 0.49, 0.5, 0.8, 1])
+    assert.equal(parasolWeather(t, dayK, cloud), legacy(t, dayK, cloud), `${t} ${dayK} ${cloud}`);
+});
+
 test('sun umbrellas follow the side-on hot clear day condition and stay open whatever the precipitation', () => {
   assert.equal(parasolWeather(null, 1, 0), false);
   assert.equal(parasolWeather(27, 1, 0.2), true);

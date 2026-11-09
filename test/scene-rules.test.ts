@@ -155,17 +155,42 @@ const LOOKS = /\b(skin|hair): number|^interface \w*(cross|walk|person|ped|fiel|s
 const VEHICLE = /\b(helmet|cruise|len): /;
 /** Walking actors that need no rain reaction, with the reason. */
 const WALKER_ALLOW: Record<string, string> = {};
-test('every scene or actor with its own walking people goes through rain-rules.ts', () => {
+/** Each interface of a file as one declaration text with the fields of the interfaces it extends in the
+    same file folded in (`interface Visitor extends Fig { sp ... }` walks with Fig's dir, skin and hair). */
+function interfaces(src: string): { name: string; line: number; decl: string }[] {
+  const raw = [...src.matchAll(/interface (\w+)(?: extends ([\w, ]+))? \{([^}]*)\}/g)].map((m) => ({ name: m[1], ext: (m[2] ?? '').split(',').map((s) => s.trim()).filter(Boolean), body: m[3], index: m.index }));
+  const byName = new Map(raw.map((i) => [i.name, i]));
+  const fields = (name: string, seen = new Set<string>()): string => {
+    const i = byName.get(name);
+    if (!i || seen.has(name)) return '';
+    seen.add(name);
+    return [i.body, ...i.ext.map((e) => fields(e, seen))].join(';');
+  };
+  return raw.map((i) => ({ name: i.name, line: src.slice(0, i.index).split('\n').length, decl: `interface ${i.name} {${fields(i.name)}}` }));
+}
+
+test('every scene or actor with its own walking people goes through rain-rules.ts (shop-front customers too)', () => {
   const bad: string[] = [];
   for (const f of [...SCENES_DIR, ...ACTORS]) {
     if (f in WALKER_ALLOW || f === 'src/actors/rain-rules.ts') continue;
     const src = codeOf(f);
-    for (const m of src.matchAll(WALKER_DECL)) {
-      if (!LOOKS.test(m[0]) || VEHICLE.test(m[0])) continue;
-      if (!/from '(\.\.\/actors|\.)\/rain-rules'/.test(src)) bad.push(`${f}:${src.slice(0, m.index).split('\n').length}  [walker without rain reaction]  interface ${m[1] ?? m[3]}`);
+    for (const i of interfaces(src)) {
+      WALKER_DECL.lastIndex = 0;
+      if (!WALKER_DECL.test(i.decl) || !LOOKS.test(i.decl) || VEHICLE.test(i.decl)) continue;
+      if (!/from '(\.\.\/actors|\.)\/rain-rules'/.test(src)) bad.push(`${f}:${i.line}  [walker without rain reaction]  interface ${i.name}`);
     }
   }
   none(bad, 'Walking people must take umbrellas / shelter from src/actors/rain-rules.ts (or be allowlisted with a reason)');
+});
+
+test('the walker guard sees inherited fields: a shop-front style customer is a walker', () => {
+  const src = 'interface Fig { x: number; dir: number; skin: number; hair: number }\ninterface Visitor extends Fig { on: boolean; sp: number; ph: number }';
+  const v = interfaces(src).find((i) => i.name === 'Visitor')!;
+  WALKER_DECL.lastIndex = 0;
+  assert.ok(WALKER_DECL.test(v.decl) && LOOKS.test(v.decl) && !VEHICLE.test(v.decl), v.decl);
+  // and shopfront.ts, which walks such customers, is among the files the guard covers
+  assert.ok(ACTORS.includes('src/actors/shopfront.ts'));
+  assert.ok(interfaces(codeOf('src/actors/shopfront.ts')).some((i) => { WALKER_DECL.lastIndex = 0; return WALKER_DECL.test(i.decl) && LOOKS.test(i.decl); }), 'shopfront.ts Visitor detected as a walker');
 });
 
 test('the shared pedestrian paths are rain-aware: side-on (people.ts setLanes) and depth (persp-kit walkers)', () => {
@@ -175,7 +200,10 @@ test('the shared pedestrian paths are rain-aware: side-on (people.ts setLanes) a
   assert.match(persp, /pickUmbrella\(S\.wxKind, S\.rain, S\.snow/, 'persp-kit.ts: umbrellas from the real weather state');
   assert.match(persp, /umbrellaOpen\(w\.sun, S\.wxKind, S\.rain, S\.snow\)/, 'persp-kit.ts: umbrella shown only while it rains (or a sun umbrella)');
   assert.match(persp, /shelterWait\(/, 'persp-kit.ts: shelters through rain-rules');
+  assert.match(people, /parasolWeather\(S\.temp, S\.dayK, S\.cloud\)/, 'people.ts: sun umbrellas from the shared hot-clear-day rule');
   const bad: string[] = [];
+  // one sun-umbrella rule for side-on and depth scenes: no private copy of the hot clear day threshold
+  bad.push(...scan(BEHAVIOUR.filter((p) => p !== 'src/actors/rain-rules.ts'), /\bS\.temp\s*>\s*26\b/, 'private sun-umbrella condition'));
   for (const s of sceneModules) {
     const src = codeOf(s.file);
     if (/\bsetLanes\(/.test(src) && !/from '\.\.\/actors\/people'/.test(src)) bad.push(`${s.file}  calls setLanes without the shared people.ts`);

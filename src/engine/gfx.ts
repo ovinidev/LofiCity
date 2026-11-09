@@ -22,8 +22,15 @@ export function frameFor(aspect: number): { W: number; H: number } {
 }
 
 export function setFrame(W: number, H: number) {
-  G.W = W; G.H = H; G.camX = Math.floor((WW - W) / 2); G.oy = H - BASE_H;
+  G.W = W; G.H = H; G.camX = camFor(W); G.oy = H - BASE_H;
   G.buf = new Uint8Array(W * H);
+}
+
+/** Camera x for a frame W px wide: centred on the world, or centred on a scene's focus (world x) when
+    it asks for one (Scene.focusX), clamped to the world. Wide frames that show the whole world ignore it. */
+export function camFor(W: number, focus: number | null = null): number {
+  if (focus === null || !Number.isFinite(focus)) return Math.floor((WW - W) / 2);
+  return Math.max(0, Math.min(WW - W, Math.round(focus - W / 2)));
 }
 
 /** World → screen helpers. */

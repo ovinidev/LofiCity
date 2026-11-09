@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { density } from '../src/sky/rhythm.ts';
+import { SCENE_ALIASES, resolveSceneId } from '../src/scenes/scene-aliases.ts';
 
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const index = read('src/scenes/index.ts');
@@ -87,24 +88,39 @@ test('the new Campina scenes follow the city rhythm and never set the weather', 
 });
 
 test('Remígio has the lagoon first, then the cinema and its street front, listed in the developer guide', () => {
-  assert.deepEqual(table.get('remigio')!.map(sceneId), ['lagoa-remigio', 'cinema-remigio', 'cinema-fachada-remigio']);
+  assert.deepEqual(table.get('remigio')!.map(sceneId), ['lagoa-remigio', 'cinema-remigio', 'cinema-facade-remigio']);
   const line = read('docs/DEVELOPING.md').split('\n').find((l) => l.startsWith('- `#scene='))!;
-  for (const id of ['cinema-remigio', 'cinema-fachada-remigio']) assert.ok(line.includes(`\`${id}\``), `${id} in the #scene list`);
+  for (const id of ['cinema-remigio', 'cinema-facade-remigio']) assert.ok(line.includes(`\`${id}\``), `${id} in the #scene list`);
+});
+
+test('renamed scene ids: old shared links resolve to the current scene through the alias map', () => {
+  assert.equal(resolveSceneId('cinema-fachada-remigio'), 'cinema-facade-remigio');
+  for (const id of ['cinema-facade-remigio', 'cinema-remigio', 'praca-matriz', 'nope']) assert.equal(resolveSceneId(id), id);
+  assert.equal(resolveSceneId('toString'), 'toString'); // only own keys
+  const ids = [...index.matchAll(/import \{ \w+ \} from '\.\/([\w-]+)';/g)].map((m) => m[1]);
+  for (const [old, now] of Object.entries(SCENE_ALIASES)) {
+    assert.ok(!ids.includes(old), `${old} is no longer a scene module`);
+    assert.match(read(`src/scenes/${now}.ts`), new RegExp(`id: '${now}'`), `${now} is a real scene id`);
+  }
+  // pickScene and door gotos both go through the resolver
+  assert.match(index, /resolveSceneId\(raw\)/);
+  assert.match(index, /s\.id === resolveSceneId\(id\)/);
+  assert.ok(!read('docs/DEVELOPING.md').split('\n').find((l) => l.startsWith('- `#scene='))!.includes('`cinema-fachada-remigio`'));
 });
 
 test('the cinema front never sets the weather and shares the room schedule; the doors point at each other', () => {
-  const front = read('src/scenes/cinema-fachada-remigio.ts'), room = read('src/scenes/cinema-remigio.ts');
+  const front = read('src/scenes/cinema-facade-remigio.ts'), room = read('src/scenes/cinema-remigio.ts');
   assert.doesNotMatch(front, /S\.(rain|snow|storm|cloud|fog|temp|wind|wet)\s*=[^=]/);
   assert.doesNotMatch(front, /Math\.random\(/);
   assert.match(front, /from '\.\/cinema-rules'/, 'board, queue and door come from the shared schedule');
   assert.doesNotMatch(front, /\b(16\.5|21\.5|BLOCK_MIN)\b/, 'no session times copied into the scene');
   assert.match(front, /goto: 'cinema-remigio'/);
-  assert.match(room, /goto: 'cinema-fachada-remigio'/);
+  assert.match(room, /goto: 'cinema-facade-remigio'/);
   // the zebra is in the photo, so the crossing is wired; the road stays two-way (direction unknown)
   assert.match(front, /setBrCrossing\(\{/);
   assert.doesNotMatch(front, /setBrOneWay|setBrSignal/);
   const at = Date.parse('2026-11-09T14:30-03:00');
-  assert.deepEqual(density('remigio', 'cinema-fachada-remigio', at), density('remigio', 'lagoa-remigio', at));
+  assert.deepEqual(density('remigio', 'cinema-facade-remigio', at), density('remigio', 'lagoa-remigio', at));
 });
 
 test('main.ts handles a door: same scene change as the scene button, by id within the city', () => {

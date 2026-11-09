@@ -391,7 +391,7 @@ function render() {
 
 let built = false;
 export const cinemaFachada: Scene = {
-  id: 'cinema-fachada-remigio',
+  id: 'cinema-facade-remigio',
   name: 'Cine · Fachada · Remígio',
   build() {
     if (!built) { buildFar(); buildLeft(); buildCinema(); buildRight(); buildFront(); buildGround(); built = true; }

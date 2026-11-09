@@ -361,14 +361,8 @@ export function textBit(str: string, u: number, v: number): boolean {
   return (FONT[str[k]] ?? FONT[' '])[Math.floor(v) * 3 + i] === '1';
 }
 
-/** Easter Sunday (Gregorian), as a day of year; Holy Week events key off it. */
-export function easterDoy(year: number): number {
-  const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
-  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
-  return Math.floor((Date.UTC(year, month - 1, day) - Date.UTC(year, 0, 1)) / 864e5);
-}
+/** Easter Sunday as a day of year (moved to the DOM-free sky/time.ts so pure rules can use it). */
+export { easterDoy } from '../sky/time';
 
 // ---------- water, towers, cobbles, lanterns ----------
 

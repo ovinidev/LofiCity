@@ -12,8 +12,8 @@
    building is the school. On weekdays students in the public-school uniform climb the blue and red
    steps to its arched central entrance before each shift and come out of it after; the entrance
    stands open and the classroom windows are open and lit only around and during the shifts. After
-   school and at weekends teenagers play a two-backpack kick-about on the left of the plaza
-   (./praca-games.ts) and two-a-side volleyball over a portable net in front of the red steps. */
+   school and at weekends teenagers play a two-backpack kick-about on the left of the plaza (on
+   the lower paving right of the steps in portrait, where the left is out of view) (./praca-games.ts) and two-a-side volleyball over a portable net in front of the red steps. */
 import { G, L, Lget, Lp, WW, blitLayer, newLayer, put, rect } from '../engine/gfx';
 import { hashf, mulberry32 } from '../engine/math';
 import {
@@ -38,7 +38,7 @@ import {
 } from './br-kit';
 import type { Scene } from './types';
 import { dayKey } from './campo-matches';
-import { type SportsState, schoolState, sessionSeed, sportsState, sportsWindowAt, studentFlow } from './praca-cultura-schedule';
+import { type SportsState, noSchool, schoolState, sessionSeed, sportsState, sportsWindowAt, studentFlow } from './praca-cultura-schedule';
 import { type Court, type Field, type Kid, KickSim, NET_H, VolleySim } from './praca-games';
 
 const HORIZON = 108, STREET = 147, SH = 180 - STREET;
@@ -71,6 +71,11 @@ let trees: Tree[] = [], opens: Opening[] = [];
 const BAY_WINS: { x: number; y: number }[] = [];
 /** The kick-about between two pairs of backpacks (lawn bed and paving, left) and the volleyball court in front of the red steps. */
 const FIELD: Field = { x0: 8, x1: 92, y0: 116, y1: 124, mouth0: 118, mouth1: 122 };
+/** Narrow (portrait) frames do not reach the left lawn bed: there the kick-about uses the lower paving
+    right of the blue steps (between the retaining wall and the sidewalk), so both games stay in view. */
+const FIELD_NARROW: Field = { x0: 258, x1: 342, y0: 128, y1: 136, mouth0: 130, mouth1: 134 };
+/** The left field when the frame shows all of it (backpacks included), otherwise the narrow one. */
+const fieldFor = (camX: number, W: number): Field => (camX <= FIELD.x0 - 3 && camX + W >= FIELD.x1 + 3 ? FIELD : FIELD_NARROW);
 const COURT: Court = { x0: 184, net: 216, x1: 248, y0: 119, y1: 124 };
 const panes: { x: number; y: number; c: number }[] = [];
 
@@ -316,7 +321,7 @@ function spawnStudent(arriving: boolean) {
 }
 
 function updateStudents(dt: number) {
-  const f = studentFlow(S.cal.weekday, S.cal.hour);
+  const f = studentFlow(S.cal.weekday, S.cal.hour, noSchool(S.cal.year, S.cal.doy));
   if (f.arrive > 0) { arriveT -= dt * f.arrive; if (arriveT <= 0) { arriveT = 0.9 + sr() * 1.2; spawnStudent(true); } }
   if (f.leave > 0) { leaveT -= dt * f.leave; if (leaveT <= 0) { leaveT = 0.7 + sr() * 1.0; spawnStudent(false); } }
   for (const s of PUPILS) {
@@ -361,7 +366,7 @@ function drawStudent(s: Student) {
 // ./praca-games.ts. Real rain pauses a running game: the players wait at the back of their area.
 interface Look { skin: number; hair: number; shirt: number; shorts: number; H: number }
 let sports: SportsState = 'off', kick: KickSim | null = null, volley: VolleySim | null = null, sportsKey = -1;
-let kickLooks: Look[] = [], volleyLooks: Look[] = [];
+let kickLooks: Look[] = [], volleyLooks: Look[] = [], kickField: Field = FIELD;
 const SHIRTS = [CRED, CYELL, CGREEN, CORNG, FPINK, CBLUE, VOID];
 
 function looksFor(kids: Kid[], seed: number, shirts: [number, number], shorts: [number, number]): Look[] {
@@ -373,11 +378,12 @@ function updateSports(dt: number) {
   const { weekday, hour } = S.cal, win = sportsWindowAt(weekday, hour), day = dayKey(S.cal);
   sports = sportsState(weekday, hour, { kind: S.wxKind, rain: S.rain, snow: S.snow }, feira() || paixao());
   const key = sports === 'off' ? -1 : day * 4 + win;
-  if (key !== sportsKey) { kick = null; volley = null; sportsKey = key; }
+  const field = fieldFor(G.camX, G.W);
+  if (key !== sportsKey || (kick && kickField !== field)) { kick = null; volley = null; sportsKey = key; } // a rotated screen restarts the games on the field in view
   if (sports === 'off') return;
   if (!kick && sports === 'play') { // nobody turns up in the rain; a game already on just pauses
     const ks = sessionSeed(day, win, 0), vs = sessionSeed(day, win, 1);
-    kick = new KickSim(FIELD, ks); volley = new VolleySim(COURT, vs);
+    kick = new KickSim(field, ks); kickField = field; volley = new VolleySim(COURT, vs);
     // the kick-about: the school-uniform side against a coloured one; volleyball in two colours
     const a = vs % 7, b = (a + 1 + ((vs >>> 4) % 6)) % 7;
     kickLooks = looksFor(kick.kids, ks, [WHITE, SHIRTS[ks % 6]], [CBLUE, VOID]);
@@ -402,7 +408,7 @@ function drawKid(p: Kid, k: Look) {
 
 function drawSports() {
   if (kick) {
-    const F = FIELD;
+    const F = kickField;
     for (const [i, gx] of [F.x0, F.x1].entries()) for (const gy of [F.mouth0, F.mouth1]) { rect(gx - 1, gy - 3, 3, 3, i ? CRED : CNAVY); put(gx, gy - 3, STEEL); } // backpacks for posts
     const b = kick.ball;
     kick.kids.forEach((p, i) => drawKid(p, kickLooks[i]));
@@ -501,7 +507,7 @@ function drawCrosser(c: Crosser) {
 function update(dt: number) {
   updateAnimals(dt);
   const k = paixao() ? 5 : feira() ? 2.6 : weekendNight() ? 2.2 : S.festa || S.saoJoao ? 2 : 1.2;
-  school = schoolState(S.cal.weekday, S.cal.hour);
+  school = schoolState(S.cal.weekday, S.cal.hour, noSchool(S.cal.year, S.cal.doy)); // holidays and vacations: shut and dark
   tickSpawns(dt, k); updatePeople(dt); updateCrossers(dt); updateStudents(dt); updateSports(dt); updateCars(dt, 0.7); updateAmbient(dt);
   if (onRoad() && vehicleBetween(ZEBRA0, ZEBRA1)) conflicts++;
 }

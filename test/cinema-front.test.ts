@@ -1,5 +1,5 @@
 // Run with `pnpm test` (node --test; Node >= 22.18 strips the TypeScript types natively).
-// The cinema's street front (src/scenes/cinema-fachada-remigio.ts): its showtimes board, door and the
+// The cinema's street front (src/scenes/cinema-facade-remigio.ts): its showtimes board, door and the
 // crowd at the door all come from the room's schedule in src/scenes/cinema-rules.ts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

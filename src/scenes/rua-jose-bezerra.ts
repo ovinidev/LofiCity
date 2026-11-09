@@ -27,7 +27,7 @@ import { type Tree, drawTree, makeTree } from '../actors/trees';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import { bandeirolas, isNight, text, textW, wire, wireCurve } from './br-kit';
-import { feiraBoxes, feiraBuild, feiraDebug, feiraFlow, feiraItems, feiraTap, feiraUpdate } from './rjb-feira';
+import { feiraBoxes, feiraBuild, feiraDebug, feiraFlow, feiraItems, feiraOn, feiraTap, feiraUpdate } from './rjb-feira';
 import { sortZ, walkerBoost } from '../actors/feira-rules';
 import {
   type Facade, type Opening, type PCar, type PKind, type PLamp, type View, type Walker, type WalkCfg, OPEN, drawByDepth, drawCarP,
@@ -41,6 +41,8 @@ const HORIZON = V.vy, Y0 = V.vy + 1, SH = 180 - Y0;
 // Lateral layout, metres: the wall, its sidewalk edge, the median, the right kerb and building line.
 const XW = -22, XWS = -20.8, XM0 = -6.2, XM1 = -1.7, XKR = 9.5, XBR = 12;
 const MED0 = 27.6, MED1 = 62; // the median's depth
+/** Camera focus (world x) on market mornings in narrow frames: the stalls, with the vanishing point at the right edge. */
+const FEIRA_FOCUS = 160;
 const ISL = { X0: -16, X1: -3.2, z1: 14 }; // the paved island in the left foreground
 const PLANTER = { X: -5.9, z: 9.4, r: 1.5, h: 0.55 };
 const wr = mulberry32(0x1b3c);
@@ -314,6 +316,8 @@ export const ruaJoseBezerra: Scene = {
   },
   update,
   render,
+  // portrait shows only the middle of the street; while the feira stands, look left so its stalls fill the frame
+  focusX() { return feiraOn() ? FEIRA_FOCUS : null; },
   debug() { return `active  walkers x${WALKERS.filter((w) => w.on).length}  road x${CARS.filter((c) => c.on).length}${feiraDebug()}`; },
   tap(x, y) { return tapWalker(V, WALKERS, x, y) ?? feiraTap(x, y) ?? tapCarP(V, CARS, x, y); },
 };

@@ -190,7 +190,9 @@ export const armazemParaiba: Scene = {
     if (!built) { buildFar(); buildStore(); buildRight(); buildFront(); buildGround(); built = true; }
     setLanes([{ y: 140 }, { y: 142 }, { y: 144 }], { bikes: false });
     // the busiest door in town: vendors in red vests out front, customers going in anywhere along the open front
-    setShopFronts([{ doors: [60, 98, 143, 196], y: 143, vendors: [124, 163, 226], weight: 3, open: storeOpen, vest: CRED }]);
+    // (the vendors stand where they read best: one at the dark door, two in front of the white fridges, a
+    // white band on the red vest; on the orange wall a red vest got lost)
+    setShopFronts([{ doors: [60, 98, 143, 196], y: 143, vendors: [150, 184, 216], weight: 3, open: storeOpen, vest: CRED, trim: TILEW }]);
     setupAnimals({ ground: [141, 144], dogs: 2, sleepSpots: [250, 300], lamps: [],
       wires: [wireCurve(113, 36, 480, 22, 14), wireCurve(113, 38, 480, 30, 16)],
       walls: [{ x0: 292, x1: 386, y: 107 }, { x0: 0, x1: 20, y: 69 }] });

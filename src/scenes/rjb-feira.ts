@@ -42,7 +42,8 @@ export function feiraUpdate(dt: number) {
 }
 
 export const feiraFlow = () => ctx.state.flow;
-const feiraOn = () => ctx.state.frames;
+/** Whether the stalls are standing (set-up, open or packing away). */
+export const feiraOn = () => ctx.state.frames;
 
 /** Boxes the pedestrians are depth-sorted against (stalls and props only while the market stands). */
 export function feiraBoxes(): Box[] {

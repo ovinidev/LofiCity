@@ -80,12 +80,22 @@ for (const [i, h] of [
 ] as const) RGB[i] = hex(h);
 
 // ---------- geometry (world space) ----------
-const SCX = 250, SX0 = 96, SX1 = 404, STOP = -86, SBOT = 24;
-/** The movie picture inside the screen. */
+/** The movie picture: the film is always drawn in these picture coordinates (244 x 84). */
 const PX0 = 128, PY0 = -70, PW = 244, PH = 84;
 const STAGE = 34, ROWS = 10, AX = 276;
-const screenTop = (x: number) => Math.round(STOP - 4 * ((x - SCX) / (SX1 - SCX)) ** 2);
-const screenBot = (x: number) => Math.round(SBOT + 3 * ((x - SCX) / (SX1 - SCX)) ** 2);
+/** Where the screen sits on the front wall: the curved surface (SX0..SX1, STOP..SBOT) and the picture
+    rectangle shown on it (px, py, pw, ph). */
+interface Geo { SCX: number; SX0: number; SX1: number; STOP: number; SBOT: number; px: number; py: number; pw: number; ph: number }
+/** Landscape: the wide screen as in the photo; the picture is drawn 1:1. */
+const WIDE: Geo = { SCX: 250, SX0: 96, SX1: 404, STOP: -86, SBOT: 24, px: PX0, py: PY0, pw: PW, ph: PH };
+/** Narrow (portrait) frames show only ~230 world px, less than the 308 px screen: the same screen is
+    drawn at about 2/3 scale, centred in the frame and still standing on the stage, and the film is
+    scaled down into it, so the whole picture stays visible. */
+const NARROW: Geo = { SCX: 240, SX0: 140, SX1: 340, STOP: -48, SBOT: 24, px: 161, py: -38, pw: 158, ph: 55 };
+/** The wide layout needs the whole curved screen (plus its frame) inside the frame. */
+const geoFor = (frameW: number): Geo => (frameW >= WIDE.SX1 - WIDE.SX0 + 12 ? WIDE : NARROW);
+const screenTop = (g: Geo, x: number) => Math.round(g.STOP - 4 * ((x - g.SCX) / (g.SX1 - g.SCX)) ** 2);
+const screenBot = (g: Geo, x: number) => Math.round(g.SBOT + 3 * ((x - g.SCX) / (g.SX1 - g.SCX)) ** 2);
 
 interface Row { y: number; h: number; w: number; gap: number; hw: number; l: number; r: number; u: number }
 const ROW: Row[] = Array.from({ length: ROWS }, (_, k) => {
@@ -102,10 +112,18 @@ function seatX(k: number, side: number, n: number) {
 }
 
 // ---------- static room ----------
-const room = newLayer();
-const rr = mulberry32(0xc1e);
+/** One static room layer per screen layout, built on first use. */
+const rooms = new Map<Geo, Uint8Array>();
+let room = newLayer();
 
-function buildRoom() {
+function roomFor(g: Geo) {
+  let ly = rooms.get(g);
+  if (!ly) { ly = room = newLayer(); buildRoom(g); rooms.set(g, ly); }
+  return ly;
+}
+
+function buildRoom(g: Geo) {
+  const { SX0, SX1 } = g, rr = mulberry32(0xc1e);
   L(room, 0, WY0, WW, 180 - WY0, R.BLACK);
   // ceiling and front wall around the screen
   for (let y = WY0; y < 180; y++) for (let x = 0; x < WW; x++) {
@@ -121,16 +139,17 @@ function buildRoom() {
     for (let x = 0; x < WW; x++) if (Lget(room, x, y) === R.CEIL) Lp(room, x, y, R.WALL);
   }
   // faint acoustic panel seams on the side walls
-  for (let x = 12; x < SX0; x += 21) for (let y = -86 - (SX0 - x) * 1.25 + 2; y < STAGE + (SX0 - x) * 0.45 - 2; y++) Lp(room, x, y, R.WALL);
-  for (let x = SX1 + 18; x < WW; x += 21) for (let y = -86 - (x - SX1) * 1.25 + 2; y < STAGE - 8 + (x - SX1) * 0.4 - 2; y++) Lp(room, x, y, R.WALL);
+  // (whole rows only: a fractional y made Lp write 120-360 px to the side, stray lines in the ceiling)
+  for (let x = 12; x < SX0; x += 21) for (let y = Math.ceil(-86 - (SX0 - x) * 1.25 + 2); y < STAGE + (SX0 - x) * 0.45 - 2; y++) Lp(room, x, y, R.WALL);
+  for (let x = SX1 + 18; x < WW; x += 21) for (let y = Math.ceil(-86 - (x - SX1) * 1.25 + 2); y < STAGE - 8 + (x - SX1) * 0.4 - 2; y++) Lp(room, x, y, R.WALL);
   // the screen: a wide gently curved surface with a dark masking frame
-  for (let x = SX0 - 3; x < SX1 + 3; x++) { const t = screenTop(x) - 3, b = screenBot(x) + 3; L(room, x, t, 1, b - t, R.BLACK); }
+  for (let x = SX0 - 3; x < SX1 + 3; x++) { const t = screenTop(g, x) - 3, b = screenBot(g, x) + 3; L(room, x, t, 1, b - t, R.BLACK); }
   for (let x = SX0; x < SX1; x++) {
-    const t = screenTop(x), b = screenBot(x), edge = Math.abs(x - SCX) / (SX1 - SCX);
+    const t = screenTop(g, x), b = screenBot(g, x), edge = Math.abs(x - g.SCX) / (SX1 - g.SCX);
     for (let y = t; y < b; y++) Lp(room, x, y, bay(x, y) < edge * edge * 0.9 || y === t || y === b - 1 ? R.SCR2 : R.SCR);
   }
   // stage step and the floor in front of the first row
-  L(room, SX0 - 30, SBOT + 6, SX1 - SX0 + 60, STAGE - SBOT - 6, R.FLOOR);
+  L(room, SX0 - 30, g.SBOT + 6, SX1 - SX0 + 60, STAGE - g.SBOT - 6, R.FLOOR);
   L(room, SX0 - 30, STAGE - 1, SX1 - SX0 + 60, 1, R.RIMN);
   L(room, SX0 - 40, STAGE, SX1 - SX0 + 80, 8, R.FLOOR);
   // aisle: stepped carpet with blue LED nosings
@@ -534,35 +553,54 @@ let session: Session = sessionAt(15), shot: Shot | null = null, lastT = 0;
 /** Smoothed average colour of the picture (0..1), which lights the room. */
 const light = [0, 0, 0];
 let house = 0;
+let geo: Geo = WIDE;
+
+/** The film in picture coordinates, 1:1 at PX0, PY0. */
+function film(sh: Shot, now: number) {
+  const shake = drawShot(sh, now);
+  if (shake > 0) {
+    // camera shake: redraw the shot shifted (cheap enough for an 84-row picture)
+    shx = Math.round(Math.sin(now * 61) * shake); shy = Math.round(Math.cos(now * 47) * shake * 0.7);
+    if (shx || shy) { mr(-8, -8, PW + 16, PH + 16, F.BLACK); drawShot(sh, now); }
+    shx = 0; shy = 0;
+  }
+  cover(1 - sh.vis, F.BLACK);
+}
+/** The film drawn into an offscreen picture-sized buffer, then scaled down (nearest) into the narrow screen. */
+const offPic = new Uint8Array(PW * PH);
+function filmScaled(sh: Shot, now: number, g: Geo) {
+  const keep = { W: G.W, H: G.H, camX: G.camX, oy: G.oy, buf: G.buf };
+  G.W = PW; G.H = PH; G.camX = PX0; G.oy = -PY0; G.buf = offPic; offPic.fill(F.BLACK);
+  try { film(sh, now); } finally { Object.assign(G, keep); }
+  for (let y = 0; y < g.ph; y++) {
+    const row = (((y + 0.5) * PH) / g.ph | 0) * PW;
+    for (let x = 0; x < g.pw; x++) put(g.px + x, g.py + y, offPic[row + (((x + 0.5) * PW) / g.pw | 0)]);
+  }
+}
 
 function render() {
   const now = S.ms / 1000, dt = Math.min(0.1, Math.max(0, now - lastT)); lastT = now;
   session = sessionAt(S.cal.hour);
   shot = shotAt(S.ms, S.city.utc);
-  blitLayer(room);
+  const g = geo = geoFor(G.W), cx = g.px + g.pw / 2, cy = g.py + g.ph / 2;
+  blitLayer(roomFor(g));
   // the picture
   shx = 0; shy = 0;
   if (session.phase === 'film' && shot) {
-    const shake = drawShot(shot, now);
-    if (shake > 0) {
-      // camera shake: redraw the shot shifted (cheap enough for an 84-row picture)
-      shx = Math.round(Math.sin(now * 61) * shake); shy = Math.round(Math.cos(now * 47) * shake * 0.7);
-      if (shx || shy) { mr(-8, -8, PW + 16, PH + 16, F.BLACK); drawShot(shot, now); }
-      shx = 0; shy = 0;
-    }
-    cover(1 - shot.vis, F.BLACK);
+    if (g === WIDE) film(shot, now);
+    else filmScaled(shot, now, g);
   } else if (session.phase === 'preshow') {
-    mr(0, 0, PW, PH, F.SLIDE);
-    text(screenNotice(S.cal.hour)?.[0] ?? '', PX0 + PW / 2, PY0 + PH / 2 - 6, F.TEXT);
+    rect(g.px, g.py, g.pw, g.ph, F.SLIDE);
+    text(screenNotice(S.cal.hour)?.[0] ?? '', cx, cy - 6, F.TEXT);
     // a little popcorn bucket
-    const bx = PX0 + PW / 2 - 4, by = PY0 + PH / 2 + 6;
+    const bx = cx - 4, by = cy + 6;
     rect(bx, by + 3, 8, 7, F.SHW); for (let i = 0; i < 8; i += 2) rect(bx + i, by + 3, 1, 7, F.SHR);
     for (let i = 0; i < 9; i++) put(bx + (i % 5) * 2 - 1 + (i > 4 ? 1 : 0), by + (i > 4 ? 0 : 2), F.FIRE1);
   } else {
     // closed: dark screen with a lit notice (the same text the street board agrees with, see cinema-rules.ts)
     const [a, b] = screenNotice(S.cal.hour) ?? [];
-    text(a ?? '', PX0 + PW / 2, PY0 + PH / 2 - 8, F.TEXT);
-    text(b ?? '', PX0 + PW / 2, PY0 + PH / 2 + 4, F.TEXT);
+    text(a ?? '', cx, cy - 8, F.TEXT);
+    text(b ?? '', cx, cy + 4, F.TEXT);
   }
   measure(dt, session.phase !== 'closed');
   if (session.phase !== 'closed') {
@@ -579,7 +617,7 @@ function render() {
 
 // ---------- the way out ----------
 /** The lit SAÍDA sign over the aisle near the back rows (always on, as in any cinema):
-    tapping it goes back out to the street front (cinema-fachada-remigio). */
+    tapping it goes back out to the street front (cinema-facade-remigio). */
 const EXIT = { x: AX - 13, y: 146, w: 27, h: 9 }; // above the control bar in landscape
 function exitSign() {
   const { x, y, w, h } = EXIT;
@@ -592,7 +630,7 @@ const onExit = (x: number, y: number) => x >= EXIT.x - 8 && x <= EXIT.x + EXIT.w
 
 /** Average colour of the picture, which then lights the room through grade(). The projector is off when closed. */
 function measure(dt: number, on: boolean) {
-  const x0 = Math.max(0, sx(PX0)), x1 = Math.min(G.W, sx(PX0 + PW)), y0 = Math.max(0, sy(PY0)), y1 = Math.min(G.H, sy(PY0 + PH));
+  const p = geo, x0 = Math.max(0, sx(p.px)), x1 = Math.min(G.W, sx(p.px + p.pw)), y0 = Math.max(0, sy(p.py)), y1 = Math.min(G.H, sy(p.py + p.ph));
   let r = 0, g = 0, b = 0, n = 0;
   for (let y = y0; y < y1; y += 2) for (let x = x0 + (y & 2 ? 1 : 0); x < x1; x += 2) {
     const c = RGB[G.buf[y * G.W + x]]; r += c[0]; g += c[1]; b += c[2]; n++;
@@ -612,12 +650,10 @@ function grade() {
   }
 }
 
-let built = false;
 export const cinemaRemigio: Scene = {
   id: 'cinema-remigio',
   name: 'Cinema · Remígio',
   build() {
-    if (!built) { buildRoom(); built = true; }
     setupAnimals({ ground: [], dogs: 0 });
     lastT = S.ms / 1000;
   },
@@ -630,7 +666,7 @@ export const cinemaRemigio: Scene = {
   },
   hint() { return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, text: 'Toque na SAÍDA pra voltar à rua' }; },
   tap(x, y) {
-    if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, goto: 'cinema-fachada-remigio' };
+    if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, goto: 'cinema-facade-remigio' };
     if (session.phase === 'closed') return null;
     const heads = session.phase === 'preshow' ? [...HEADS, ...PRESHOW_HEADS] : HEADS;
     for (const h of heads) {
