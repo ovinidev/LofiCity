@@ -6,11 +6,12 @@
    tod:   only at those times of day. wx: only when the REAL weather shows it (see weatherTags).
    who:   who may say it (default: an ordinary passer-by). The Capelinha has no passers-by, only its
           scripted visitors, the priest and the congregation, so its phrases name their roles; the
-          players at the Campo da Rodoviária speak as 'player'. */
+          players at the Campo da Rodoviária speak as 'player'; the feira on Rua José Bezerra has its
+          'vendor's and 'shopper's, who only exist while the market runs. */
 
 export type Tod = 'manha' | 'tarde' | 'noite' | 'madrugada';
 export type WxTag = 'heat' | 'cold' | 'rain' | 'snow';
-export type Role = 'passerby' | 'visitor' | 'attendee' | 'priest' | 'player';
+export type Role = 'passerby' | 'visitor' | 'attendee' | 'priest' | 'player' | 'vendor' | 'shopper';
 export interface Phrase { t: string; city?: string; scene?: string; tod?: Tod[]; wx?: WxTag; who?: Role[] }
 
 type Opt = Omit<Phrase, 't'>;
@@ -54,6 +55,25 @@ export const PHRASES: Phrase[] = [
   ...group({ scene: 'centro-teatro' }, ['Bora dar uma volta no centro?', 'Vou encontrar os amigos ali.']),
   ...group({ scene: 'rua-faustino' }, ['Essa rua é tranquila, viu?', 'Vou visitar minha vó aqui perto.']),
   ...group({ scene: 'rua-jose-bezerra' }, ['Rua de vizinho bom é assim.', 'Tô indo levar um bolo pra vizinha.']),
+  // the feira livre (src/actors/feira-rules.ts): feirantes calling out and shoppers at the stalls
+  ...group({ scene: 'rua-jose-bezerra', who: ['vendor'] }, [
+    'Olha a laranja docinha!', 'Banana boa, freguesa!', 'Tomate fresquinho, chegou agora!', 'Pode escolher à vontade!',
+    'Vai levar quantos quilos?', 'Leva três que eu faço um preço!', 'Olha o cheiro-verde, coentro e cebolinha!', 'Melancia doce que só!',
+    'Pesa aqui pra senhora.', 'Quer uma sacolinha?', 'Prova esse abacaxi, freguês!', 'Macaxeira boa, cozinha rapidinho!',
+  ]),
+  ...group({ scene: 'rua-jose-bezerra', who: ['vendor'], tod: ['manha'] }, ['Chegou cedo, pegou o melhor!', 'Bom dia, freguesia!']),
+  ...group({ scene: 'rua-jose-bezerra', who: ['vendor'], tod: ['tarde'] }, ['Xepa! Tudo pela metade!', 'Fim de feira, preço de amigo!']),
+  ...group({ scene: 'rua-jose-bezerra', who: ['vendor'], wx: 'rain' }, ['Chuva não espanta freguês!', 'Vem pra debaixo da lona!']),
+  ...group({ scene: 'rua-jose-bezerra', who: ['vendor'], wx: 'heat' }, ['Olha a melancia geladinha!']),
+  ...group({ scene: 'rua-jose-bezerra', who: ['shopper'] }, [
+    'Esse tomate tá bonito!', 'Vou levar um quilo de laranja.', 'Tá quanto o cacho da banana?', 'Faz mais barato, moço?',
+    'A feira tá cheia hoje!', 'Não esquece do coentro!', 'Já enchi o carrinho!', 'Mainha pediu feijão verde.', 'Que melão cheiroso!',
+    'Feira é sagrada, visse?',
+  ]),
+  ...group({ scene: 'rua-jose-bezerra', who: ['shopper'], tod: ['manha'] }, ['Vim cedinho pegar as frutas boas.']),
+  ...group({ scene: 'rua-jose-bezerra', who: ['shopper'], tod: ['tarde'] }, ['Vim pegar a xepa!']),
+  ...group({ scene: 'rua-jose-bezerra', who: ['shopper'], wx: 'rain' }, ['Ainda bem que a lona cobre!']),
+  ...group({ scene: 'rua-jose-bezerra', who: ['shopper'], wx: 'heat' }, ['Vou levar uma melancia pra refrescar.']),
 
   // ---------- Capelinha das Pedras: only its visitors, the priest and the congregation ----------
   ...group({ scene: 'capelinha', who: ['visitor'] }, ['Que vista lá de cima!', 'Vou tirar uma foto da Capelinha.', 'Essa capelinha é um encanto.', 'Subir até aqui valeu a pena!', 'Que pedra enorme, né?']),
