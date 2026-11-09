@@ -195,5 +195,5 @@ test('the bus interior: listed in the guide, boarded from street buses and the t
   assert.match(read('src/actors/br-traffic.ts'), /board: skinForVehicle\(v\.kind\)/);
   assert.match(read('src/scenes/terminal-integracao.ts'), /board: 'sttp'/);
   assert.match(read('src/main.ts'), /if \(c\.board\) board\(c\.board\)/);
-  assert.match(read('index.html'), /id="b-exit" hidden/);
+  assert.doesNotMatch(read('index.html'), /b-exit/, 'no Sair do ônibus button: the SAÍDA sign is the way out');
 });

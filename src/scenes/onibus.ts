@@ -6,8 +6,8 @@
    facing us.
 
    Reached by tapping a bus in a street scene (that bus's interior: São José, micro-ônibus, the
-   prefeitura school bus, or the STTP bus at Campina's terminal); "Sair do ônibus", or the lit SAÍDA
-   sign on the ceiling (as in the mall and the cinema), goes back. In
+   prefeitura school bus, or the STTP bus at Campina's terminal); the lit SAÍDA sign on the ceiling
+   (as in the mall and the cinema), or Esc, goes back. In
    Campina Grande it is also one of the city's scenes. Drawn from Creative Commons photos of Brazilian
    city-bus interiors (credits in docs/DEVELOPING.md); the street outside is generic for each city.
 
@@ -356,7 +356,7 @@ function render() {
 }
 
 /** The lit SAÍDA sign on the ceiling panel, centred so it stays in view on a phone: tapping it gets off
-    (the same as the "Sair do ônibus" button), as the SAÍDA does in the mall and the cinema. */
+    (Esc does the same), as the SAÍDA does in the mall and the cinema. */
 const EXIT = { x: 227, y: -8, w: 27, h: 10 };
 const onExit = (x: number, y: number) => x >= EXIT.x - 6 && x <= EXIT.x + EXIT.w + 6 && y >= EXIT.y - 6 && y <= EXIT.y + EXIT.h + 4;
 

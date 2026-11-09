@@ -42,6 +42,6 @@ export interface TapResult {
   goto?: string;
   /** Board this bus (the bus interior scene, src/scenes/onibus.ts). */
   board?: BusSkin;
-  /** Get off the bus (the SAÍDA sign inside it): the same as the "Sair do ônibus" button. */
+  /** Get off the bus (the SAÍDA sign inside it; Esc does the same). */
   leave?: boolean;
 }

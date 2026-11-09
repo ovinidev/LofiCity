@@ -100,7 +100,6 @@ function syncHash() {
   if (h !== location.hash) try { history.replaceState(history.state, '', h); } catch { /* sandboxed */ }
 }
 syncHash();
-syncExit();
 
 // ---------- HUD ----------
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -179,7 +178,6 @@ function setCity(id: string) {
   scene.build();
   syncBells();
   syncHash();
-  syncExit();
   placeInfo.refresh();
   updateHud();
   if (hosted) pageview({ route: '/[city]', path: `/${city.id}` });
@@ -190,10 +188,9 @@ addEventListener('pagehide', () => bells.dispose());
 addEventListener('pageshow', (e) => { if (e.persisted) syncBells(); }); // back from the bfcache
 /** Switches to another scene of the same city at the same moment (the scene button, or a door). */
 function enterScene(next: Scene) {
-  clearBubbles(); clearPeople(); cycleMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit(); placeInfo.refresh();
+  clearBubbles(); clearPeople(); cycleMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); placeInfo.refresh();
 }
-// Inside the bus, "Sair do ônibus" (or Esc) gets off: back to the scene it was boarded from, else the next scene.
-function syncExit() { $('b-exit').hidden = scene !== onibus; }
+// Inside the bus, the SAÍDA sign (or Esc) gets off: back to the scene it was boarded from, else the next scene.
 function board(skin: BusSkin) {
   boardBus(skin, scene.id); enterScene(onibus);
   const h = scene.hint?.(); if (h) say(h.text, h);
@@ -223,7 +220,7 @@ const actions: Record<string, () => void> = {
   },
 };
 const BUTTONS: [string, string][] = [
-  ['b-exit', 'exit'], ['b-sound', 'sound'], ['b-crt', 'crt'], ['b-scene', 'scene'], ['b-auto', 'auto'], ['b-full', 'full'],
+  ['b-sound', 'sound'], ['b-crt', 'crt'], ['b-scene', 'scene'], ['b-auto', 'auto'], ['b-full', 'full'],
 ];
 for (const [id, a] of BUTTONS) $(id).addEventListener('click', actions[a]);
 press('b-auto', autoCycle);
