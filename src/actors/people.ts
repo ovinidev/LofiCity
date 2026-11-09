@@ -8,7 +8,7 @@ import { G, put, rect } from '../engine/gfx';
 import { bay, mulberry32, type Rng } from '../engine/math';
 import {
   BARK, CBEIGE, CBLUE, CGREEN, CNAVY, CORNG, CRED, CYAN, CYELL, HAIR1, HAIR2, HAIR3, HALO, MAGD,
-  SKIN1, SKIN2, SKIN3, SKIN4, STEEL, UMB, VOID, WCOOL, WHITE, WOOD, AMB, AMBD,
+  SKIN1, SKIN2, SKIN3, SKIN4, STEEL, UMB, VOID, WCOOL, WHITE, WOOD, AMB, AMBD, LEAFG,
 } from '../engine/palette';
 import { peopleCap } from '../sky/rhythm';
 import { S } from '../sky/state';
@@ -363,21 +363,31 @@ function drawDog(dx: number, yF: number, f: number, c: number, ph: number, hand:
   for (let i = 0; i <= n; i++) { const t = i / (n || 1); put(hx + (ex - hx) * t, hy + (ey - hy) * t + Math.sin(t * Math.PI) * 1.5, VOID); }
 }
 
-/** A water bottle (clear blue, white cap) or a green coconut with a straw, held down at the hand (hx, hy). */
-function drinkInHand(d: number, hx: number, hy: number) {
-  if (d === 1) { put(hx, hy + 1, CBLUE); put(hx, hy + 2, CBLUE); }
-  else { rect(hx, hy, 2, 2, CGREEN); put(hx, hy - 1, WHITE); }
+/** A water bottle (blue, white cap) or a green coconut with a straw, held down at the hand (hx, hy);
+    a few px so it reads at this scale. */
+function drinkInHand(d: number, hx: number, hy: number, f: number) {
+  if (d === 1) { rect(hx, hy + 1, 1, 3, CBLUE); put(hx + f, hy + 2, CBLUE); put(hx, hy, WHITE); }
+  else { rect(Math.min(hx, hx + f), hy, 2, 3, CGREEN); put(hx + f, hy + 1, LEAFG); put(hx, hy - 1, WHITE); put(hx - f, hy - 2, WHITE); }
 }
-/** The drink raised: at the chest, then tipped up to the mouth with the head back (`full`). */
-function drinkRaised(d: number, hx: number, yT: number, f: number, full: boolean) {
+/** The sip, drawn after the head: at the chest (`full` false), then the arm raised to the mouth, the
+    drink tipped up and the head tilted back (the head is drawn 1 px back by drawWalker). */
+function drinkRaised(p: Person, X: number, yHead: number, yT: number, f: number, full: boolean) {
+  const d = p.drink, sleeve = p.top === Top.Tee ? p.skin : p.topC;
   if (!full) {
-    if (d === 1) { put(hx + 2 * f, yT, CBLUE); put(hx + 2 * f, yT + 1, CBLUE); put(hx + 2 * f, yT - 1, WHITE); }
-    else { rect(Math.min(hx + 2 * f, hx + 3 * f), yT, 2, 2, CGREEN); put(hx + 2 * f, yT - 1, WHITE); }
+    // forearm up in front of the chest, the drink held upright beside the hand
+    put(X + 3 * f, yT + 2, sleeve); put(X + 3 * f, yT + 1, sleeve); put(X + 3 * f, yT, p.skin);
+    if (d === 1) { rect(X + 4 * f, yT - 1, 1, 3, CBLUE); put(X + 4 * f, yT - 2, WHITE); }
+    else { rect(Math.min(X + 4 * f, X + 5 * f), yT - 1, 2, 2, CGREEN); put(X + 4 * f, yT - 2, WHITE); }
     return;
   }
-  put(hx + f, yT - 1, VOID); // mouth open, chin up
-  if (d === 1) { put(hx + 2 * f, yT - 1, WHITE); put(hx + 3 * f, yT - 2, CBLUE); put(hx + 3 * f, yT - 3, CBLUE); put(hx + 4 * f, yT - 3, CBLUE); }
-  else { put(hx + 2 * f, yT - 1, WHITE); rect(Math.min(hx + 3 * f, hx + 4 * f), yT - 3, 2, 2, CGREEN); }
+  // upper arm and forearm up in front of the body, the hand at the drink by the mouth
+  put(X + 3 * f, yT + 1, sleeve); put(X + 3 * f, yT, sleeve); put(X + 3 * f, yT - 1, p.skin); put(X + 3 * f, yHead + 2, p.skin);
+  put(X, yHead + 3, VOID); // mouth open, chin up
+  if (d === 1) { // bottle tipped up: cap at the mouth, the body rising forward
+    put(X + f, yHead + 2, WHITE); put(X + 2 * f, yHead + 1, CBLUE); put(X + 2 * f, yHead, CBLUE); put(X + 3 * f, yHead, CBLUE); put(X + 3 * f, yHead - 1, CBLUE);
+  } else { // coconut tipped towards the face, straw to the mouth
+    put(X + f, yHead + 2, WHITE); rect(Math.min(X + 2 * f, X + 3 * f), yHead - 1, 2, 2, CGREEN); put(X + 2 * f, yHead + 1, CGREEN); put(X + 3 * f, yHead - 1, LEAFG);
+  }
 }
 
 const STRIDE_RUN = [3, 0, 3, 0];
@@ -411,8 +421,7 @@ function drawWalker(p: Person, yGround: number) {
   const armX = X + [-1, 0, 1, 0][fr] * f * (p.cane ? 0 : 1) + (p.cane ? 2 * f : 0);
   const sleeve = p.top === Top.Tee ? p.skin : p.topC;
   const raise = p.drink ? sipRaise(p.sipT) : 0;
-  if (raise > 0) { put(hx + 2 * f, yT + 1, sleeve); put(hx + 2 * f, yT + (raise < 1 ? 2 : 0), p.skin); } // arm up to the chest, then the mouth
-  else { put(armX, yT + 2, sleeve); put(armX, yT + 3, sleeve); put(armX, yT + 4, p.skin); if (p.drink) drinkInHand(p.drink, armX, yT + 4); }
+  if (raise <= 0) { put(armX, yT + 2, sleeve); put(armX, yT + 3, sleeve); put(armX, yT + 4, p.skin); if (p.drink) drinkInHand(p.drink, armX, yT + 4, f); }
   if (p.scarf !== 255) { rect(X - tw, yT, tw * 2 + 1, 1, p.scarf); put(X - (tw + 1) * f, yT + 1, p.scarf); }
   // bags
   if (p.bag === Bag.Backpack) rect(X - (tw + 2) * f + (f < 0 ? -1 : 0) + (f > 0 ? 0 : 1), yT + 1, 2, 4, p.bagC);
@@ -420,8 +429,8 @@ function drawWalker(p: Person, yGround: number) {
   if (p.bag === Bag.Shoulder) { rect(X - (tw + 1) * f - (f < 0 ? 1 : 0), yT + 3, 2, 3, p.bagC); put(X, yT, p.bagC); }
   if (p.bag === Bag.Briefcase) rect(armX - 1, yT + 5, 3, 2, p.bagC);
   if (p.cane) for (let y = yT + 4; y <= yF; y++) put(X + 3 * f, y, BARK);
-  head(p, hx, yHead, f);
-  if (raise > 0) drinkRaised(p.drink, hx, yT, f, raise >= 1);
+  head(p, raise >= 1 ? hx - f : hx, yHead, f); // tilted back while the drink is at the mouth
+  if (raise > 0) drinkRaised(p, hx, yHead, yT, f, raise >= 1);
   umbrella(p, X + f, yHead - 5);
   if (p.dog !== 255) drawDog(X + 9 * f, yF, f, p.dog, p.ph, [armX, yT + 4]);
   if (p.push !== 255) { // pushcart: box on a wheel, handles to the hands
