@@ -13,7 +13,7 @@ import {
 import { peopleCap } from '../sky/rhythm';
 import { S } from '../sky/state';
 import { allowedArchetypes } from './street-rules';
-import { type Shelter, WET_KEEP, opensUmbrella, raining, shelterAt, shelterWait } from './rain-rules';
+import { type Shelter, WET_KEEP, opensUmbrella, parasolWeather, raining, shelterAt, shelterWait } from './rain-rules';
 import { BUY_SECS, SIP_SECS, type HeatLevel, buysCoco, cocoOpen, heatLevel, pickDrink, sipGap, sipRaise } from './heat-rules';
 
 const enum Kind { Walk, Bike, Chair }
@@ -107,7 +107,7 @@ function archetypes(): [Archetype, number][] {
     ['owl', peak(0, 5) * 2 + peak(23, 24)],
     // Esperança: joggers at dawn and dusk, sun umbrellas on hot clear days, street vendors
     ['runner', br ? peak(5, 7.5) * 2 + peak(17, 19.5) * 1.5 : 0],
-    ['sombrinha', br && S.temp !== null && S.temp > 26 && S.dayK > 0.6 && S.cloud < 0.5 ? 1.4 : 0],
+    ['sombrinha', br && parasolWeather(S.temp, S.dayK, S.cloud) ? 1.4 : 0], // the same hot-clear-day rule as the depth streets
     ['vendor', br ? peak(8, 17) * 0.7 : 0],
   ];
 }
