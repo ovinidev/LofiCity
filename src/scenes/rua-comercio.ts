@@ -11,14 +11,14 @@ import {
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
-import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
+import { cocoNow, drawPeople, peopleCount, setCocoStand, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
 import { drawShopFronts, setShopFronts, shopFrontDebug, updateShopFronts } from '../actors/shopfront';
 import { drawAmbient, drawAmbientRoad, setupAmbient, updateAmbient } from '../actors/ambient';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
-  type Lamp, type Opening, type Plat, bandeirolas, bulbs, cart, casa, christmasStar, drawOpenings, isNight, lampLight,
+  type Lamp, type Opening, type Plat, bandeirolas, bulbs, cart, cocoCart, casa, christmasStar, drawOpenings, isNight, lampLight,
   lampPool, lampPost, lampRoadPool, nightSpill, pole, text, textW, wire, wireCurve,
 } from './br-kit';
 import type { Scene } from './types';
@@ -175,7 +175,7 @@ function render() {
   if (S.natal) for (const l of LAMPS) christmasStar(l.x + 14, l.top - 10, 1);
   if (S.festa || S.saoJoao) { bandeirolas(59, 74, 263, 74, 12, 1); bandeirolas(263, 74, 447, 74, 12, 4); }
   barTables();
-  cart(222, 146, S.stallOpen);
+  cart(222, 146, S.stallOpen); if (cocoNow()) cocoCart(222, 146);
   drawAnimalsPerched(); drawPeople(); drawShopFronts(); drawAmbient(); drawAnimalsGround();
   drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 158); parkedMotos(); drawAmbientRoad(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
@@ -187,6 +187,7 @@ export const ruaComercio: Scene = {
   build() {
     if (!built) { buildFar(); buildRow(); buildFront(); buildGround(); built = true; }
     setLanes([{ y: 143 }, { y: 145 }]);
+    setCocoStand(228, 145); // customers at the cart on hot days (they buy, then drink beside it)
     // each shop: customers at its doors, and a vendor out front in the shop's colour (the bar has no one outside)
     setShopFronts(ROW.flatMap((b, i) => (b.shop ? [{
       doors: opens[i].filter((o) => o.kind === 'shop').map((o) => o.x + (o.w >> 1)), y: 144,

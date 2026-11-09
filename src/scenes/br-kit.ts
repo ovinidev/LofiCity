@@ -1,10 +1,10 @@
 /* Props shared by the Paraíba scenes: casario facades with platibandas, white LED street
    lights, concrete poles with sagging wires, palms that sway in the wind, bandeirolas for the
-   festa and São João, the Christmas star on the lamp posts, a street-food cart and a bonfire. */
+   festa and São João, the Christmas star on the lamp posts, a street-food cart (a coconut-water cart on hot days) and a bonfire. */
 import { G, L, Lp, type Layer, getW, put, rect, sx, sy } from '../engine/gfx';
 import { bay, type Rng } from '../engine/math';
 import {
-  AMB, AMBD, BARK, BMID, BNEAR, CBEIGE, CBLUE, CGREEN, CRED, CYELL, FOG, HALO, HALOOK, LEAFG, LEAFGD,
+  AMB, AMBD, BARK, BMID, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CRED, CYELL, SKIN2, FOG, HALO, HALOOK, LEAFG, LEAFGD,
   LEDW, LIGHT, STEEL, STONE, STONEL, TILEW, VOID, WCOOL, WDIM, WHITE, WOOD, WWARM, FPINK, BRIGHT, REFL, BFAR,
 } from '../engine/palette';
 import { S } from '../sky/state';
@@ -281,6 +281,26 @@ export function cart(x: number, ground: number, open: boolean) {
     const age = (t * 0.6 + k / 6) % 1, sx0 = x + 5 + k * 1.5 + Math.sin(t + k) * 2 + S.wind * age * 20, sy0 = ground - 11 - age * 18;
     if (bay(sx(sx0), sy(sy0)) < 0.7 * (1 - age)) put(sx0, sy0, age < 0.5 ? STONEL : FOG);
   }
+}
+
+/** The same cart selling coconut water on hot days (draw it over a closed cart(), at the same x): a pile of
+    green coconuts on the counter, the vendor in a straw hat beside it and a small cloth sign. The
+    caller decides when (cocoNow() in actors/people.ts: daytime and a real hot reading only). */
+export function cocoCart(x: number, ground: number) {
+  // a small cloth sign tied under the umbrella
+  rect(x - 9, ground - 25, 29, 12, WHITE); rect(x - 9, ground - 14, 29, 1, CBEIGE);
+  text(null, 'AGUA', x - 2, ground - 24, CRED);
+  text(null, 'DE COCO', x - 8, ground - 19, LEAFGD);
+  // coconuts: a row of five with three on top, each with a lighter top-left
+  for (let i = 0; i < 5; i++) { rect(x + 2 + i * 3, ground - 11, 3, 2, i & 1 ? LEAFG : CGREEN); put(x + 2 + i * 3, ground - 11, LEAFGD); }
+  for (let i = 0; i < 3; i++) { rect(x + 5 + i * 3, ground - 13, 3, 2, i & 1 ? CGREEN : LEAFG); put(x + 5 + i * 3, ground - 13, LEAFGD); }
+  rect(x + 3, ground - 10, 12, 1, WHITE); // ice under them
+  // vendor standing at the cart's right end, facing the street
+  const vx = x + 24, t = S.ms / 1000, wave = Math.sin(t * 1.3) > 0.85 ? 1 : 0;
+  rect(vx - 1, ground - 6, 1, 6, CNAVY); rect(vx + 1, ground - 6, 1, 6, CNAVY); put(vx - 1, ground - 1, VOID); put(vx + 1, ground - 1, VOID);
+  rect(vx - 2, ground - 12, 5, 6, CYELL); put(vx - 3, ground - 10 - wave * 2, SKIN2); put(vx - 3, ground - 11, CYELL);
+  rect(vx - 1, ground - 15, 3, 3, SKIN2); put(vx, ground - 14, VOID);
+  rect(vx - 3, ground - 16, 7, 1, CBEIGE); rect(vx - 1, ground - 17, 3, 1, CBEIGE); put(vx - 1, ground - 16, WOOD); // straw hat
 }
 
 /** São João bonfire. */

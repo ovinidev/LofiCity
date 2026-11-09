@@ -37,6 +37,9 @@ export const PHRASES: Phrase[] = [
   // weather: only with a real reading (or the #wx= test)
   ...group({ ...BR, wx: 'heat', who: OUT }, ['Vixe, que calor!', 'Tá quente que só!', 'Um geladinho agora caía bem.']),
   ...group({ ...BR, wx: 'heat', tod: DAY, who: OUT }, ['Esse sol tá de lascar!', 'Bora procurar uma sombra.']),
+  // real heat (src/actors/heat-rules.ts: water bottles, coconuts and the coconut-water cart)
+  ...group({ ...BR, wx: 'heat', who: OUT }, ['Haja calor!', 'Tá um forno, visse?', 'Só água pra aguentar esse calor.']),
+  ...group({ ...BR, wx: 'heat', tod: DAY, who: OUT }, ['Bora tomar uma água de coco, visse?', 'Água de coco geladinha, que delícia!']),
   ...group({ ...BR, wx: 'rain', who: OUT }, ['Chuvinha abençoada!', 'Eita, molhou tudo!', 'Cadê minha sombrinha?', 'Chuva boa pro roçado!']),
   ...group({ ...BR, wx: 'cold', who: OUT }, ['Friozinho bom, né?', 'Hoje pede um casaquinho.', 'Tempo bom pra um chá quente.']),
 
