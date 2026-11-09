@@ -190,11 +190,7 @@ addEventListener('pagehide', () => bells.dispose());
 addEventListener('pageshow', (e) => { if (e.persisted) syncBells(); }); // back from the bfcache
 /** Switches to another scene of the same city at the same moment (the scene button, or a door). */
 function enterScene(next: Scene) {
-<<<<<<< HEAD
-  clearBubbles(); clearPeople(); scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit(); placeInfo.refresh();
-=======
-  clearBubbles(); clearPeople(); cycleMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit();
->>>>>>> origin/main
+  clearBubbles(); clearPeople(); cycleMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit(); placeInfo.refresh();
 }
 // Inside the bus, "Sair do ônibus" (or Esc) gets off: back to the scene it was boarded from, else the next scene.
 function syncExit() { $('b-exit').hidden = scene !== onibus; }
@@ -313,11 +309,7 @@ cardBtn.addEventListener('click', async () => {
 });
 
 const KEYS: Record<string, string> = {
-<<<<<<< HEAD
-  m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', i: 'info', s: 'scene', l: 'lightning', h: 'hud', enter: 'full', escape: 'exit',
-=======
-  m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', s: 'scene', a: 'auto', l: 'lightning', h: 'hud', enter: 'full', escape: 'exit',
->>>>>>> origin/main
+  m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', i: 'info', s: 'scene', a: 'auto', l: 'lightning', h: 'hud', enter: 'full', escape: 'exit',
 };
 addEventListener('keydown', (e) => {
   const tag = (e.target as HTMLElement).tagName;
@@ -393,7 +385,7 @@ function frame(now: number) {
   const t0 = performance.now();
   clock += dt;
   cycleMs += dt * 1000; // frames pause in a hidden tab, so the 2 minutes are minutes of watching
-  if (shouldAdvance({ enabled: autoCycle, elapsedMs: cycleMs, sceneId: scene.id, dialogOpen: cityMap.isOpen() || shareOpen })) enterScene(cycleScene(city.id, scene));
+  if (shouldAdvance({ enabled: autoCycle, elapsedMs: cycleMs, sceneId: scene.id, dialogOpen: cityMap.isOpen() || placeInfo.isOpen() || shareOpen })) enterScene(cycleScene(city.id, scene));
   const hadData = S.wxKind !== 'unavailable';
   direct(simNow(), city, dt, scene.id);
   // the first genuine reading arrived: rebuild wet streets / snow cover from its past hours

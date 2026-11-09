@@ -100,13 +100,9 @@ Nothing is uploaded or posted; the person sends the link or image themselves. Th
 
 ## Keys
 
-<<<<<<< HEAD
-T city map, S scene, Esc get off the bus, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, I place info (Esperança scenes), Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
-=======
-The scene changes by itself every 2 minutes (rules in `src/scene-cycle.ts`, unit-tested): the next scene of the city in the list, skipping the bus and the cinema room, which you only ever enter yourself. The timer restarts on any manual scene or city change, never fires while the city map or the share menu is open, never pulls you out of the bus or the cinema room, and counts only visible time (a hidden tab does not run it). It starts on, except when the page was opened with `#scene=` or `#cycle=off`; the **Auto** button or A toggles it. The 2 minutes are the owner's choice.
+The scene changes by itself every 2 minutes (rules in `src/scene-cycle.ts`, unit-tested): the next scene of the city in the list, skipping the bus and the cinema room, which you only ever enter yourself. The timer restarts on any manual scene or city change, never fires while the city map, the place-info dialog or the share menu is open, never pulls you out of the bus or the cinema room, and counts only visible time (a hidden tab does not run it). It starts on, except when the page was opened with `#scene=` or `#cycle=off`; the **Auto** button or A toggles it. The 2 minutes are the owner's choice.
 
-T city map, S scene, A automatic scene change on/off (the **Auto** button), Esc get off the bus, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
->>>>>>> origin/main
+T city map, S scene, A automatic scene change on/off (the **Auto** button), Esc get off the bus, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, I place info (Esperança scenes), Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
 
 The city map is a pixel map of Paraíba with a pin per city, generated from the city registry; cities outside Paraíba (Tóquio) are listed under it. Esc, the × button or a tap outside closes it without changing the city.
 
