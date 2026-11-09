@@ -8,12 +8,12 @@
    the right the "EU ♥ ESPERANÇA" letters (red and white, patterned) with their big red heart on
    a red base. Craft fairs fill it with white tents; in Holy Week it hosts the Paixão de Cristo;
    at Christmas the gable and roofline are outlined with lights.
-   School and sports (art direction, see ./praca-cultura-schedule.ts): a small public school stands
-   on the upper level left of the building, its gate at the top of the left end of the red steps.
-   On weekdays students in the public-school uniform climb the blue steps to it before each shift
-   and come out after it; its classroom windows are lit only during the shifts. After school and at
-   weekends teenagers play a two-backpack kick-about on the left of the plaza (./praca-games.ts)
-   and two-a-side volleyball over a portable net in front of the red steps. */
+   School and sports (hours are art direction, see ./praca-cultura-schedule.ts): the cream-yellow
+   building is the school. On weekdays students in the public-school uniform climb the blue and red
+   steps to its arched central entrance before each shift and come out of it after; the entrance
+   stands open and the classroom windows are open and lit only around and during the shifts. After
+   school and at weekends teenagers play a two-backpack kick-about on the left of the plaza
+   (./praca-games.ts) and two-a-side volleyball over a portable net in front of the red steps. */
 import { G, L, Lget, Lp, WW, blitLayer, newLayer, put, rect } from '../engine/gfx';
 import { mulberry32 } from '../engine/math';
 import {
@@ -67,9 +67,8 @@ const SIGN_X1 = ESP.x + ESP.w + 3;
 const letters: { ch: string; x: number }[] = [];
 const heartPx: number[] = [];
 let trees: Tree[] = [], opens: Opening[] = [];
-/** The school (upper level, left of the building), its gate at the top of the red steps' left end, its classroom windows. */
-const SCH = { x0: 100, x1: 194, top: 96 }, GATE = { x0: 156, x1: 168 }, GX = 162;
-const SCH_WINS = [102, 112, 122, 145, 181];
+/** The building's small arched windows in the central bay (live: open and lit during the shifts). */
+const BAY_WINS: { x: number; y: number }[] = [];
 /** The kick-about between two pairs of backpacks (lawn bed and paving, left) and the volleyball court in front of the red steps. */
 const FIELD: Field = { x0: 8, x1: 92, y0: 116, y1: 124, mouth0: 118, mouth1: 122 };
 const COURT: Court = { x0: 184, net: 216, x1: 248, y0: 119, y1: 124 };
@@ -94,10 +93,10 @@ function araucaria(x: number, ground: number, h: number) {
   L(mid, x - 1, ground - h - 2, 3, 3, LEAFG);
 }
 
-/** Arched shape (semicircular top) into the mid layer. */
-function archL(x: number, y: number, w: number, h: number, c: number) {
+/** Arched shape (semicircular top): into the mid layer, or onto the frame with `live`. */
+function archL(x: number, y: number, w: number, h: number, c: number, live = false) {
   const r = w / 2;
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const dy = j - r; if (j < r && (i + 0.5 - r) ** 2 + dy * dy > r * r) continue; Lp(mid, x + i, y + j, c); }
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const dy = j - r; if (j < r && (i + 0.5 - r) ** 2 + dy * dy > r * r) continue; if (live) put(x + i, y + j, c); else Lp(mid, x + i, y + j, c); }
 }
 
 /** The long cream-yellow building: white cornice and pilasters, windows with coloured panes, a raised
@@ -121,7 +120,7 @@ function buildBuilding() {
   for (let i = -14; i <= 14; i++) { const y = Math.round(ctop - 1 - Math.sqrt(Math.max(0, 1 - (i / 14) ** 2)) * 7); L(mid, BX + i, y, 1, ctop - y, CHURCH); Lp(mid, BX + i, y, TILEW); }
   for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (i * i + j * j <= 5) Lp(mid, BX + i, ctop - 4 + j, i * i + j * j > 2 ? TILEW : CHURCHD);
   // two small arched windows each side of the door, in two rows
-  for (const wx of [c0 + 4, c0 + 9, c1 - 12, c1 - 7]) for (const wy of [ctop + 3, ctop + 12]) { archL(wx - 1, wy - 1, 5, 8, TILEW); archL(wx, wy, 3, 6, BNEAR); }
+  for (const wx of [c0 + 4, c0 + 9, c1 - 12, c1 - 7]) for (const wy of [ctop + 3, ctop + 12]) { archL(wx - 1, wy - 1, 5, 8, TILEW); archL(wx, wy, 3, 6, BNEAR); BAY_WINS.push({ x: wx, y: wy }); }
   // the arched blue door with its white outline and a white step
   archL(BX - 7, BASE - 18, 14, 18, TILEW); archL(BX - 5, BASE - 16, 10, 16, CBLUE);
   L(mid, BX - 4, BASE - 10, 3, 1, FBLUE); L(mid, BX + 1, BASE - 10, 3, 1, FBLUE); L(mid, BX, BASE - 13, 1, 13, CNAVY);
@@ -147,19 +146,6 @@ function buildPlaza() {
   // a low white-tiled wall along the upper level on the left, lawn beds edged in white tile at the corners
   L(mid, 0, BASE, RED0 - 2, 3, TILEW); for (let x = 1; x < RED0 - 2; x += 3) Lp(mid, x, BASE + 1, STONEL);
   for (const [x, w] of [[0, 84], [448, 32]] as const) { L(mid, x, BASE + 4, w, 4, LEAFG); L(mid, x, BASE + 7, w, 1, LEAFGD); L(mid, x, BASE + 8, w, 1, TILEW); }
-}
-
-/** The small public school on the upper level: white walls with a blue band and cornice, barred
-    classroom windows (panes drawn live: lit only during the shifts), "ESCOLA" over the steel gate. */
-function buildSchool() {
-  const { x0, x1, top } = SCH;
-  L(mid, x0, top, x1 - x0, BASE - top, TILEW);
-  L(mid, x0 - 1, top - 2, x1 - x0 + 2, 2, CBLUE); L(mid, x0, top, x1 - x0, 1, STONEL);
-  L(mid, x0, BASE - 3, x1 - x0, 3, CBLUE); // barrado
-  for (const wx of SCH_WINS) { L(mid, wx - 1, 100, 10, 7, CBLUE); L(mid, wx - 1, 106, 10, 1, STONEL); }
-  // the gate between two pillars, the name above it
-  L(mid, GATE.x0 - 2, 101, GATE.x1 - GATE.x0 + 4, BASE - 101, CNAVY);
-  text(mid, 'ESCOLA', GX - 11, 95, CNAVY);
 }
 
 function buildFront() {
@@ -223,7 +209,6 @@ const weekendNight = () => (S.cal.weekday === 5 || S.cal.weekday === 6) && hourI
 function lit() {
   const n = isNight(), t = S.ms / 1000;
   for (const f of farWins) put(f.x, f.y, n && f.rank < 0.45 ? WWARM : BFAR);
-  for (const p of panes) rect(p.x, p.y, 3, 4, n && (p.x * 7 + p.y) % 5 < 3 ? WWARM : p.c);
   drawOpenings(opens, hourIn(S.cal.hour, 8, 18) && S.cal.weekday !== 0);
   schoolLights();
   // Christmas: lights along the gable and roofline
@@ -280,24 +265,31 @@ function passion() {
 // Hours are art direction (./praca-cultura-schedule.ts): weekday shifts 07:00-12:00 and 13:00-17:30.
 let school = schoolState(1, 0);
 
+/** The building as the school. Shift on: the classroom windows open on lit rooms (each coloured
+    casement folded to one side, the bay's arched windows lit). Entrance open (first arrivals to
+    last leavers): the blue door stands open on the hall, a leaf against each jamb. Otherwise the
+    casements are shut on their coloured panes, the arched windows dark and the door closed as drawn
+    in the mid layer. */
 function schoolLights() {
-  for (const wx of SCH_WINS) {
-    rect(wx, 101, 8, 5, school.lit ? WCOOL : BNEAR);
-    for (let i = 2; i < 8; i += 3) rect(wx + i, 101, 1, 5, STEEL); // grille
+  for (const p of panes) {
+    if (!school.lit) { rect(p.x, p.y, 3, 4, p.c); continue; }
+    rect(p.x, p.y, 3, 4, WCOOL); rect((p.x - B0) % 4 < 2 ? p.x : p.x + 2, p.y, 1, 4, p.c);
   }
-  const { x0, x1 } = GATE, w = x1 - x0, g = 102, h = BASE - g;
-  rect(x0, g, w, h, BNEAR);
-  if (school.gateOpen) { rect(x0 + 2, g + 2, w - 4, h - 2, VOID); rect(x0, g, 2, h, STEEL); rect(x1 - 2, g, 2, h, STEEL); } // swung open, a leaf folded at each side
-  else { rect(x0, g, w, 1, STEEL); rect(x0, BASE - 4, w, 1, STEEL); for (let x = x0; x < x1; x += 2) rect(x, g, 1, h, STEEL); }
+  if (school.lit) for (const w of BAY_WINS) { archL(w.x, w.y, 3, 6, WCOOL, true); put(w.x + 1, w.y + 5, CHURCHD); }
+  if (!school.entranceOpen) return;
+  archL(BX - 5, BASE - 16, 10, 16, BNEAR, true); // the hall inside
+  rect(BX - 3, BASE - 12, 6, 11, VOID); rect(BX - 3, BASE - 2, 6, 1, school.lit ? WCOOL : STONE);
+  for (const x of [BX - 5, BX + 3]) { rect(x, BASE - 13, 2, 13, CBLUE); put(x < BX ? x : x + 1, BASE - 10, FBLUE); }
 }
 
 // ---------- students ----------
-// On weekdays they come along the sidewalk and up the blue steps (or along the plaza from the left)
-// to the gate, and vanish into it; after the shift they come out of it and go the same ways back.
+// On weekdays they come along the sidewalk and up the blue steps (or along the plaza from the left),
+// then up the red steps to the building's arched entrance, and vanish into it; after the shift they
+// come out of it and go the same ways back. These moments never overlap the games on the plaza.
 // A small pool of their own, so the passer-by pool and its hourly caps are untouched.
 type View = 0 | 1 | 2; // side, back (walking away up the steps), front (coming down)
 interface Student { on: boolean; pts: number[]; k: number; x: number; y: number; sp: number; ph: number; dir: number; view: View; H: number; skin: number; hair: number; long: boolean; bag: number; umb: number }
-const STUDENTS = 10, SIDE_Y = 144, TOP_Y = 121, GATE_Y = 112;
+const STUDENTS = 10, SIDE_Y = 144, TOP_Y = 121, DOOR_Y = BASE;
 const sr = mulberry32(0x5c01a);
 const spick = <T>(a: readonly T[]): T => a[(sr() * a.length) | 0];
 const PUPILS: Student[] = Array.from({ length: STUDENTS }, () => ({ on: false, pts: [], k: 0, x: 0, y: 0, sp: 14, ph: 0, dir: 1, view: 0 as View, H: 15, skin: SKIN2, hair: HAIR1, long: false, bag: VOID, umb: 255 }));
@@ -310,13 +302,15 @@ function spawnStudent(arriving: boolean) {
   s.skin = spick([SKIN1, SKIN2, SKIN2, SKIN3, SKIN3, SKIN4]); s.hair = spick([HAIR1, HAIR1, HAIR1, HAIR2]); s.long = sr() < 0.45;
   s.bag = spick([VOID, CNAVY, CRED, CBLUE, MAGD, CGREEN]); s.sp = 13 + sr() * 5; s.ph = sr() * 4;
   s.umb = opensUmbrella(S.wxKind, S.rain, S.snow, sr()) ? spick([UMB, CNAVY, CRED, CBLUE, CYELL]) : 255;
-  const climb = GX + (sr() - 0.5) * 10, gate = GX + (sr() - 0.5) * 6;
+  // up the right end of the blue steps, then the right end of the red ones, then in at the door
+  const climb = 234 + sr() * 12, up = 238 + sr() * 8, door = BX + (sr() - 0.5) * 6;
   const left = G.camX - 8, right = G.camX + G.W + 8, edge = sr() < 0.5 ? left : right;
-  // the way between the street and the top of the steps, street end first
-  const path = sr() < 0.3 ? [left, TOP_Y, climb, TOP_Y] : [edge, SIDE_Y, climb, SIDE_Y, climb, TOP_Y];
+  // the way between the street and the top of the red steps, street end first
+  const path = sr() < 0.3 ? [left, TOP_Y, up, TOP_Y] : [edge, SIDE_Y, climb, SIDE_Y, climb, TOP_Y, up, TOP_Y];
+  path.push(up, DOOR_Y + 1);
   const back: number[] = [];
   for (let i = path.length - 2; i >= 0; i -= 2) back.push(path[i], path[i + 1]);
-  s.pts = arriving ? [...path, gate, GATE_Y] : [gate, GATE_Y, ...back];
+  s.pts = arriving ? [...path, door, DOOR_Y] : [door, DOOR_Y, ...back];
   s.k = 2; s.x = s.pts[0]; s.y = s.pts[1]; s.dir = 1; s.view = 0; s.on = true;
   if (!arriving) cameOut++;
 }
@@ -329,7 +323,7 @@ function updateStudents(dt: number) {
     if (!s.on) continue;
     const tx = s.pts[s.k], ty = s.pts[s.k + 1], dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
     const steep = Math.abs(dy) > Math.abs(dx), sp = s.sp * (steep ? 0.55 : 1) * dt;
-    if (d <= sp) { s.x = tx; s.y = ty; s.k += 2; if (s.k >= s.pts.length) { s.on = false; if (ty === GATE_Y) entered++; } continue; }
+    if (d <= sp) { s.x = tx; s.y = ty; s.k += 2; if (s.k >= s.pts.length) { s.on = false; if (ty === DOOR_Y) entered++; } continue; }
     s.x += (dx / d) * sp; s.y += (dy / d) * sp; s.ph += sp * 0.42;
     s.view = steep ? (dy < 0 ? 1 : 2) : 0;
     if (!steep) s.dir = dx > 0 ? 1 : -1;
@@ -532,7 +526,7 @@ export const pracaCultura: Scene = {
   name: 'Praça da Cultura',
   build() {
     if (!built) {
-      buildFar(); buildSides(); buildBuilding(); araucaria(282, BASE + 2, 78); buildPlaza(); buildSchool(); buildFront(); buildGround();
+      buildFar(); buildSides(); buildBuilding(); araucaria(282, BASE + 2, 78); buildPlaza(); buildFront(); buildGround();
       trees = [makeTree(44, 122, 1.25, wr, 'street'), makeTree(176, 112, 0.75, wr, 'street'), makeTree(352, 120, 1.15, wr, 'street'), makeTree(398, 120, 0.85, wr, 'street')];
       built = true;
     }
@@ -568,7 +562,7 @@ export const pracaCultura: Scene = {
     return null;
   },
   debug() {
-    const sc = school.inClass ? `aula ${school.shift ? 'tarde' : 'manhã'}` : school.gateOpen ? 'portão aberto' : 'fechada';
+    const sc = school.inClass ? `aula ${school.shift ? 'tarde' : 'manhã'}` : school.entranceOpen ? 'porta aberta' : 'fechada';
     const sp = sports === 'off' ? 'off' : `${sports} bola ${kick?.score.join('x') ?? '-'} vôlei ${volley?.score.join('x') ?? '-'}`;
     return `active  people x${peopleCount()}  faixa x${onRoad()} travessias ${crossings} conflitos ${conflicts}  escola ${sc} alunos x${PUPILS.filter((s) => s.on).length} entraram ${entered} saíram ${cameOut}  esporte ${sp}  feira ${feira()}  paixão ${paixao()}`;
   },

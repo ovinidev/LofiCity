@@ -12,11 +12,11 @@ const LIVE = { kind: 'live' as const, rain: 0, snow: 0 };
 const WEEK = [1, 2, 3, 4, 5], WEEKEND = [0, 6];
 const ALL_DAY = Array.from({ length: 24 * 12 }, (_, i) => i / 12);
 
-test('school days are Monday to Friday; weekends have no shifts, gate or lights', () => {
+test('school days are Monday to Friday; weekends have no shifts, the entrance stays shut and the windows dark', () => {
   assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(schoolDay), [false, true, true, true, true, true, false]);
   for (const wd of WEEKEND) for (const h of ALL_DAY) {
     const s = schoolState(wd, h), f = studentFlow(wd, h);
-    assert.ok(!s.inClass && !s.gateOpen && !s.lit && !s.arriving && !s.leaving, `weekday ${wd} ${h}h`);
+    assert.ok(!s.inClass && !s.entranceOpen && !s.lit && !s.arriving && !s.leaving, `weekday ${wd} ${h}h`);
     assert.equal(f.arrive + f.leave, 0);
   }
 });
@@ -36,8 +36,8 @@ test('morning 07:00-12:00 and afternoon 13:00-17:30 shifts: lit windows only in 
     for (const h of ALL_DAY) {
       const s = schoolState(wd, h);
       assert.equal(s.lit, s.inClass);
-      if (s.inClass) assert.ok(s.gateOpen, `gate shut in class at ${h}`);
-      if (h < 6.5 || h >= 17.5 + LEAVE_H) assert.ok(!s.gateOpen && !s.lit, `open at ${h}`); // night and madrugada: shut and dark
+      if (s.inClass) assert.ok(s.entranceOpen, `entrance shut in class at ${h}`);
+      if (h < 6.5 || h >= 17.5 + LEAVE_H) assert.ok(!s.entranceOpen && !s.lit, `open at ${h}`); // night and madrugada: shut and dark
     }
   }
 });
@@ -48,7 +48,7 @@ test('students arrive before each shift and leave after it, never otherwise', ()
     assert.ok(f.arrive >= 0 && f.arrive <= 1 && f.leave >= 0 && f.leave <= 1);
     assert.equal(f.arrive > 0, s.arriving, `arrive ${h}`);
     assert.equal(f.leave > 0, s.leaving, `leave ${h}`);
-    if (f.arrive > 0 || f.leave > 0) assert.ok(s.gateOpen, `students but the gate is shut at ${h}`);
+    if (f.arrive > 0 || f.leave > 0) assert.ok(s.entranceOpen, `students but the entrance is shut at ${h}`);
     const near = SHIFTS.some((x) => (h >= x.start - ARRIVE_H && h < x.start + LATE_H) || (h >= x.end && h < x.end + LEAVE_H));
     if (!near) assert.equal(f.arrive + f.leave, 0, `flow at ${h}`);
   }
@@ -84,6 +84,13 @@ test('sports follow only the real weather: rain pauses, unknown weather means no
   assert.equal(sportsState(6, 9, LIVE, true), 'off'); // the craft fair takes the plaza
   assert.notEqual(sessionSeed(20261109, 0, 0), sessionSeed(20261109, 0, 1));
   assert.notEqual(sessionSeed(20261109, 0, 0), sessionSeed(20261110, 0, 0));
+});
+
+test('students never cross the plaza while a game is on', () => {
+  for (const wd of [0, 1, 2, 3, 4, 5, 6]) for (const h of ALL_DAY) {
+    const f = studentFlow(wd, h);
+    if (f.arrive + f.leave > 0) assert.equal(sportsState(wd, h, LIVE), 'off', `${wd} ${h}h`);
+  }
 });
 
 // ---------- football ----------
