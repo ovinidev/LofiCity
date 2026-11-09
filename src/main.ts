@@ -22,6 +22,8 @@ import { gradePalette } from './sky/grade';
 import { S, direct, settle, wxOverride } from './sky/state';
 import { type City, cityById } from './sky/cities';
 import { mountCityMap } from './ui/city-map';
+import { mountPlaceInfo } from './ui/place-info';
+import { placeInfoFor } from './data/place-info';
 import { followLive, weatherView } from './sky/live';
 import { hudWeather, manualLightningAllowed } from './sky/weather-feed';
 import { updateSky } from './scenes/common';
@@ -178,6 +180,7 @@ function setCity(id: string) {
   syncBells();
   syncHash();
   syncExit();
+  placeInfo.refresh();
   updateHud();
   if (hosted) pageview({ route: '/[city]', path: `/${city.id}` });
 }
@@ -187,7 +190,7 @@ addEventListener('pagehide', () => bells.dispose());
 addEventListener('pageshow', (e) => { if (e.persisted) syncBells(); }); // back from the bfcache
 /** Switches to another scene of the same city at the same moment (the scene button, or a door). */
 function enterScene(next: Scene) {
-  clearBubbles(); clearPeople(); cycleMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit();
+  clearBubbles(); clearPeople(); cycleMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit(); placeInfo.refresh();
 }
 // Inside the bus, "Sair do ônibus" (or Esc) gets off: back to the scene it was boarded from, else the next scene.
 function syncExit() { $('b-exit').hidden = scene !== onibus; }
@@ -204,6 +207,7 @@ const actions: Record<string, () => void> = {
   sound: () => { press('b-sound', audio.toggle()); syncBells(); },
   crt: () => { opts.crt = !opts.crt; press('b-crt', opts.crt); },
   city: () => cityMap.open(),
+  info: () => placeInfo.open(),
   scene: () => enterScene(nextScene(city.id, scene)),
   auto: () => { autoCycle = !autoCycle; cycleMs = 0; press('b-auto', autoCycle); },
   exit: () => { if (!shareOpen) leaveBus(); },
@@ -225,6 +229,8 @@ for (const [id, a] of BUTTONS) $(id).addEventListener('click', actions[a]);
 press('b-auto', autoCycle);
 // City picker: a pixel map of Paraíba (src/ui/city-map.ts); it calls setCity, so transitions, weather and clock stay the same.
 const cityMap = mountCityMap({ trigger: $('city') as HTMLButtonElement, current: () => city.id, onPick: setCity });
+// "i" next to the eye: the real story of the current place (src/ui/place-info.ts); Esperança scenes only.
+const placeInfo = mountPlaceInfo({ trigger: $('b-info') as HTMLButtonElement, current: () => placeInfoFor(city.id, scene.id) });
 radio.mount($('radio'));
 // "rotate your phone" overlay (shown by CSS on upright touch screens); dismissal lasts for the session
 try { if (sessionStorage.getItem('loficity:portrait-ok')) document.body.classList.add('portrait-ok'); } catch { /* ignore */ }
@@ -303,12 +309,12 @@ cardBtn.addEventListener('click', async () => {
 });
 
 const KEYS: Record<string, string> = {
-  m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', s: 'scene', a: 'auto', l: 'lightning', h: 'hud', enter: 'full', escape: 'exit',
+  m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', i: 'info', s: 'scene', a: 'auto', l: 'lightning', h: 'hud', enter: 'full', escape: 'exit',
 };
 addEventListener('keydown', (e) => {
   const tag = (e.target as HTMLElement).tagName;
   if (tag === 'SELECT' || tag === 'INPUT' || (tag === 'BUTTON' && e.key === 'Enter')) return;
-  if (cityMap.isOpen()) return; // the map is modal: no scene shortcuts behind it (Esc closes it natively)
+  if (cityMap.isOpen() || placeInfo.isOpen()) return; // modal dialogs: no scene shortcuts behind them (Esc closes them natively)
   if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser shortcuts (Ctrl +/-, Ctrl+H...) alone
   const a = KEYS[e.key.toLowerCase()];
   if (a) actions[a]();
@@ -379,7 +385,7 @@ function frame(now: number) {
   const t0 = performance.now();
   clock += dt;
   cycleMs += dt * 1000; // frames pause in a hidden tab, so the 2 minutes are minutes of watching
-  if (shouldAdvance({ enabled: autoCycle, elapsedMs: cycleMs, sceneId: scene.id, dialogOpen: cityMap.isOpen() || shareOpen })) enterScene(cycleScene(city.id, scene));
+  if (shouldAdvance({ enabled: autoCycle, elapsedMs: cycleMs, sceneId: scene.id, dialogOpen: cityMap.isOpen() || placeInfo.isOpen() || shareOpen })) enterScene(cycleScene(city.id, scene));
   const hadData = S.wxKind !== 'unavailable';
   direct(simNow(), city, dt, scene.id);
   // the first genuine reading arrived: rebuild wet streets / snow cover from its past hours
