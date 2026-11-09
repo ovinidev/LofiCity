@@ -243,7 +243,8 @@ function windows() {
 }
 
 // ---------- mass: a small congregation by the church door ----------
-// Only around mass (rhythm.ts massState: Sundays 07/09/16/19h, Mon-Fri 19h): the faithful walk in
+// Around mass (rhythm.ts massState: every day 18h, Sundays also 07/09h) and, through the daily visiting
+// windows (doors open 09-12h and 16-19h), single people dropping in to pray: the faithful walk in
 // from the sides, linger chatting near the door, go in; at the end they come out and walk off.
 // Separate from the street pedestrians, so the rest of the praça keeps its quiet evening.
 interface Fiel { on: boolean; x: number; tx: number; dir: number; sp: number; ph: number; wait: number; out: boolean; top: number; low: number; skin: number; hair: number; skirt: boolean }
@@ -251,10 +252,10 @@ const fr = mulberry32(0xf1e15);
 const fpick = <T>(a: readonly T[]): T => a[(fr() * a.length) | 0];
 const FIEIS: Fiel[] = Array.from({ length: 8 }, () => ({ on: false, x: 0, tx: 0, dir: 1, sp: 8, ph: 0, wait: 0, out: false, top: WHITE, low: VOID, skin: SKIN2, hair: HAIR1, skirt: false }));
 const FIEL_Y = 141; // the sidewalk in front of the steps
-let fielT = 0;
+let fielT = 0, visitT = 6;
 let mass: MassState = massState(0);
 
-function spawnFiel(out: boolean) {
+function spawnFiel(out: boolean, visit = false) {
   const f = FIEIS.find((o) => !o.on);
   if (!f) return;
   f.skirt = fr() < 0.55; f.top = fpick([WHITE, WHITE, CBLUE, MANTO, CRED, CYELL, FPINK, TILEW]); f.low = f.skirt ? f.top : fpick([VOID, BNEAR, CBLUE, STONE]);
@@ -263,7 +264,7 @@ function spawnFiel(out: boolean) {
   if (out) { f.x = CX - 4 + fr() * 8; f.dir = fr() < 0.5 ? -1 : 1; }
   else {
     f.dir = fr() < 0.5 ? 1 : -1; f.x = f.dir > 0 ? G.camX - 8 : G.camX + G.W + 8;
-    f.tx = Math.round(CX + (fr() - 0.5) * 48); f.wait = mass.active ? 0.5 : 2 + fr() * 8; // latecomers go straight in
+    f.tx = Math.round(CX + (fr() - 0.5) * (visit ? 20 : 48)); f.wait = visit ? 0.4 + fr() * 1.2 : mass.active ? 0.5 : 2 + fr() * 8; // latecomers and visitors go straight in
   }
 }
 
@@ -273,6 +274,11 @@ function updateMass(dt: number) {
   if (fielT <= 0) {
     fielT = mass.leaving ? 0.8 + fr() * 1.7 : 4 + fr() * 6;
     if (mass.arriving || mass.leaving) spawnFiel(mass.leaving);
+  }
+  visitT -= dt;
+  if (visitT <= 0) { // someone stops by to pray: in, or out after a while
+    visitT = 9 + fr() * 14;
+    if (mass.visiting && !mass.arriving && !mass.leaving && !mass.active) spawnFiel(fr() < 0.45, true);
   }
   for (const f of FIEIS) {
     if (!f.on) continue;
@@ -311,7 +317,7 @@ interface RCar { on: boolean; y: number; sp: number; kind: RKind; body: number; 
 const rr = mulberry32(0x7a11);
 const NO_HELMET = 255; // rider without a helmet (never a palette index)
 const rpick = <T>(a: readonly T[]): T => a[(rr() * a.length) | 0];
-const RC: RCar[] = Array.from({ length: 7 }, () => ({ on: false, y: 0, sp: 1, kind: 'car' as RKind, body: TILEW, rider: CRED, helmet: VOID }));
+const RC: RCar[] = Array.from({ length: 10 }, () => ({ on: false, y: 0, sp: 1, kind: 'car' as RKind, body: TILEW, rider: CRED, helmet: VOID }));
 const LANE_U = 0.42; // centre of the driving lane, across the road (0 = plaza curb, 1 = shops' curb)
 // 1 at row 146, where a car is about a person's height; damped (^0.7) so near vehicles don't swamp the frame
 const scaleAt = (y: number) => ((xr(y) - xl(y)) / 56) ** 0.7;
@@ -328,7 +334,7 @@ function spawnCar() {
 }
 
 function updateTraffic(dt: number) {
-  rcT -= dt * (0.06 + 0.6 * S.busy);
+  rcT -= dt * (0.04 + 0.95 * S.traffic); // builds up with the day (rhythm.ts)
   if (rcT <= 0) { rcT = 0.6 + rr() * 2; spawnCar(); }
   const crossing = anyoneBetween(xl(144) - 4, xr(144) + 4) || FIEIS.some((f) => f.on && f.x > xl(141) - 4 && f.x < xr(141) + 4);
   const before = RC.map((c) => c.y);

@@ -13,6 +13,7 @@ import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
+import { drawShopFronts, setShopFronts, shopFrontDebug, updateShopFronts } from '../actors/shopfront';
 import { drawAmbient, drawAmbientRoad, setupAmbient, updateAmbient } from '../actors/ambient';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
@@ -158,7 +159,7 @@ function parkedMotos() {
 function update(dt: number) {
   updateAnimals(dt);
   const evening = S.cal.hour >= 17 && S.cal.hour < 22;
-  tickSpawns(dt, (S.festa || S.saoJoao) && evening ? 2.2 : 1.2); updatePeople(dt); updateCars(dt, 0.9); updateAmbient(dt);
+  tickSpawns(dt, (S.festa || S.saoJoao) && evening ? 2.2 : 1.2); updatePeople(dt); updateCars(dt, 0.9); updateAmbient(dt); updateShopFronts(dt);
 }
 
 const FOG = [{ y: 104, h: 9, sp: 0.5 }, { y: 140, h: 6, sp: -0.4 }];
@@ -175,7 +176,7 @@ function render() {
   if (S.festa || S.saoJoao) { bandeirolas(59, 74, 263, 74, 12, 1); bandeirolas(263, 74, 447, 74, 12, 4); }
   barTables();
   cart(222, 146, S.stallOpen);
-  drawAnimalsPerched(); drawPeople(); drawAmbient(); drawAnimalsGround();
+  drawAnimalsPerched(); drawPeople(); drawShopFronts(); drawAmbient(); drawAnimalsGround();
   drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 158); parkedMotos(); drawAmbientRoad(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
@@ -186,6 +187,11 @@ export const ruaComercio: Scene = {
   build() {
     if (!built) { buildFar(); buildRow(); buildFront(); buildGround(); built = true; }
     setLanes([{ y: 143 }, { y: 145 }]);
+    // each shop: customers at its doors, and a vendor out front in the shop's colour (the bar has no one outside)
+    setShopFronts(ROW.flatMap((b, i) => (b.shop ? [{
+      doors: opens[i].filter((o) => o.kind === 'shop').map((o) => o.x + (o.w >> 1)), y: 144,
+      vendors: b.sign === 'BAR DO ZE' ? [] : [b.x + b.w - 6], weight: b.sign === 'MERCADINHO' ? 1.6 : 1, open: () => openNow(b), vest: b.signBg ?? CRED,
+    }] : [])));
     setupAnimals({ ground: [143, 145], dogs: 2, sleepSpots: [230, 330], lamps: LAMPS.map((l) => ({ x: l.x + 14, y: l.top })),
       wires: [wireCurve(59, 60, 263, 60, 9), wireCurve(59, 63, 263, 63, 12), wireCurve(263, 60, 447, 60, 9), wireCurve(263, 63, 447, 63, 12)],
       walls: ROW.filter((b) => !b.sign).map((b) => ({ x0: b.x, x1: b.x + b.w, y: 140 - b.h - 3 })) });
@@ -200,5 +206,5 @@ export const ruaComercio: Scene = {
   },
   update,
   render,
-  debug() { return `active  people x${peopleCount()}  open ${ROW.filter(openNow).map((b) => b.sign).join(', ') || '-'}`; },
+  debug() { return `active  people x${peopleCount()}  ${shopFrontDebug()}  open ${ROW.filter(openNow).map((b) => b.sign).join(', ') || '-'}`; },
 };

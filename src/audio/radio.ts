@@ -228,7 +228,11 @@ async function next() {
   preloaded = null;
   const p = audio();
   p.volume = 0;
-  if (playing) p.play().catch(() => { /* autoplay refusal or bad source: surfaces as 'error' or the start timer */ });
+  if (playing) p.play().catch((e) => {
+    // The browser refused to autoplay before any gesture: wait quietly for the first one. Anything
+    // else (bad source) surfaces as 'error' or the start timer.
+    if (e?.name === 'NotAllowedError' && my === gen && autoTry) blocked();
+  });
   startTimer = window.setTimeout(() => { if (my === gen && playing && p.readyState < 3) fail(my, 'faixa não carregou'); }, START_MS);
   if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: t.artist, album: `${t.album} · ${station().name}` });
   render();
@@ -249,6 +253,7 @@ for (const p of players) {
     if (p !== audio()) return;
     fails = 0; status = ''; clearTimers();
     fade(p, volume, FADE_IN_MS);
+    watchAutostart(p, gen);
     render(); void preloadNext();
   });
   p.addEventListener('waiting', () => {
@@ -261,6 +266,48 @@ for (const p of players) {
     if (p !== audio()) { if (preloaded) badTracks.add(preloaded.url); preloaded = null; return; }
     if (playing && current && p.getAttribute('src')) fail(gen, 'faixa indisponível');
   });
+}
+
+// ---------- autoplay ----------
+// The radio tries to start by itself on load. Browsers refuse that until the page has had a
+// gesture, so then it stays off and starts on the first tap / key press anywhere. Anything the
+// listener does to the radio itself (Tocar, Próxima, station, R / N / P) wins over the autostart.
+let autoTry = false, touched = false;
+const GESTURES = ['pointerdown', 'keydown', 'touchend'] as const;
+function disarm() { for (const g of GESTURES) removeEventListener(g, onGesture, true); }
+function onGesture() {
+  disarm();
+  setTimeout(() => { if (!touched && !playing) { autoTry = false; start(); } }, 0); // after the click / key handlers ran
+}
+function blocked() {
+  autoTry = false;
+  playing = false; gen++; clearTimers(); clearInterval(fadeTimer);
+  status = ''; current = null;
+  for (const q of players) { q.pause(); q.removeAttribute('src'); q.load(); q.volume = volume; }
+  preloaded = null; queue = [];
+  render();
+  armGesture();
+}
+/** Chrome / Firefox can say up front whether a media element may start without a gesture. */
+function autoplayAllowed(): boolean {
+  const pol = (navigator as Navigator & { getAutoplayPolicy?: (t: string) => string }).getAutoplayPolicy;
+  try { return !pol || pol.call(navigator, 'mediaelement') === 'allowed'; } catch { return true; }
+}
+function armGesture() { for (const g of GESTURES) addEventListener(g, onGesture, { capture: true, passive: true }); }
+function autostart() {
+  if (playing || touched) return;
+  // Not allowed (or unknown to be): do not even try, so no half-started stream is left looking "on".
+  if (!autoplayAllowed()) { armGesture(); return; }
+  autoTry = true;
+  start();
+}
+/** Autostart watchdog: some browsers neither reject play() nor play, so a stream that is not actually advancing counts as blocked. */
+function watchAutostart(p: HTMLAudioElement, my: number) {
+  if (!autoTry) return;
+  setTimeout(() => {
+    if (!autoTry || my !== gen || !playing) return;
+    if (p.paused || p.currentTime < 0.3 || p.muted) blocked(); else autoTry = false;
+  }, 2500);
 }
 
 /** After giving up, the listener's next Tocar/Próxima is a fresh try: forget the failures (likely an outage). */
@@ -280,8 +327,9 @@ function stop() {
   if (status) { status = ''; current = null; }
   render();
 }
-function toggle() { if (playing) stop(); else start(); }
+function toggle() { touched = true; disarm(); if (playing) stop(); else start(); }
 function setStation(i: number) {
+  touched = true; disarm();
   if (i === si) return;
   si = i;
   try { localStorage.setItem('loficity:station', station().id); } catch { /* ignore */ }
@@ -291,7 +339,7 @@ function setStation(i: number) {
   if (playing) void next(); else render();
 }
 function nextStation() { setStation((si + 1) % STATIONS.length); }
-function skip() { playing = true; freshTry(); void next(); }
+function skip() { touched = true; disarm(); playing = true; freshTry(); void next(); }
 
 // ---------- panel ----------
 function render() {
@@ -332,11 +380,12 @@ function mount(e: HTMLElement) {
     try { localStorage.setItem('loficity:volume', String(volume)); } catch { /* ignore */ }
   });
   if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('play', start);
-    navigator.mediaSession.setActionHandler('pause', stop);
+    navigator.mediaSession.setActionHandler('play', () => { touched = true; disarm(); start(); });
+    navigator.mediaSession.setActionHandler('pause', () => { touched = true; disarm(); stop(); });
     navigator.mediaSession.setActionHandler('nexttrack', skip);
   }
   render();
+  autostart();
 }
 
 export const radio = {

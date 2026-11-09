@@ -50,9 +50,9 @@ The bubbles are silent and come from an authored pool of gentle pt-BR lines with
 
 **Daily rhythm**: crowds, traffic and birds follow each city's own clock, interpolated smoothly between hours (and `#at=` moments). Esperança, Campina Grande and João Pessoa all use Brasília time (UTC-3, the same as Fortaleza, no daylight saving), and so do the weekday and calendar.
 
-- Esperança's Praça da Matriz and Praça da Cultura are busiest from 14h to 15h. Around 17h the birds get busy, flying back to the trees and wires (this depends on the time only, not the temperature). From 19h the streets thin out; 21–23h and 00–05h are nearly empty, with just the odd dog or passer-by.
+- Esperança's Praça da Matriz and Praça da Cultura are busiest from 14h to 15h, and every city is livelier through the day than at night. Car traffic in the Paraíba towns builds up as the day goes on and peaks at 17–18h. At the shops (Armazém Paraíba most of all, Rua do Comércio, Centro · Casa de Amigos) vendors stand out front while the shop is open, and customers keep walking in and coming out with bags. Around 17h the birds get busy, flying back to the trees and wires (this depends on the time only, not the temperature). From 19h the streets thin out; 21–23h and 00–05h are nearly empty, with just the odd dog or passer-by.
 - Campina Grande and João Pessoa are busier by day and in the evening, but still have few people out from 00h to 05h.
-- **Mass at the Matriz**: the doors open, the nave is lit and a small congregation gathers by the church on Sundays at 07, 09, 16 and 19h, and Monday to Friday at 19h. Assumptions, not an official parish timetable: each mass lasts 1 hour, and there is no Saturday mass. The rest of the praça stays quiet.
+- **Mass at the Matriz**: mass is every day at 18h (Sundays also 07 and 09h): the doors open, the nave is lit and a small congregation gathers by the church. The doors also stand open every day from 09 to 12h and from 16 to 19h, when single people drop in to pray and come out again. Assumptions, not an official parish timetable: each mass lasts 1 hour. The rest of the praça stays quiet.
 - Weather is never made up here: only real rain, storms and snow from Open-Meteo (live or stale) scale these crowd levels down; with no reading ("clima indisponível") the rhythm runs unscaled.
 
 ## Run
@@ -92,7 +92,7 @@ T city map, S scene, R radio, N next track, P switch station (Lo-fi / Neon), M a
 
 The city map is a pixel map of Paraíba with a pin per city, generated from the city registry; cities outside Paraíba (Tóquio) are listed under it. Esc, the × button or a tap outside closes it without changing the city.
 
-The eye button (top-right) hides the whole HUD, credit included, for a clean view; the choice is remembered. Hiding it does not pause the radio. Fullscreen is on the button and Enter only (no double-click), so quick taps on the scene never resize it.
+The eye button (top-right) hides the whole HUD, credit included, for a clean view; the choice is remembered. Hiding it does not pause the radio. The radio tries to start by itself on load; browsers block that until the page has had a gesture, so it then starts on the first tap or key press (unless the listener already used the radio controls). Fullscreen is on the button and Enter only (no double-click), so quick taps on the scene never resize it.
 
 ## Layout
 
