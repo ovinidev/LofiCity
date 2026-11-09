@@ -63,6 +63,8 @@ The bubbles are silent and come from an authored pool of gentle pt-BR lines with
 - **Mass at the Matriz**: mass is every day at 18h (Sundays also 07 and 09h): the doors open, the nave is lit and a small congregation gathers by the church. The doors also stand open every day from 09 to 12h and from 16 to 19h, when single people drop in to pray and come out again. Assumptions, not an official parish timetable: each mass lasts 1 hour. The rest of the praça stays quiet.
 - Weather is never made up here: only real rain, storms and snow from Open-Meteo (live or stale) scale these crowd levels down; with no reading ("clima indisponível") the rhythm runs unscaled.
 
+**Rain reactions**: in real rain or snow (or the labelled `#wx=` test) most people open an umbrella and the rest hurry; with no reading nothing changes. The rules live in `src/actors/rain-rules.ts` and are the same in every scene: the side-on pedestrians, the depth streets (Rua Faustino Porto, Rua José Bezerra da Costa, Rua Manoel Rodrigues de Oliveira), the people crossing at the zebras of Centro · Casa de Amigos and Praça da Cultura, the students, the faithful at the Matriz and the cinema queue. On hot, clear afternoons (a real reading above 26 °C) some people carry a sun umbrella. People without an umbrella may wait out real rain under a drawn awning: the shop canopy at Centro · Casa de Amigos, the Partage entrance and bus shelter, and in Rua Manoel Rodrigues the pink corner building's canopy and the orange canopy of the shop on the right. Rua Faustino Porto and Rua José Bezerra da Costa have no awning in the drawing, so no shelter. `test/scene-rules.test.ts` checks every registered scene against the shared rules (weather only from the feed, seeded randomness, rain reactions through `rain-rules.ts`, `rhythm.ts` densities, registration and docs, no image assets).
+
 ## Run
 
 ```bash
@@ -89,6 +91,7 @@ Nothing is uploaded or posted; the person sends the link or image themselves. Th
 
 - `#city=esperanca` (also `campina`, `joaopessoa`, `areia`, `remigio`, `tokyo`)
 - `#scene=praca-matriz`: pin a scene (`praca-matriz`, `rua-comercio`, `capelinha`, `praca-cultura`, `campo-rodoviaria`, `centro-teatro`, `armazem-paraiba`, `rua-faustino`, `rua-jose-bezerra`, `rua-manoel-rodrigues`, `acude-velho`, `piramide-parque-do-povo`, `estacao-velha`, `parque-da-crianca`, `partage-shopping`, `terminal-integracao`, `onibus`, `cabo-branco`, `centro-areia`, `lagoa-remigio`, `cinema-remigio`, `cinema-fachada-remigio`, `rain-corner`, `neon-alley`, `konbini`, `shrine`)
+- `#cycle=off`: start with the automatic scene change off (see Keys); opening the page with `#scene=` does the same
 - `#at=2026-12-24T22:00`: freeze a moment in the city's time zone (for testing; the UI always uses real time)
 - `#debug`: technical panel (for development)
 - `#wx=rain`: test override for previews (`clear`, `cloudy`, `rain`, `snow`, `storm`, `fog`); the HUD marks it as a test, never as live
@@ -97,7 +100,9 @@ Nothing is uploaded or posted; the person sends the link or image themselves. Th
 
 ## Keys
 
-T city map, S scene, Esc get off the bus, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
+The scene changes by itself every 2 minutes (rules in `src/scene-cycle.ts`, unit-tested): the next scene of the city in the list, skipping the bus and the cinema room, which you only ever enter yourself. The timer restarts on any manual scene or city change, never fires while the city map or the share menu is open, never pulls you out of the bus or the cinema room, and counts only visible time (a hidden tab does not run it). It starts on, except when the page was opened with `#scene=` or `#cycle=off`; the **Auto** button or A toggles it. The 2 minutes are the owner's choice.
+
+T city map, S scene, A automatic scene change on/off (the **Auto** button), Esc get off the bus, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
 
 The city map is a pixel map of Paraíba with a pin per city, generated from the city registry; cities outside Paraíba (Tóquio) are listed under it. Esc, the × button or a tap outside closes it without changing the city.
 

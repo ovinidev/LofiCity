@@ -19,11 +19,12 @@
    The photo shows no theatre sign, so none is drawn. The small brand panels on the billboard and the
    red sign at the right edge are not legible in the photo and are left without lettering. */
 import { L, Lp, WW, blitLayer, getW, newLayer, put, rect, sx, sy } from '../engine/gfx';
-import { bay, mulberry32 } from '../engine/math';
+import { bay, hashf, mulberry32 } from '../engine/math';
 import {
   ASPH, BFAR, BMID, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CRED, CYELL, FBLUE, FLILAC, FORNG, GOLD, LIGHT, MAGD, STEEL, STONE,
-  STONEL, TERRA, TILEW, VOID, WDIM, WHITE, WOOD, SKIN1, SKIN2, SKIN3, SKIN4, HAIR1, HAIR2, HAIR3, FPINK, AMB, FWG, SIGR, HALOOK,
+  STONEL, TERRA, TILEW, VOID, WDIM, WHITE, WOOD, SKIN1, SKIN2, SKIN3, SKIN4, HAIR1, HAIR2, HAIR3, FPINK, AMB, FWG, SIGR, HALOOK, UMB,
 } from '../engine/palette';
+import { opensUmbrella } from '../actors/rain-rules';
 import { type SignalState, cycleLength, pedestrianLight, pedestrianMayStart, signalAt } from '../actors/signal-rules';
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
@@ -234,11 +235,13 @@ function parked() {
 // the bottom); others come up from the near side and walk off along the sidewalk. They step out only
 // when no vehicle is on the stripes or past a stop line, and traffic stops while one waits or crosses.
 type XPhase = 'approach' | 'wait' | 'cross' | 'leave';
-interface Crosser { on: boolean; phase: XPhase; x: number; y: number; tx: number; dir: number; vy: number; sp: number; ph: number; wait: number; top: number; low: number; skin: number; hair: number }
+interface Crosser { on: boolean; phase: XPhase; x: number; y: number; tx: number; dir: number; vy: number; sp: number; ph: number; wait: number; top: number; low: number; skin: number; hair: number; seed: number }
 const xr = mulberry32(0xce17a);
 const xpick = <T>(a: readonly T[]): T => a[(xr() * a.length) | 0];
-const CROSSERS: Crosser[] = Array.from({ length: 3 }, () => ({ on: false, phase: 'approach' as XPhase, x: 0, y: 0, tx: 0, dir: 1, vy: 1, sp: 10, ph: 0, wait: 0, top: TILEW, low: VOID, skin: SKIN2, hair: HAIR1 }));
+const CROSSERS: Crosser[] = Array.from({ length: 3 }, () => ({ on: false, phase: 'approach' as XPhase, x: 0, y: 0, tx: 0, dir: 1, vy: 1, sp: 10, ph: 0, wait: 0, top: TILEW, low: VOID, skin: SKIN2, hair: HAIR1, seed: 0 }));
 const KERB = 146, FAR_KERB = 188;
+/** Spawn counter: each crosser's fixed umbrella roll (rain-rules.ts), without drawing from xr. */
+let crossSeq = 0;
 let crossT = 3, crossings = 0, conflicts = 0;
 
 // ---------- the traffic light ----------
@@ -281,7 +284,7 @@ function spawnCrosser() {
   if (!c) return;
   c.top = xpick([TILEW, CBLUE, CRED, CYELL, FPINK, CGREEN, STEEL]); c.low = xpick([VOID, BNEAR, CNAVY, STONE]);
   c.skin = xpick([SKIN1, SKIN2, SKIN3, SKIN3, SKIN4]); c.hair = xpick([HAIR1, HAIR1, HAIR2, HAIR3]);
-  c.sp = 9 + xr() * 5; c.ph = xr() * 4; c.tx = ZEBRA0 + 5 + xr() * (ZEBRA1 - ZEBRA0 - 10); c.on = true;
+  c.sp = 9 + xr() * 5; c.ph = xr() * 4; c.tx = ZEBRA0 + 5 + xr() * (ZEBRA1 - ZEBRA0 - 10); c.on = true; c.seed = ++crossSeq;
   if (xr() < 0.55) { c.dir = xr() < 0.5 ? 1 : -1; c.x = c.dir > 0 ? -8 : WW + 8; c.y = KERB; c.vy = 1; c.phase = 'approach'; }
   else { c.x = c.tx; c.y = FAR_KERB; c.vy = -1; c.dir = xr() < 0.5 ? 1 : -1; c.phase = 'wait'; c.wait = 0.6 + xr(); }
 }
@@ -322,6 +325,8 @@ function drawCrosser(c: Crosser) {
   }
   rect(X - 1, y - 10, 3, 6, c.top); rect(X - 1, y - 14, 3, 3, c.skin); rect(X - 1, y - 15, 3, 1, c.hair);
   if (across && c.vy < 0) rect(X - 1, y - 14, 3, 2, c.hair); else if (!across) put(X - c.dir, y - 14, c.hair);
+  // an umbrella only in real rain (as on the cinema front), from the crosser's fixed roll
+  if (opensUmbrella(S.wxKind, S.rain, S.snow, hashf(c.seed * 7 + 9))) { rect(X - 3, y - 19, 7, 2, UMB); rect(X + 1, y - 17, 1, 6, STEEL); }
 }
 
 function update(dt: number) {
