@@ -10,8 +10,9 @@
    doors, royal palms and a bus shelter along the avenue, high-rises of the Catolé behind.
 
    Opening hours are art direction, not the mall's real timetable: Monday to Saturday 10h-22h,
-   Sundays 14h-20h. While open the doors and shop windows are lit after dark and the signs glow;
-   closed, the signs go dark except a dim emblem and few people pass. */
+   Sundays 14h-20h (partage-rules.ts, shared with the inside). While open the doors and shop windows
+   are lit after dark and the signs glow; closed, the signs go dark except a dim emblem and few people
+   pass. Tapping the main doors under the glass marquee goes inside (partage-interior.ts) while open. */
 import { L, Lp, WW, blitLayer, newLayer, put, rect } from '../engine/gfx';
 import { mulberry32 } from '../engine/math';
 import {
@@ -23,11 +24,12 @@ import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
-import { S, hourIn } from '../sky/state';
+import { S } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
   type Lamp, type Palm, type TowerWin, bandeirolas, christmasStar, drawPalm, drawTowerWins, isNight, lampLight, lampPost, text, textW, tower,
 } from './br-kit';
+import { doorTap, mallOpen } from './partage-rules';
 import type { Scene } from './types';
 
 const HORIZON = 112, STREET = 150, SH = 180 - STREET, GROUND = 140;
@@ -137,7 +139,9 @@ function buildGround() {
 }
 
 // ---------- dynamic ----------
-const open = () => (S.cal.weekday === 0 ? hourIn(S.cal.hour, 14, 20) : hourIn(S.cal.hour, 10, 22));
+const open = () => mallOpen(S.cal.weekday, S.cal.hour);
+/** The two main doors under the glass marquee: the way in. */
+const DOOR0 = LOUV + 2, DOOR1 = LOUV + 52, DX = (DOOR0 + DOOR1) >> 1;
 /** Shoppers out: more in the evening and at weekends while open; a trickle when closed. */
 function crowd() {
   if (!open()) return 0.45;
@@ -269,4 +273,13 @@ export const partage: Scene = {
   update,
   render,
   debug() { return `active  people x${peopleCount()}  shopping ${open() ? 'aberto' : 'fechado'}`; },
+  hint() { return open() ? { x: DX, y: GLASS_TOP, text: 'Toque na porta pra entrar no shopping' } : null; },
+  tap(x, y) {
+    // the main doors: inside while the mall is open (partage-interior, same moment); otherwise when it opens
+    if (x >= DOOR0 && x <= DOOR1 && y >= GLASS_TOP - 4 && y <= GROUND + 2) {
+      const d = doorTap(S.cal.weekday, S.cal.hour);
+      return d.enter ? { x: DX, y: GLASS_TOP, goto: 'partage-interior' } : { x: DX, y: GLASS_TOP, say: d.say };
+    }
+    return null;
+  },
 };

@@ -70,8 +70,38 @@ test('only scenes whose photo shows a zebra wire up a crossing', () => {
 
 const CAMPINA_NEW = ['piramide-parque-do-povo', 'estacao-velha', 'parque-da-crianca', 'partage-shopping', 'terminal-integracao'];
 
-test('Campina Grande has Açude Velho first, then the five new scenes, then the bus interior', () => {
-  assert.deepEqual(table.get('campina')!.map(sceneId), ['acude-velho', ...CAMPINA_NEW, 'onibus']);
+test('Campina Grande has Açude Velho first, then the five new scenes (the mall followed by its inside), then the bus interior', () => {
+  const ids = [...CAMPINA_NEW]; ids.splice(ids.indexOf('partage-shopping') + 1, 0, 'partage-interior');
+  assert.deepEqual(table.get('campina')!.map(sceneId), ['acude-velho', ...ids, 'onibus']);
+});
+
+test('Partage Shopping: the street door and the SAÍDA inside point at each other and share the hours; the inside is indoors', () => {
+  const front = read('src/scenes/partage-shopping.ts'), inside = read('src/scenes/partage-interior.ts');
+  assert.match(front, /goto: 'partage-interior'/);
+  assert.match(inside, /goto: 'partage-shopping'/);
+  for (const src of [front, inside]) {
+    assert.match(src, /from '\.\/partage-rules'/, 'hours from the shared rules');
+    assert.doesNotMatch(src, /hourIn\(S\.cal\.hour, (10|14)/, 'no opening hours copied into a scene');
+    assert.doesNotMatch(src, /S\.(rain|snow|storm|cloud|fog|temp|wind|wet)\s*=[^=]/);
+    assert.doesNotMatch(src, /Math\.random\(/);
+  }
+  assert.match(inside, /grade\(\)/, 'lights itself (grade hook)');
+  assert.match(inside, /daylit: true/, 'lit room: daylight bloom day and night');
+  assert.match(read('src/main.ts'), /present\(clock, S\.shake, scene\.daylit \? 1 : scene\.grade && !scene\.seesSky \? 0 : S\.dayK\)/);
+  assert.match(inside, /setLanes\([^)]*indoor: true/, 'the people inside ignore the weather (no umbrellas)');
+  assert.doesNotMatch(read('src/scenes/partage-rules.ts'), /Math\.random\(|from '\.\.\/engine|document\.|window\./);
+  const line = read('docs/DEVELOPING.md').split('\n').find((l) => l.startsWith('- `#scene='))!;
+  assert.ok(line.includes('`partage-interior`'), 'partage-interior in the #scene list');
+  const at = Date.parse('2026-11-09T14:30-03:00');
+  assert.deepEqual(density('campina', 'partage-interior', at), density('campina', 'partage-shopping', at));
+});
+
+test('people.ts: indoor lanes never open an umbrella, hurry or reach for a heat drink', () => {
+  const people = read('src/actors/people.ts');
+  assert.match(people, /indoor = opts\.indoor \?\? false/, 'off by default: every other scene is unchanged');
+  assert.match(people, /p\.umb = indoor \? 255 : opensUmbrella\(S\.wxKind, S\.rain, S\.snow/);
+  assert.match(people, /const wet = !indoor && wetNow\(\)/);
+  assert.match(people, /if \(indoor\) p\.sun = false/);
 });
 
 test('the developer guide lists each new Campina #scene id', () => {

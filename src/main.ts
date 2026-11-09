@@ -396,7 +396,7 @@ function frame(now: number) {
   drawEmotes(dt);
   gradePalette();
   scene.grade?.(); // indoor scenes light themselves
-  present(clock, S.shake, scene.grade && !scene.seesSky ? 0 : S.dayK);
+  present(clock, S.shake, scene.daylit ? 1 : scene.grade && !scene.seesSky ? 0 : S.dayK);
   updateBubbles(now);
   workMs = workMs * 0.95 + (performance.now() - t0) * 0.05;
   frames++; fpsT += dt; uiT += dt; audioT += dt;

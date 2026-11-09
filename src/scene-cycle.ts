@@ -4,8 +4,8 @@
 /** The scene advances on its own this often. */
 export const CYCLE_MS = 120_000;
 
-/** Scenes you are "inside" of (the bus ride, the cinema room): the cycle never pulls you out of them. */
-export const HOLD_SCENES: readonly string[] = ['onibus', 'cinema-remigio'];
+/** Scenes you are "inside" of (the bus ride, the cinema room, the mall): the cycle never pulls you out of them. */
+export const HOLD_SCENES: readonly string[] = ['onibus', 'cinema-remigio', 'partage-interior'];
 
 export interface CycleState {
   /** The auto-change toggle (off by default when the page was opened with #scene=, or with #cycle=off). */
@@ -26,7 +26,7 @@ export function shouldAdvance(s: CycleState): boolean {
 }
 
 /** Index of the scene to move to: the one after `from`, skipping the scenes you are only ever inside of
-    (the bus, the cinema room, which you enter yourself). Returns `from` when nothing else qualifies. */
+    (the bus, the cinema room, the mall's inside, which you enter yourself). Returns `from` when nothing else qualifies. */
 export function nextCycleIndex(ids: readonly string[], from: number): number {
   for (let i = 1; i <= ids.length; i++) {
     const j = (from + i) % ids.length;
