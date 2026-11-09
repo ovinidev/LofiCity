@@ -13,10 +13,13 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+/* Everything clickable shows the pointer (browsers default buttons to the arrow). Canvas targets set it from main.ts on hover. */
+button, [role="button"], [role="menuitem"], a[href], select, summary, input[type="range"], label[for] { cursor: pointer; }
+button:disabled, button[aria-disabled="true"] { cursor: not-allowed; }
 canvas#view { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; touch-action: manipulation; background: var(--bg); }
 .ui { transition: opacity 0.7s ease; }
 body.idle .ui { opacity: 0; pointer-events: none; }
-body.idle { cursor: none; }
+body.idle, body.idle canvas#view { cursor: none !important; }
 .hud {
   position: fixed; top: var(--st); left: var(--sl);
   font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;

@@ -27,6 +27,7 @@ import { onibus } from './onibus';
 import { boardable } from './onibus-rules';
 import { terminalIntegracao } from './terminal-integracao';
 import type { Scene } from './types';
+import { nextCycleIndex } from '../scene-cycle';
 
 export const SCENES: Record<CityId, Scene[]> = {
   tokyo: [rainCorner, neonAlley, konbini, shrine],
@@ -60,6 +61,11 @@ export function pickScene(city: CityId): Scene {
 /** A scene of the city by id (a door's `goto`), or null. */
 export const sceneById = (city: CityId, id: string): Scene | null => reachable(city).find((s) => s.id === id) ?? null;
 
+/** The scene the automatic change moves to: the next one, skipping the bus and the cinema room you only enter yourself. */
+export function cycleScene(city: CityId, current: Scene): Scene {
+  const list = SCENES[city];
+  return list[nextCycleIndex(list.map((s) => s.id), list.indexOf(current))];
+}
 export function nextScene(city: CityId, current: Scene): Scene {
   const list = SCENES[city];
   return list[(list.indexOf(current) + 1) % list.length];

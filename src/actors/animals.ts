@@ -225,11 +225,13 @@ function drawLizards(dt: number) {
 
 // ---------- taps ----------
 /** Something was tapped at world (x, y): birds fly off, cats bolt, dogs bark and run. Returns what reacted. */
-export function tapAnimals(x: number, y: number): { kind: 'bird' | 'cat' | 'dog'; x: number; y: number } | null {
+/** A tap on a bird, cat or dog. `dry` only looks (the pointer cursor over the canvas): nobody reacts. */
+export function tapAnimals(x: number, y: number, dry = false): { kind: 'bird' | 'cat' | 'dog'; x: number; y: number } | null {
   for (const b of birds) {
     if (!b.on || b.fly) continue;
     const by = b.wire.y(b.x);
     if (Math.abs(x - b.x) < 6 && y > by - 7 && y < by + 3) {
+      if (dry) return { kind: 'bird', x: b.x, y: by - 2 };
       for (const o of birds) if (o.on && !o.fly && o.wire === b.wire && Math.abs(o.x - b.x) < 16) {
         o.fly = true; o.fx = o.x; o.fy = o.wire.y(o.x); o.vx = (o.x < x ? -1 : 1) * (30 + r() * 25); o.vy = -22 - r() * 16;
       }
@@ -237,10 +239,12 @@ export function tapAnimals(x: number, y: number): { kind: 'bird' | 'cat' | 'dog'
     }
   }
   for (const c of cats) if (Math.abs(x - c.x) < 6 && y > c.y - 10 && y < c.y + 2) {
+    if (dry) return { kind: 'cat', x: c.x, y: c.y - 6 };
     c.st = 'walk'; c.t = 1.6; c.boost = 1.6; c.dir = x < c.x ? 1 : -1;
     return { kind: 'cat', x: c.x, y: c.y - 6 };
   }
   for (const d of dogs) if (d.on && Math.abs(x - d.x) < 8 && y > d.y - 10 && y < d.y + 2) {
+    if (dry) return { kind: 'dog', x: d.x, y: d.y - 7 };
     d.st = 'walk'; d.t = 3; d.boost = 2.5; d.dir = x < d.x ? 1 : -1;
     return { kind: 'dog', x: d.x, y: d.y - 7 };
   }

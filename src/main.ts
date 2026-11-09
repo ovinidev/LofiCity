@@ -27,7 +27,8 @@ import { placeInfoFor } from './data/place-info';
 import { followLive, weatherView } from './sky/live';
 import { hudWeather, manualLightningAllowed } from './sky/weather-feed';
 import { updateSky } from './scenes/common';
-import { nextScene, pickScene, sceneById } from './scenes';
+import { cycleScene, nextScene, pickScene, sceneById } from './scenes';
+import { cycleDefault, shouldAdvance } from './scene-cycle';
 import { boardBus, busReturn, onibus } from './scenes/onibus';
 import type { BusSkin } from './scenes/onibus-rules';
 import type { Scene } from './scenes/types';
@@ -38,6 +39,8 @@ import { injectSpeedInsights } from '@vercel/speed-insights';
 
 const $ = (id: string) => document.getElementById(id)!;
 const params = new URLSearchParams(location.hash.slice(1));
+// Automatic scene change every 2 minutes (scene-cycle.ts): off when the URL pins a scene or says #cycle=off. Read before syncHash rewrites the hash.
+let autoCycle = cycleDefault(location.hash), cycleMs = 0;
 
 // ---------- clock ----------
 // Always the city's real time. #city=esperanca picks a city; #at=2026-12-24T22:00 (city time)
@@ -170,7 +173,7 @@ function setCity(id: string) {
   cityMap.refresh();
   pinMoment();
   followLive(city);
-  clearBubbles(); clearPeople();
+  clearBubbles(); clearPeople(); cycleMs = 0;
   scene = pickScene(city.id);
   settle(simNow(), city); direct(simNow(), city, 0, scene.id);
   scene.build();
@@ -187,7 +190,11 @@ addEventListener('pagehide', () => bells.dispose());
 addEventListener('pageshow', (e) => { if (e.persisted) syncBells(); }); // back from the bfcache
 /** Switches to another scene of the same city at the same moment (the scene button, or a door). */
 function enterScene(next: Scene) {
+<<<<<<< HEAD
   clearBubbles(); clearPeople(); scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit(); placeInfo.refresh();
+=======
+  clearBubbles(); clearPeople(); cycleMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit();
+>>>>>>> origin/main
 }
 // Inside the bus, "Sair do ônibus" (or Esc) gets off: back to the scene it was boarded from, else the next scene.
 function syncExit() { $('b-exit').hidden = scene !== onibus; }
@@ -206,6 +213,7 @@ const actions: Record<string, () => void> = {
   city: () => cityMap.open(),
   info: () => placeInfo.open(),
   scene: () => enterScene(nextScene(city.id, scene)),
+  auto: () => { autoCycle = !autoCycle; cycleMs = 0; press('b-auto', autoCycle); },
   exit: () => { if (!shareOpen) leaveBus(); },
   music: () => radio.toggle(),
   station: () => radio.nextStation(),
@@ -219,9 +227,10 @@ const actions: Record<string, () => void> = {
   },
 };
 const BUTTONS: [string, string][] = [
-  ['b-exit', 'exit'], ['b-sound', 'sound'], ['b-crt', 'crt'], ['b-scene', 'scene'], ['b-full', 'full'],
+  ['b-exit', 'exit'], ['b-sound', 'sound'], ['b-crt', 'crt'], ['b-scene', 'scene'], ['b-auto', 'auto'], ['b-full', 'full'],
 ];
 for (const [id, a] of BUTTONS) $(id).addEventListener('click', actions[a]);
+press('b-auto', autoCycle);
 // City picker: a pixel map of Paraíba (src/ui/city-map.ts); it calls setCity, so transitions, weather and clock stay the same.
 const cityMap = mountCityMap({ trigger: $('city') as HTMLButtonElement, current: () => city.id, onPick: setCity });
 // "i" next to the eye: the real story of the current place (src/ui/place-info.ts); Esperança scenes only.
@@ -304,7 +313,11 @@ cardBtn.addEventListener('click', async () => {
 });
 
 const KEYS: Record<string, string> = {
+<<<<<<< HEAD
   m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', i: 'info', s: 'scene', l: 'lightning', h: 'hud', enter: 'full', escape: 'exit',
+=======
+  m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', s: 'scene', a: 'auto', l: 'lightning', h: 'hud', enter: 'full', escape: 'exit',
+>>>>>>> origin/main
 };
 addEventListener('keydown', (e) => {
   const tag = (e.target as HTMLElement).tagName;
@@ -328,6 +341,14 @@ function speak(who: Speaker, x: number, y: number) {
   recentPhrases = remember(recentPhrases, text);
   say(text, { x, y }, who.track);
 }
+// Mouse hover: the pointer cursor over anything the tap handler below would react to (a dry look, nothing moves).
+const viewEl = $('view');
+viewEl.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse') return;
+  const f = toFrame(e.clientX, e.clientY), x = f.x + G.camX, y = f.y - G.oy;
+  const hit = tapAnimals(x, y, true) || tapPeople(x, y) || tapCars(x, y) || scene.tap?.(x, y);
+  viewEl.style.cursor = hit ? 'pointer' : '';
+});
 // Tap what moves: birds fly off, cats bolt, dogs bark and run, people talk, vehicles honk.
 $('view').addEventListener('pointerdown', (e) => {
   const f = toFrame(e.clientX, e.clientY), x = f.x + G.camX, y = f.y - G.oy;
@@ -371,6 +392,8 @@ function frame(now: number) {
   if (dt > 0.25) dt = 0.25;
   const t0 = performance.now();
   clock += dt;
+  cycleMs += dt * 1000; // frames pause in a hidden tab, so the 2 minutes are minutes of watching
+  if (shouldAdvance({ enabled: autoCycle, elapsedMs: cycleMs, sceneId: scene.id, dialogOpen: cityMap.isOpen() || shareOpen })) enterScene(cycleScene(city.id, scene));
   const hadData = S.wxKind !== 'unavailable';
   direct(simNow(), city, dt, scene.id);
   // the first genuine reading arrived: rebuild wet streets / snow cover from its past hours

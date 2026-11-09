@@ -29,7 +29,7 @@ import { bandeirolas, isNight, textBit, textW, wire, wireCurve } from './br-kit'
 import {
   type Facade, type Opening, type PCar, type PLamp, type View, type Walker, type WalkCfg, OPEN, drawByDepth, drawCarP, drawOpeningsP,
   drawWalker, lampLightP, lampPostP, makeCars, makeWalkers, onZebra, paintFacades, paintFront, paintGround, projX, projY,
-  tapCarP, tapWalker, updateCarsP, updateWalkers, zebraBusyP,
+  tapCarP, tapWalker, updateCarsP, updateWalkers, walkerRainDebug, zebraBusyP,
 } from './persp-kit';
 import type { Scene } from './types';
 
@@ -298,6 +298,6 @@ export const ruaFaustino: Scene = {
   },
   update,
   render,
-  debug() { return `active  walkers x${WALKERS.filter((w) => w.on).length}  road x${CARS.filter((c) => c.on).length}  faixa x${onZebra(WALKERS, ZEB)} travessias ${crossings} conflitos ${conflicts}`; },
+  debug() { return `active  walkers x${WALKERS.filter((w) => w.on).length}  road x${CARS.filter((c) => c.on).length}  faixa x${onZebra(WALKERS, ZEB)} travessias ${crossings} conflitos ${conflicts}  ${walkerRainDebug(WALKERS)}`; },
   tap(x, y) { return tapWalker(V, WALKERS, x, y) ?? tapCarP(V, CARS, x, y); },
 };
