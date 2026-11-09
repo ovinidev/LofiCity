@@ -12,7 +12,7 @@ import {
   AMBD, BMID, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CRED, CYELL, HAIR1, HAIR2, HAIR3, HALO, HALOOK, LEDW, MAG, MAGD,
   SKIN1, SKIN2, SKIN3, SKIN4, STEEL, STONE, STONEL, TILEW, VOID, WCOOL, WDIM, WHITE, WWARM, LIGHT, FGREEN, FPINK,
 } from '../engine/palette';
-import { type DepthCar, type DepthRoad, canEnter, stepDepthCars } from '../actors/persp-rules';
+import { type DepthCar, type DepthRoad, canEnter, depthSpawnDir, stepDepthCars } from '../actors/persp-rules';
 import { peopleCap } from '../sky/rhythm';
 import { S } from '../sky/state';
 import { isNight } from './br-kit';
@@ -150,17 +150,18 @@ export function makeCars(n: number): PCar[] {
   return Array.from({ length: n }, () => ({ on: false, z: 0, dir: 1 as const, sp: 0, cruise: 0, len: 4, kind: 'car' as PKind, body: TILEW, rider: CRED, helmet: VOID, X: 0 }));
 }
 
-/** Spawn one vehicle if the hour and the entry point allow it; `laneX` gives the lane for each direction. */
 /** A rider without a helmet (helmet colour sentinel, never a palette index). */
 export const NO_HELMET = 255;
 
-export function spawnCar(cars: PCar[], road: DepthRoad, laneX: (dir: 1 | -1) => number, buses = true) {
+/** Spawn one vehicle if the hour and the entry point allow it; `laneX` gives the lane for each direction,
+    `oneWay` (+1 away, -1 oncoming) restricts a one-way road to its single direction. */
+export function spawnCar(cars: PCar[], road: DepthRoad, laneX: (dir: 1 | -1) => number, buses = true, oneWay: 1 | -1 | 0 = 0) {
   const c = cars.find((o) => !o.on);
   if (!c) return;
-  const dir: 1 | -1 = rr() < 0.5 ? 1 : -1, k = rr(), h = S.cal.hour;
+  const dir = depthSpawnDir(rr(), oneWay), k = rr(), h = S.cal.hour;
   const kind: PKind = k < 0.48 ? 'moto' : k < 0.82 ? 'car' : k < 0.93 ? 'pickup' : k < 0.97 || !buses || h < 6 || h > 22 ? 'van' : 'bus';
   if (!canEnter(cars, dir, LEN[kind], road)) return;
-  c.kind = kind; c.len = LEN[kind]; c.dir = dir; c.X = laneX(dir);
+  c.kind = kind; c.len = LEN[kind]; c.dir = dir; c.X = laneX(dir); c.committed = false;
   c.body = kind === 'bus' ? TILEW : kind === 'moto' ? rpick([CRED, CRED, VOID, CBLUE, STONEL]) : rpick([TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, STONE]);
   c.rider = rpick([CRED, CBLUE, VOID, CYELL, TILEW, FGREEN]); c.helmet = rpick([VOID, VOID, VOID, TILEW, CRED, CBLUE, NO_HELMET]); // most wear one
   c.cruise = (kind === 'moto' ? 9 : kind === 'bus' ? 6 : 7.5) * (0.85 + rr() * 0.3); c.sp = c.cruise; // m/s, town speeds
@@ -169,9 +170,9 @@ export function spawnCar(cars: PCar[], road: DepthRoad, laneX: (dir: 1 | -1) => 
 
 let spawnT = 0.5;
 /** Spawns at the hour's traffic level and moves everyone (with the crossing state already set on the road). */
-export function updateCarsP(cars: PCar[], dt: number, road: DepthRoad, laneX: (dir: 1 | -1) => number, density = 1) {
+export function updateCarsP(cars: PCar[], dt: number, road: DepthRoad, laneX: (dir: 1 | -1) => number, density = 1, oneWay: 1 | -1 | 0 = 0) {
   spawnT -= dt * (0.04 + 0.5 * S.traffic) * density;
-  if (spawnT <= 0) { spawnT = 0.8 + rr() * 2; spawnCar(cars, road, laneX); }
+  if (spawnT <= 0) { spawnT = 0.8 + rr() * 2; spawnCar(cars, road, laneX, true, oneWay); }
   stepDepthCars(cars, dt, road);
 }
 
@@ -222,7 +223,11 @@ export function tapCarP(v: View, cars: PCar[], x: number, y: number): { x: numbe
 
 // ---------- pedestrians ----------
 /** A sidewalk (lateral band, metres) people walk along. */
-export interface Walk { X0: number; X1: number; /** Nearest depth where this sidewalk is in view (default: the config's zNear). */ z0?: number }
+export interface Walk {
+  X0: number; X1: number;
+  /** Nearest depth where this sidewalk is in view (default: the config's zNear). */ z0?: number;
+  /** Farthest depth (default: the config's zFar), e.g. a block ending at a side street, where walkers turn off. */ z1?: number;
+}
 /** A zebra crossing: depth band and the two kerbs it joins. */
 export interface ZebraP { z0: number; z1: number; XL: number; XR: number }
 type Phase = 'walk' | 'wait' | 'cross';
@@ -247,7 +252,8 @@ function spawnWalker(ws: Walker[], cfg: WalkCfg) {
   w.X = wk.X0 + 0.3 + wr() * (wk.X1 - wk.X0 - 0.6);
   w.dz = wr() < 0.5 ? 1 : -1;
   const zn = Math.max(cfg.zNear, wk.z0 ?? 0);
-  w.z = w.dz > 0 ? zn : zn + (cfg.zFar - zn) * (0.4 + wr() * 0.6);
+  const zf = Math.min(cfg.zFar, wk.z1 ?? Infinity);
+  w.z = w.dz > 0 ? zn : zn + (zf - zn) * (0.4 + wr() * 0.6);
   w.sp = 1.1 + wr() * 0.5; w.ph = wr() * 4; w.phase = 'walk'; w.crossed = false;
   w.skirt = wr() < 0.35; w.top = wpick([TILEW, CBLUE, CRED, CYELL, FPINK, STEEL, CGREEN, VOID, CBEIGE]);
   w.low = w.skirt ? w.top : wpick([VOID, BNEAR, CNAVY, CBLUE, STONE]);
@@ -272,7 +278,8 @@ export function updateWalkers(ws: Walker[], dt: number, cfg: WalkCfg, carsNear: 
     if (w.phase === 'walk') {
       w.z += w.dz * w.sp * dt; w.ph += dt * w.sp * 3;
       if (zb && !w.crossed && w.z > zb.z0 + 0.4 && w.z < zb.z1 - 0.4 && wr() < dt * 0.25) { w.phase = 'wait'; w.wait = 0.6 + wr(); }
-      if (w.z < Math.max(cfg.zNear, cfg.walks[w.walk].z0 ?? 0) - 0.5 || w.z > cfg.zFar) w.on = false;
+      const wk = cfg.walks[w.walk];
+      if (w.z < Math.max(cfg.zNear, wk.z0 ?? 0) - 0.5 || w.z > Math.min(cfg.zFar, wk.z1 ?? Infinity)) w.on = false;
     } else if (w.phase === 'wait') {
       w.wait -= dt;
       if (w.wait <= 0 && !carsNear()) {

@@ -66,6 +66,9 @@ export const PHRASES: Phrase[] = [
   ...group({ scene: 'centro-teatro' }, ['Bora dar uma volta no centro?', 'Vou encontrar os amigos ali.']),
   ...group({ scene: 'rua-faustino' }, ['Essa rua é tranquila, viu?', 'Vou visitar minha vó aqui perto.']),
   ...group({ scene: 'rua-jose-bezerra' }, ['Rua de vizinho bom é assim.', 'Tô indo levar um bolo pra vizinha.']),
+  ...group({ scene: 'rua-manoel-rodrigues' }, ['Daqui dá pra ver a torre da Matriz!', 'Vou passar na farmácia rapidinho.', 'Deixei a moto ali no meio-fio.', 'Esse sinal lá na frente demora, viu?', 'Rua de comércio é outra coisa.']),
+  ...group({ scene: 'rua-manoel-rodrigues', tod: ['manha'] }, ['Cedinho e o comércio já tá abrindo.']),
+  ...group({ scene: 'rua-manoel-rodrigues', tod: ['noite'] }, ['De noite a rua fica mais calminha.']),
 
   // ---------- Capelinha das Pedras: only its visitors, the priest and the congregation ----------
   ...group({ scene: 'capelinha', who: ['visitor'] }, ['Que vista lá de cima!', 'Vou tirar uma foto da Capelinha.', 'Essa capelinha é um encanto.', 'Subir até aqui valeu a pena!', 'Que pedra enorme, né?']),
@@ -90,7 +93,13 @@ export const PHRASES: Phrase[] = [
   ...group({ city: 'joaopessoa', tod: ['manha'] }, ['Aqui o sol nasce primeiro!']),
   ...group({ city: 'joaopessoa', tod: ['noite'] }, ['Brisa do mar de noite é bom demais.']),
   ...group({ city: 'areia' }, ['Areia tem cada casarão lindo!', 'Bora comer uma rapadura?', 'Que ladeira, hein!']),
-  ...group({ city: 'remigio' }, ['A lagoa tá bonita hoje.', 'Remígio é puro sossego.', 'Bora sentar na beira da lagoa?']),
+  ...group({ city: 'remigio' }, ['Remígio é puro sossego.']),
+  ...group({ scene: 'lagoa-remigio' }, ['A lagoa tá bonita hoje.', 'Bora sentar na beira da lagoa?']),
+  // the audience in the cinema (src/scenes/cinema-remigio.ts): only movie talk, whispered
+  ...group({ scene: 'cinema-remigio', who: ['attendee'] }, [
+    'Psiu! O filme já começou.', 'Passa a pipoca, visse?', 'Eita, que explosão!', 'Essa luta tá arretada!',
+    'Fica até o fim, tem cena extra.', 'Quem é esse de capa verde?', 'Vixe, derrubou todo mundo!', 'Desliga o celular, por favor.',
+  ]),
 
   // ---------- Tóquio (pt-BR simples, com um toque de japonês) ----------
   ...group(TK, ['Konnichiwa!', 'Arigatô!', 'Sumimasen, com licença!', 'Tóquio nunca dorme.', 'Vou pegar um onigiri.', 'Oi, tudo bem? Genki?']),

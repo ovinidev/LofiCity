@@ -23,7 +23,8 @@ export type VendorKind = 'picole' | 'pipoca' | 'coco';
 /** Scenes that host ambient events, their city, and which kinds fit there. Scenes left out on
     purpose: the Capelinha (quiet, its own schedule), the Praça da Matriz (its crowd rules keep bikes
     and anything else out in front of the church), the perspective streets with their own actors
-    (Rua Faustino, Rua José Bezerra), and the Campo (its match schedule owns the scene).
+    (Rua Faustino, Rua José Bezerra, Rua Manoel Rodrigues), the Campo (its match schedule owns the scene)
+    and the cinema in Remígio (an indoor room).
     'moto-delivery' only appears where the scene has a side-on road for it to ride on. */
 export const AMBIENT_SCENES: Readonly<Record<string, { city: CityId; kinds: readonly AmbientKind[] }>> = {
   'rua-comercio': { city: 'esperanca', kinds: ['dog-follow', 'vendor', 'kid-ball', 'cat-wall', 'moto-delivery'] },
@@ -34,7 +35,7 @@ export const AMBIENT_SCENES: Readonly<Record<string, { city: CityId; kinds: read
 };
 
 /** Never hosts ambient events (documented above; checked by the tests). */
-export const AMBIENT_EXCLUDED = ['capelinha', 'praca-matriz', 'rua-faustino', 'rua-jose-bezerra', 'campo-rodoviaria'] as const;
+export const AMBIENT_EXCLUDED = ['capelinha', 'praca-matriz', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues', 'campo-rodoviaria', 'cinema-remigio'] as const;
 
 /** Kinds that need a known dry spell: a real reading (live or stale) or the #wx= test, without rain. */
 const FAIR = new Set<AmbientKind>(['vendor', 'kid-ball', 'pigeons']);

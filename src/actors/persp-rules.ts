@@ -5,11 +5,37 @@
    centre, dir +1 drives away from the viewer (right lane, tail lights), dir -1 comes toward it
    (left lane, headlights). Each lane keeps its order: a vehicle never closes within `gap` metres
    of the one ahead. With a zebra crossing, vehicles stop at a line `stopGap` metres before the
-   stripes while it is occupied (street-rules.ts yieldLimit); one already past its line carries on. */
+   stripes while it is occupied (street-rules.ts yieldLimit); one already past its line carries on.
+   A signalised crossing (Rua Manoel Rodrigues de Oliveira) also stops vehicles at that line on red,
+   and on yellow unless they cannot stop comfortably (signal-rules.ts mayGo). A one-way road spawns
+   every vehicle in its single direction (depthSpawnDir). */
+import { type Phase, mayGo, nextCommitted } from './signal-rules.ts';
 import { overlaps, yieldLimit } from './street-rules.ts';
 
-export interface DepthCar { on: boolean; z: number; dir: 1 | -1; sp: number; cruise: number; len: number }
-export interface DepthCrossing { z0: number; z1: number; occupied: boolean }
+export interface DepthCar {
+  on: boolean; z: number; dir: 1 | -1; sp: number; cruise: number; len: number;
+  /** Decided to go on a yellow light: keeps going even if it turns red (signal-rules.ts). */
+  committed?: boolean;
+}
+export interface DepthCrossing {
+  z0: number; z1: number; occupied: boolean;
+  /** The vehicle light at the stop line, when the crossing is signalised. */
+  signal?: Phase | null;
+}
+
+/** signal-rules.ts works in side-on screen pixels (a 26 px car is about 4 m): metres to those pixels. */
+export const PX_PER_M = 6.5;
+
+/** Direction of a new vehicle: always `oneWay` on a one-way road, otherwise a coin flip on `r` in [0, 1). */
+export const depthSpawnDir = (r: number, oneWay: 1 | -1 | 0 = 0): 1 | -1 => (oneWay !== 0 ? oneWay : r < 0.5 ? 1 : -1);
+
+/** Signed distance (m) from a vehicle's front to its stop line at the crossing (negative once past it). */
+export function toStopLine(v: DepthCar, road: DepthRoad): number {
+  const c = road.crossing;
+  if (!c) return Infinity;
+  const line = v.dir > 0 ? c.z0 - road.stopGap : c.z1 + road.stopGap;
+  return (line - frontZ(v)) * v.dir;
+}
 export interface DepthRoad {
   /** Vehicles going away appear here (just behind the camera) and oncoming ones leave here. */
   zNear: number;
@@ -54,6 +80,11 @@ export function stepDepthCars(cars: DepthCar[], dt: number, road: DepthRoad) {
       lim = Math.min(lim, Math.max(0, room));
     }
     if (c) lim = Math.min(lim, yieldLimit(frontZ(v), v.dir, c.z0 - road.stopGap, c.z1 + road.stopGap, c.occupied));
+    if (c?.signal) { // the light: stop at the line on red (and on yellow when there is room to)
+      const dist = toStopLine(v, road), go = mayGo(c.signal, dist * PX_PER_M, v.sp * PX_PER_M, v.committed);
+      v.committed = nextCommitted(c.signal, dist * PX_PER_M, go, !!v.committed);
+      if (!go) lim = Math.min(lim, Math.max(0, dist));
+    }
     // slow down smoothly as a limit approaches, speed up again toward cruise
     const want = lim < Infinity ? Math.min(v.cruise, lim * 1.2) : v.cruise;
     v.sp += (want - v.sp) * Math.min(1, dt * 2);
