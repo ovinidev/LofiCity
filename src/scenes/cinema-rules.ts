@@ -196,7 +196,7 @@ export function shotIn(seed: number, sec: number): Shot {
 }
 
 /** The shot on screen at an instant, or null when no film is running (closed or pre-show). */
-export function shotAt(ms: number, utc: number): Shot | null {
+export function shotAt(ms: number, utc: number, salt = 0): Shot | null {
   const { hour, day } = localTime(ms, utc), s = sessionAt(hour);
-  return s.phase === 'film' ? shotIn(sessionSeed(day, s.block), s.sec) : null;
+  return s.phase === 'film' ? shotIn((sessionSeed(day, s.block) ^ salt) >>> 0, s.sec) : null;
 }

@@ -17,7 +17,7 @@ test('it never advances while off, behind a dialog or inside the bus / the cinem
   assert.equal(shouldAdvance({ ...due, enabled: false }), false);
   assert.equal(shouldAdvance({ ...due, dialogOpen: true }), false);
   for (const id of HOLD_SCENES) assert.equal(shouldAdvance({ ...due, sceneId: id }), false, id);
-  assert.ok(HOLD_SCENES.includes('onibus') && HOLD_SCENES.includes('cinema-remigio'));
+  assert.ok(HOLD_SCENES.includes('onibus') && HOLD_SCENES.includes('cinema-remigio') && HOLD_SCENES.includes('partage-interior') && HOLD_SCENES.includes('cinema-partage'));
 });
 
 test('the next scene skips the bus and the cinema room and wraps around', () => {
@@ -27,6 +27,8 @@ test('the next scene skips the bus and the cinema room and wraps around', () => 
   assert.equal(nextCycleIndex(ids, 4), 0);
   assert.equal(nextCycleIndex(['x'], 0), 0, 'a single scene stays');
   assert.equal(nextCycleIndex(['onibus'], 0), 0);
+  // Campina: from the mall's street front the cycle goes past its inside to the terminal
+  assert.equal(nextCycleIndex(['partage-shopping', 'partage-interior', 'cinema-partage', 'terminal-integracao'], 0), 3);
 });
 
 test('the cycle is off when the URL pins a scene or asks for #cycle=off, on otherwise', () => {

@@ -100,7 +100,6 @@ function syncHash() {
   if (h !== location.hash) try { history.replaceState(history.state, '', h); } catch { /* sandboxed */ }
 }
 syncHash();
-syncExit();
 
 // ---------- HUD ----------
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -179,7 +178,6 @@ function setCity(id: string) {
   scene.build();
   syncBells();
   syncHash();
-  syncExit();
   placeInfo.refresh();
   updateHud();
   if (hosted) pageview({ route: '/[city]', path: `/${city.id}` });
@@ -190,10 +188,9 @@ addEventListener('pagehide', () => bells.dispose());
 addEventListener('pageshow', (e) => { if (e.persisted) syncBells(); }); // back from the bfcache
 /** Switches to another scene of the same city at the same moment (the scene button, or a door). */
 function enterScene(next: Scene) {
-  clearBubbles(); clearPeople(); cycleMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit(); placeInfo.refresh();
+  clearBubbles(); clearPeople(); cycleMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); placeInfo.refresh();
 }
-// Inside the bus, "Sair do ônibus" (or Esc) gets off: back to the scene it was boarded from, else the next scene.
-function syncExit() { $('b-exit').hidden = scene !== onibus; }
+// Inside the bus, the SAÍDA sign (or Esc) gets off: back to the scene it was boarded from, else the next scene.
 function board(skin: BusSkin) {
   boardBus(skin, scene.id); enterScene(onibus);
   const h = scene.hint?.(); if (h) say(h.text, h);
@@ -223,7 +220,7 @@ const actions: Record<string, () => void> = {
   },
 };
 const BUTTONS: [string, string][] = [
-  ['b-exit', 'exit'], ['b-sound', 'sound'], ['b-crt', 'crt'], ['b-scene', 'scene'], ['b-auto', 'auto'], ['b-full', 'full'],
+  ['b-sound', 'sound'], ['b-crt', 'crt'], ['b-scene', 'scene'], ['b-auto', 'auto'], ['b-full', 'full'],
 ];
 for (const [id, a] of BUTTONS) $(id).addEventListener('click', actions[a]);
 press('b-auto', autoCycle);
@@ -351,6 +348,7 @@ $('view').addEventListener('pointerdown', (e) => {
   const c = tapCars(x, y);
   if (c) { sfx(c.sound); if (c.board) board(c.board); else emote(c.x, c.y, '♪'); return; }
   const prop = scene.tap?.(x, y);
+  if (prop?.leave) { leaveBus(); return; } // the SAÍDA sign inside the bus
   // a door (e.g. the cinema in Remígio): the same scene change as the scene button, then the new scene's hint
   const to = prop?.goto ? sceneById(city.id, prop.goto) : null;
   if (to) { enterScene(to); const h = scene.hint?.(); if (h) say(h.text, h); return; }
@@ -396,7 +394,7 @@ function frame(now: number) {
   drawEmotes(dt);
   gradePalette();
   scene.grade?.(); // indoor scenes light themselves
-  present(clock, S.shake, scene.grade && !scene.seesSky ? 0 : S.dayK);
+  present(clock, S.shake, scene.daylit ? 1 : scene.grade && !scene.seesSky ? 0 : S.dayK);
   updateBubbles(now);
   workMs = workMs * 0.95 + (performance.now() - t0) * 0.05;
   frames++; fpsT += dt; uiT += dt; audioT += dt;

@@ -4,7 +4,7 @@
 import { G, L, Lp, type Layer, getW, put, rect, sx, sy } from '../engine/gfx';
 import { bay, type Rng } from '../engine/math';
 import {
-  AMB, AMBD, BARK, BMID, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CRED, CYELL, SKIN2, FOG, HALO, HALOOK, LEAFG, LEAFGD,
+  AMB, AMBD, BARK, BMID, BNEAR, CBEIGE, CBLUE, CGREEN, CNAVY, CRED, CYELL, SKIN2, FOG, FWG, HALO, HALOOK, LEAFG, LEAFGD,
   LEDW, LIGHT, STEEL, STONE, STONEL, TILEW, VOID, WCOOL, WDIM, WHITE, WOOD, WWARM, FPINK, BRIGHT, REFL, BFAR,
 } from '../engine/palette';
 import { S } from '../sky/state';
@@ -352,6 +352,15 @@ export function text(ly: Layer | null, str: string, x: number, y: number, c: num
   }
 }
 export const textW = (str: string, s = 1) => (str.length * 4 - 1) * s;
+/** The lit green SAÍDA sign of the places you go inside (the mall, the bus), straight into the frame:
+    a steel rim, the green board, the letters with the accent and a little arrow out. Tapping it is the
+    scene's way back out. Its colours (CGREEN board, FWG letters) stay lit in an interior's grade(). */
+export function saidaSign(x: number, y: number, w: number, h = 10) {
+  rect(x - 1, y - 1, w + 2, h + 2, STEEL); rect(x, y, w, h, CGREEN);
+  const tx = x + ((w - textW('SAIDA')) >> 1) + 1, ty = y + h - 6;
+  text(null, 'SAIDA', tx, ty, FWG); put(tx + 9, ty - 2, FWG); put(tx + 10, ty - 3, FWG); // the acute accent of SAÍDA
+  put(x + 2, ty + 2, FWG); put(x + 3, ty + 1, FWG); put(x + 3, ty + 3, FWG); // an arrow out
+}
 /** Whether cell (u, v) of `str` in the 3x5 font is lit: u counts columns across the whole string
     (4 per character, the 4th is the gap), v rows 0..4. For signs painted on walls in perspective. */
 export function textBit(str: string, u: number, v: number): boolean {

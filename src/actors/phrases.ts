@@ -9,7 +9,8 @@
           players at the Campo da Rodoviária and in the Praça da Cultura kick-about speak as 'player',
           the volleyball players there as 'volley' and the school's students as 'student'. Inside the
           bus (src/scenes/onibus.ts) the passengers speak as 'rider', the children on the school bus as 'pupil';
-          the feira on Rua José Bezerra has its 'vendor's and 'shopper's, who only exist while the market runs. */
+          the feira on Rua José Bezerra has its 'vendor's and 'shopper's, who only exist while the market runs;
+          inside Partage Shopping the coffee kiosk's attendant is a 'vendor' too. */
 
 export type Tod = 'manha' | 'tarde' | 'noite' | 'madrugada';
 export type WxTag = 'heat' | 'cold' | 'rain' | 'snow';
@@ -110,6 +111,12 @@ export const PHRASES: Phrase[] = [
   ...group({ scene: 'parque-da-crianca' }, ['Bora levar os meninos no parque?', 'Vou correr umas voltinhas.']),
   ...group({ scene: 'partage-shopping' }, ['Vou pegar um cineminha.', 'Bora tomar um açaí no shopping?']),
   ...group({ scene: 'partage-shopping', wx: 'heat' }, ['Ar-condicionado do shopping, que delícia!']),
+  // inside the mall (src/scenes/partage-interior.ts): shoppers in the corridors and the coffee kiosk
+  ...group({ scene: 'partage-interior' }, ['Só vim olhar as vitrines.', 'Tô procurando um presente.', 'Bora lanchar depois?', 'Achei um tênis massa!', 'Esse shopping tá cheio hoje!', 'Bora pegar um filme lá em cima?']),
+  ...group({ scene: 'partage-interior', tod: ['noite'] }, ['Daqui a pouco fecha, bora!']),
+  ...group({ scene: 'partage-interior', wx: 'heat' }, ['Aqui dentro tá fresquinho!']),
+  ...group({ scene: 'partage-interior', wx: 'rain' }, ['Vou esperar a chuva passar aqui dentro.']),
+  ...group({ scene: 'partage-interior', who: ['vendor'] }, ['Cafezinho saindo agora!', 'Vai querer o quê, meu bem?', 'Tem pão de queijo quentinho!', 'Um capuccino pra animar?']),
   ...group({ scene: 'terminal-integracao' }, ['Será que o ônibus já passou?', 'Tô esperando o circular.', 'Ufa, achei um banquinho!']),
 
   // ---------- João Pessoa, Areia, Remígio ----------
@@ -123,6 +130,12 @@ export const PHRASES: Phrase[] = [
   ...group({ scene: 'cinema-remigio', who: ['attendee'] }, [
     'Psiu! O filme já começou.', 'Passa a pipoca, visse?', 'Eita, que explosão!', 'Essa luta tá arretada!',
     'Fica até o fim, tem cena extra.', 'Quem é esse de capa verde?', 'Vixe, derrubou todo mundo!', 'Desliga o celular, por favor.',
+  ]),
+
+  // the cinema inside Partage Shopping (src/scenes/cinema-partage.ts): the same whispers, its own lines
+  ...group({ scene: 'cinema-partage', who: ['attendee'] }, [
+    'Shhh, já vai começar!', 'Me dá um pouco da pipoca?', 'Vixe, que pancada!', 'Esse aí é o vilão, visse?',
+    'Depois do filme, um lanche?', 'Ô, abaixa a cabeça aí!', 'Que efeito massa!', 'Tira o pé da cadeira, por favor.',
   ]),
 
   // the street front of the cinema (src/scenes/cinema-facade-remigio.ts): passers-by, the queue at

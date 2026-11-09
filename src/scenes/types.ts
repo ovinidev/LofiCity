@@ -23,6 +23,9 @@ export interface Scene {
   /** With grade(): the scene still shows the real sky (e.g. through bus windows), so post-processing keeps
       the daylight bloom instead of treating the frame as night. */
   seesSky?: boolean;
+  /** With grade(): a brightly lit interior (e.g. the mall): post-processing always uses the daylight bloom,
+      day or night, so the lit room is not blown out by the night bloom. */
+  daylit?: boolean;
   /** Optional: a tappable prop or person at world (x, y) — where to show the emote and what to play,
       or, for a person, who speaks (a silent speech bubble instead of a sound). */
   tap?(x: number, y: number): TapResult | null;
@@ -39,4 +42,6 @@ export interface TapResult {
   goto?: string;
   /** Board this bus (the bus interior scene, src/scenes/onibus.ts). */
   board?: BusSkin;
+  /** Get off the bus (the SAÍDA sign inside it; Esc does the same). */
+  leave?: boolean;
 }
