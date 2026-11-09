@@ -95,24 +95,36 @@ test('students never cross the plaza while a game is on', () => {
 
 // ---------- football ----------
 const FIELD: Field = { x0: 8, x1: 92, y0: 116, y1: 124, mouth0: 118, mouth1: 122 };
-function kick(seed: number, secs: number, each?: (m: KickSim) => void, paused = false) {
-  const m = new KickSim(FIELD, seed);
+/** The portrait field on the lower paving right of the blue steps (praca-cultura.ts FIELD_NARROW). */
+const FIELD_NARROW: Field = { x0: 258, x1: 342, y0: 128, y1: 136, mouth0: 130, mouth1: 134 };
+function kick(seed: number, secs: number, each?: (m: KickSim) => void, paused = false, F = FIELD) {
+  const m = new KickSim(F, seed);
   for (let i = 0; i < secs * 30; i++) { m.step(1 / 30, paused); each?.(m); }
   return m;
 }
 
-test('kick-about: two or three a side, everyone on the field, the ball leaves it only into a goal', () => {
-  for (const seed of [1, 2, 3, 4]) kick(seed, 600, (m) => {
+test('kick-about: two or three a side, everyone on the field, the ball leaves it only into a goal (landscape and portrait fields)', () => {
+  for (const F of [FIELD, FIELD_NARROW]) for (const seed of [1, 2, 3, 4]) kick(seed, 600, (m) => {
     assert.ok(m.perSide === 2 || m.perSide === 3);
     assert.equal(m.kids.length, m.perSide * 2);
-    for (const p of m.kids) assert.ok(p.x >= FIELD.x0 && p.x <= FIELD.x1 && p.y >= FIELD.y0 && p.y <= FIELD.y1, `kid off at ${p.x},${p.y}`);
+    for (const p of m.kids) assert.ok(p.x >= F.x0 && p.x <= F.x1 && p.y >= F.y0 && p.y <= F.y1, `kid off at ${p.x},${p.y}`);
     const b = m.ball;
     assert.ok(b.z >= 0);
     if (m.phase === 'goal') {
-      assert.ok(b.x === FIELD.x0 - NET_D || b.x === FIELD.x1 + NET_D);
-      assert.ok(b.y > FIELD.mouth0 && b.y < FIELD.mouth1);
-    } else assert.ok(b.x >= FIELD.x0 && b.x <= FIELD.x1 && b.y >= FIELD.y0 && b.y <= FIELD.y1, `ball off at ${b.x},${b.y} (${m.phase})`);
-  });
+      assert.ok(b.x === F.x0 - NET_D || b.x === F.x1 + NET_D);
+      assert.ok(b.y > F.mouth0 && b.y < F.mouth1);
+    } else assert.ok(b.x >= F.x0 && b.x <= F.x1 && b.y >= F.y0 && b.y <= F.y1, `ball off at ${b.x},${b.y} (${m.phase})`);
+  }, false, F);
+});
+
+test('portrait field: as long as the landscape one, clear of the volleyball court and inside a phone-portrait view', () => {
+  assert.equal(FIELD_NARROW.x1 - FIELD_NARROW.x0, FIELD.x1 - FIELD.x0);
+  assert.equal(FIELD_NARROW.y1 - FIELD_NARROW.y0, FIELD.y1 - FIELD.y0);
+  const court = { x0: 184, x1: 248 };
+  assert.ok(FIELD_NARROW.x0 - 3 > court.x1, 'right of the court');
+  // a 240 px frame centred on the 480 px world (camX 120), less a few px of cover crop on a tall phone
+  assert.ok(FIELD_NARROW.x0 - 3 >= 126 && FIELD_NARROW.x1 + 3 <= 354);
+  assert.ok(court.x0 >= 126 && court.x1 <= 354);
 });
 
 test('kick-about: goals, celebrations, first to five then a short rest and a new game', () => {
