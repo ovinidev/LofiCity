@@ -68,3 +68,11 @@ test('each shot fades in and ends on black frames (trailer cut)', () => {
   assert.equal(shotIn(seed, SHOT_S).t, 0);
   assert.notEqual(shotIn(seed, 1).seed, shotIn(seed, SHOT_S + 1).seed);
 });
+
+test('a salt gives another cinema its own film order, the default keeps the Remígio film', () => {
+  const ms = at('2026-11-09T20:13:21');
+  assert.deepEqual(shotAt(ms, UTC, 0), shotAt(ms, UTC));
+  let differ = 0;
+  for (let m = 0; m < 120; m++) { const t = ms + m * 60_000; if (JSON.stringify(shotAt(t, UTC, 0x9a47)) !== JSON.stringify(shotAt(t, UTC))) differ++; }
+  assert.ok(differ > 60, `only ${differ} of 120 minutes differ`);
+});

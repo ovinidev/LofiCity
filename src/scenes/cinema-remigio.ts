@@ -12,7 +12,10 @@
    palette (grade()) and the seats, heads and walls are tinted by the average colour of whatever is
    on screen, so a bright explosion brightens the room. Sessions follow the city's real clock
    (art direction, see cinema-rules.ts): 14:00-23:00, otherwise the screen is dark, the house work
-   lights are dimly on and the room is empty. Drawn from a reference photo of a modern multiplex. */
+   lights are dimly on and the room is empty. Drawn from a reference photo of a modern multiplex.
+
+   The same room serves the cinema inside Partage Shopping in Campina Grande (cinema-partage.ts):
+   cinemaRoom() takes where the SAÍDA leads and a salt for that cinema's own film order. */
 import { G, L, Lget, Lp, WW, WY0, blitLayer, newLayer, put, rect, sx, sy } from '../engine/gfx';
 import { bay, hashf, mulberry32, vnoise } from '../engine/math';
 import {
@@ -549,7 +552,7 @@ function drawStanding(now: number) {
 }
 
 // ---------- state ----------
-let session: Session = sessionAt(15), shot: Shot | null = null, lastT = 0;
+let session: Session = sessionAt(15), shot: Shot | null = null, lastT = 0, salt = 0;
 /** Smoothed average colour of the picture (0..1), which lights the room. */
 const light = [0, 0, 0];
 let house = 0;
@@ -581,7 +584,7 @@ function filmScaled(sh: Shot, now: number, g: Geo) {
 function render() {
   const now = S.ms / 1000, dt = Math.min(0.1, Math.max(0, now - lastT)); lastT = now;
   session = sessionAt(S.cal.hour);
-  shot = shotAt(S.ms, S.city.utc);
+  shot = shotAt(S.ms, S.city.utc, salt);
   const g = geo = geoFor(G.W), cx = g.px + g.pw / 2, cy = g.py + g.ph / 2;
   blitLayer(roomFor(g));
   // the picture
@@ -617,7 +620,7 @@ function render() {
 
 // ---------- the way out ----------
 /** The lit SAÍDA sign over the aisle near the back rows (always on, as in any cinema):
-    tapping it goes back out to the street front (cinema-facade-remigio). */
+    tapping it goes back out (cinemaRoom's exitTo: the street front, or the mall). */
 const EXIT = { x: AX - 13, y: 146, w: 27, h: 9 }; // above the control bar in landscape
 function exitSign() {
   const { x, y, w, h } = EXIT;
@@ -650,30 +653,39 @@ function grade() {
   }
 }
 
+/** The room's behaviour, shared by every cinema with this room (Remígio, Partage Shopping in Campina):
+    where its SAÍDA leads, the hint shown on the way in and a salt that gives each cinema its own film order. */
+export function cinemaRoom(o: { exitTo: string; hint: string; salt: number }): Omit<Scene, 'id' | 'name'> {
+  return {
+    build() {
+      salt = o.salt;
+      setupAnimals({ ground: [], dogs: 0 });
+      lastT = S.ms / 1000;
+    },
+    update() { /* everything is a function of the clock; see render() */ },
+    render,
+    grade,
+    debug() {
+      const s = shot ? `${shot.kind} #${shot.index} t${shot.t.toFixed(1)}` : '-';
+      return `cinema  ${session.phase}  shot ${s}  light ${light.map((v) => v.toFixed(2)).join('/')}`;
+    },
+    hintSpots() { return [{ x: EXIT.x + (EXIT.w >> 1), y: EXIT.y - 2, kind: 'door' as const }]; },
+    hint() { return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, text: o.hint }; },
+    tap(x, y) {
+      if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, goto: o.exitTo };
+      if (session.phase === 'closed') return null;
+      const heads = session.phase === 'preshow' ? [...HEADS, ...PRESHOW_HEADS] : HEADS;
+      for (const h of heads) {
+        const b = headBox(h);
+        if (x >= b.x - 3 && x <= b.x + b.w + 3 && y >= b.y - 3 && y <= b.top + 4) return { x: b.x + (b.w >> 1), y: b.y, speaker: { role: 'attendee' } };
+      }
+      return null;
+    },
+  };
+}
+
 export const cinemaRemigio: Scene = {
   id: 'cinema-remigio',
   name: 'Cinema · Remígio',
-  build() {
-    setupAnimals({ ground: [], dogs: 0 });
-    lastT = S.ms / 1000;
-  },
-  update() { /* everything is a function of the clock; see render() */ },
-  render,
-  grade,
-  debug() {
-    const s = shot ? `${shot.kind} #${shot.index} t${shot.t.toFixed(1)}` : '-';
-    return `cinema  ${session.phase}  shot ${s}  light ${light.map((v) => v.toFixed(2)).join('/')}`;
-  },
-  hintSpots() { return [{ x: EXIT.x + (EXIT.w >> 1), y: EXIT.y - 2, kind: 'door' as const }]; },
-  hint() { return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, text: 'Toque na SAÍDA pra voltar à rua' }; },
-  tap(x, y) {
-    if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, goto: 'cinema-facade-remigio' };
-    if (session.phase === 'closed') return null;
-    const heads = session.phase === 'preshow' ? [...HEADS, ...PRESHOW_HEADS] : HEADS;
-    for (const h of heads) {
-      const b = headBox(h);
-      if (x >= b.x - 3 && x <= b.x + b.w + 3 && y >= b.y - 3 && y <= b.top + 4) return { x: b.x + (b.w >> 1), y: b.y, speaker: { role: 'attendee' } };
-    }
-    return null;
-  },
+  ...cinemaRoom({ exitTo: 'cinema-facade-remigio', hint: 'Toque na SAÍDA pra voltar à rua', salt: 0 }),
 };

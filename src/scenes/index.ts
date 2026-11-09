@@ -6,6 +6,7 @@ import { centroAreia } from './centro-areia';
 import { lagoaRemigio } from './lagoa-remigio';
 import { cinemaRemigio } from './cinema-remigio';
 import { cinemaFachada } from './cinema-facade-remigio';
+import { cinemaPartage } from './cinema-partage';
 import { campoRodoviaria } from './campo-rodoviaria';
 import { capelinha } from './capelinha';
 import { centroTeatro } from './centro-teatro';
@@ -14,6 +15,8 @@ import { konbini } from './konbini';
 import { neonAlley } from './neon-alley';
 import { parqueCrianca } from './parque-da-crianca';
 import { partage } from './partage-shopping';
+import { partageInterior } from './partage-interior';
+import { partageAlimentacao } from './partage-alimentacao';
 import { piramide } from './piramide-parque-do-povo';
 import { pracaCultura } from './praca-cultura';
 import { praca } from './praca-matriz';
@@ -33,7 +36,7 @@ import { resolveSceneId } from './scene-aliases';
 export const SCENES: Record<CityId, Scene[]> = {
   tokyo: [rainCorner, neonAlley, konbini, shrine],
   esperanca: [praca, ruaComercio, capelinha, pracaCultura, campoRodoviaria, centroTeatro, armazemParaiba, ruaFaustino, ruaJoseBezerra, ruaManoelRodrigues],
-  campina: [acudeVelho, piramide, estacaoVelha, parqueCrianca, partage, terminalIntegracao, onibus],
+  campina: [acudeVelho, piramide, estacaoVelha, parqueCrianca, partage, partageInterior, partageAlimentacao, cinemaPartage, terminalIntegracao, onibus],
   joaopessoa: [caboBranco],
   areia: [centroAreia],
   remigio: [lagoaRemigio, cinemaRemigio, cinemaFachada],
@@ -63,7 +66,7 @@ export function pickScene(city: CityId): Scene {
 /** A scene of the city by id (a door's `goto`), or null. */
 export const sceneById = (city: CityId, id: string): Scene | null => reachable(city).find((s) => s.id === resolveSceneId(id)) ?? null;
 
-/** The scene the automatic change moves to: the next one, skipping the bus and the cinema room you only enter yourself. */
+/** The scene the automatic change moves to: the next one, skipping the bus, the cinema rooms and the mall's inside, which you only enter yourself. */
 export function cycleScene(city: CityId, current: Scene): Scene {
   const list = SCENES[city];
   return list[nextCycleIndex(list.map((s) => s.id), list.indexOf(current))];

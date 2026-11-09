@@ -56,14 +56,16 @@ const P: Person[] = Array.from({ length: POOL }, () => ({
 let lanes: Lane[] = [{ y: 145 }];
 let bikes = true;
 let shelters: Shelter[] = [];
+let indoor = false;
 let stand: { x: number; y: number } | null = null;
 
 /** Sets the scene's pavement lanes (clearing everyone). `bikes: false` keeps cyclists and delivery
     riders out of this scene; any scene that calls setLanes without it gets them back. `shelters`
     are covered stretches (an awning, a bus shelter) where people without an umbrella wait out real
-    rain; a scene that passes none has none. */
-export function setLanes(l: Lane[], opts: { bikes?: boolean; shelters?: Shelter[] } = {}) {
-  lanes = l; bikes = opts.bikes ?? true; shelters = opts.shelters ?? []; stand = null; for (const p of P) p.on = false;
+    rain; a scene that passes none has none. `indoor: true` (inside a building, e.g. the mall) means
+    the weather does not reach them: no rain or sun umbrella, no hurrying, no heat drinks. */
+export function setLanes(l: Lane[], opts: { bikes?: boolean; shelters?: Shelter[]; indoor?: boolean } = {}) {
+  lanes = l; bikes = opts.bikes ?? true; shelters = opts.shelters ?? []; indoor = opts.indoor ?? false; stand = null; for (const p of P) p.on = false;
 }
 /** Where customers stand at the scene's coconut-water cart (world x, ground y); call after setLanes. Only
     walkers on a lane within a few px of `y` stop there, and only while cocoNow() says it is open. */
@@ -200,11 +202,12 @@ function dress(p: Person, a: Archetype) {
   }
   if (cold && p.top !== Top.Yukata && p.scarf === 255 && r() < 0.45) p.scarf = pick([CRED, CYELL, WHITE, CBEIGE, CGREEN]);
   if (cold && p.hat === 0 && r() < 0.25) { p.hat = 1; p.hatC = pick([CRED, CNAVY, CBEIGE, VOID, CYELL]); }
-  const wet = wetNow();
-  p.umb = opensUmbrella(S.wxKind, S.rain, S.snow, r()) ? pick(UMBS) : p.sun ? p.umb : 255;
+  if (indoor) p.sun = false; // no sun umbrella under a roof
+  const wet = !indoor && wetNow();
+  p.umb = indoor ? 255 : opensUmbrella(S.wxKind, S.rain, S.snow, r()) ? pick(UMBS) : p.sun ? p.umb : 255;
   if (wet && p.umb === 255) p.sp *= 1.3; // hurrying without one
   p.drink = 0; p.sip = 0; p.sipT = -1; p.buy = 0;
-  const lvl = heatNow();
+  const lvl = indoor ? 0 : heatNow();
   if (lvl && freeHand(p)) { const d = pickDrink(lvl, r(), r()); p.drink = d === 'coco' ? 2 : d === 'water' ? 1 : 0; p.sip = sipGap(lvl, r()); }
 }
 
@@ -239,7 +242,7 @@ export function tickSpawns(dt: number, density = 1) {
 
 export function updatePeople(dt: number) {
   const wet = shelters.length > 0 && wetNow();
-  const lvl = heatNow(), coco = stand !== null && cocoOpen(lvl, S.cal.hour);
+  const lvl = indoor ? 0 : heatNow(), coco = stand !== null && cocoOpen(lvl, S.cal.hour);
   let buying = coco && P.some((o) => o.on && o.buy > 0);
   for (const p of P) {
     if (!p.on) continue;
