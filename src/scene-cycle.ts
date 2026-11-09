@@ -5,7 +5,7 @@
 export const CYCLE_MS = 120_000;
 
 /** Scenes you are "inside" of (the bus ride, the cinema rooms, the mall): the cycle never pulls you out of them. */
-export const HOLD_SCENES: readonly string[] = ['onibus', 'cinema-remigio', 'partage-interior', 'cinema-partage'];
+export const HOLD_SCENES: readonly string[] = ['onibus', 'cinema-remigio', 'partage-interior', 'partage-alimentacao', 'cinema-partage'];
 
 export interface CycleState {
   /** The auto-change toggle (off by default when the page was opened with #scene=, or with #cycle=off). */

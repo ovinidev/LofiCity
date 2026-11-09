@@ -1,34 +1,38 @@
-/* PARTAGE SHOPPING, INSIDE (Campina Grande, PB): a two-storey gallery of the mall, seen side-on
+/* PARTAGE SHOPPING, THE SHOPS (Campina Grande, PB): a two-storey gallery of the mall, seen side-on
    across the corridor. Under a long glass skylight (the city's real sky shows through it, rain on the
    panes only with a real reading), two rows of shop fronts with lit windows, the upper walkway behind
    a glass balustrade, an escalator climbing from the ground floor to the upper one, and on the ground
    floor the glass doors back out to the forecourt under a green SAÍDA sign, a little coffee kiosk,
    planters and a bench on the polished floor.
 
-   Reached from the main doors of the street front (partage-shopping.ts) while the mall is open;
-   tapping SAÍDA goes back out, and the cinema's doors on the upper floor lead into its room
-   (cinema-partage.ts) while a session is on. No reference photo of the inside was used: the layout is a generic
-   Brazilian mall gallery, the shops are generic (a category on each sign, no brands) and the kiosk is
-   art direction. Hours, shutters and the crowd come from partage-rules.ts, shared with the street
-   front, so the doors and the inside always agree.
+   Three fronts follow the reference photos of the mall's shops (issue #40), under made-up look-alike
+   names, never the real brands: a department store with a dark band and backlit white letters
+   (RIACHINHO: racks, mannequins, a display table), a bookshop with a wood fascia (LEITORA: shelves and
+   low tables of books) and a sports store with red letters on white and a red SALDOS board
+   (CENTAURA). The other shops show only a category (MODA, PERFUMARIA, ...).
 
-   Indoors: the gallery lights itself (grade()), the same by day and by night (a touch warmer at night),
-   dimmed to the security lights while closed; only the skylight follows the sky. The people walking
-   the corridors use the shared pedestrians with `indoor: true` (no umbrellas, no hurrying, no heat). */
+   Reached from the main doors of the street front (partage-shopping.ts) while the mall is open;
+   tapping SAÍDA goes back out, and the passage on the upper floor (signposted ALIMENTAÇÃO · CINEMA)
+   leads to the food court and the cinema's front (partage-alimentacao.ts). Hours, shutters and the
+   crowd come from partage-rules.ts, shared with the street front, so the doors and the inside agree.
+
+   Indoors: the gallery lights itself (mallGrade() in partage-kit.ts), the same by day and by night (a
+   touch warmer at night), dimmed to the security lights while closed; only the skylight follows the
+   sky. The people walking the corridors use the shared pedestrians with `indoor: true` (no umbrellas,
+   no hurrying, no heat). */
 import { L, Lp, WW, WY0, blitLayer, newLayer, put, rect } from '../engine/gfx';
 import { bay, hashf, mulberry32 } from '../engine/math';
 import {
-  CBEIGE, CBLUE, CGREEN, CHURCHL, CLOUD, CLOUDD, CNAVY, CORNG, CRED, CYELL, DAY_RGB, EMISSIVE, FBLUE, FLILAC, FORNG, FPINK, FWG,
-  GLOWI, GLOWO, HAIR1, HAIR2, HAZE, LEAFG, LEAFGD, LEDW, LIGHT, MOON, NIGHT_RGB, NPAL, PAL32, RAINB, SKIN2, SKIN3, SKY1, SKY2,
-  SKY3, SKY4, STEEL, STONE, STONEL, SUN, TILEW, VOID, WHITE, WOOD, WWARM,
+  CBEIGE, CBLUE, CGREEN, CHURCHL, CNAVY, CORNG, CRED, CYELL, FBLUE, FLILAC, FORNG, FPINK, HAIR1, HAIR2, HAZE, LEAFG, LEAFGD, LEDW,
+  LIGHT, SKIN2, SKIN3, STEEL, STONE, STONEL, TILEW, VOID, WHITE, WOOD, WWARM,
 } from '../engine/palette';
 import { setupAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
-import { raining } from '../actors/rain-rules';
 import { S } from '../sky/state';
 import { drawSky } from './common';
 import { saidaSign, text, textW } from './br-kit';
-import { cinemaDoorTap, insideCrowd, mallOpen, shutterAt } from './partage-rules';
+import { mallGrade, skylightRain } from './partage-kit';
+import { insideCrowd, mallOpen, shutterAt } from './partage-rules';
 import type { Scene } from './types';
 
 // ---------- geometry (world space) ----------
@@ -42,19 +46,21 @@ const escY = (x: number) => ESC.y0 + ((x - ESC.x0) * (ESC.y1 - ESC.y0)) / (ESC.x
 /** The coffee kiosk on the ground floor. */
 const KIOSK = { x: 48, w: 40, base: 152 };
 
-type Kind = 'rack' | 'shelf' | 'counter';
-interface Shop { x: number; w: number; name: string; bg: number; fg: number; kind: Kind }
+type Kind = 'rack' | 'shelf' | 'counter' | 'dept' | 'books' | 'sport';
+/** `big`: a brand-style fascia with large letters (the photographed fronts, under look-alike names). */
+interface Shop { x: number; w: number; name: string; bg: number; fg: number; kind: Kind; big?: boolean }
 const UPPER: Shop[] = [
   { x: 0, w: 80, name: 'MODA', bg: VOID, fg: TILEW, kind: 'rack' },
-  { x: 80, w: 80, name: 'ESPORTES', bg: CBLUE, fg: TILEW, kind: 'shelf' },
-  { x: 160, w: 80, name: 'LIVRARIA', bg: CNAVY, fg: CYELL, kind: 'shelf' },
+  { x: 80, w: 80, name: 'CENTAURA', bg: TILEW, fg: CRED, kind: 'sport', big: true },
+  { x: 160, w: 80, name: 'LEITORA', bg: WOOD, fg: TILEW, kind: 'books', big: true },
   { x: 320, w: 80, name: 'PERFUMARIA', bg: FPINK, fg: TILEW, kind: 'counter' },
   { x: 400, w: 80, name: 'BRINQUEDOS', bg: CYELL, fg: CRED, kind: 'shelf' },
 ];
-/** The cinema's front on the upper floor, between the bookshop and the perfumery (cinema-partage.ts inside). */
-const CINE = { x: 240, w: 80 };
+/** The passage on the upper floor, between the bookshop and the perfumery, to the food court and the
+    cinema (partage-alimentacao.ts). */
+const PASS = { x: 240, w: 80 };
 const GROUND: Shop[] = [
-  { x: 0, w: 128, name: 'CALÇADOS', bg: CRED, fg: TILEW, kind: 'shelf' },
+  { x: 0, w: 128, name: 'RIACHINHO', bg: VOID, fg: WHITE, kind: 'dept', big: true },
   { x: EX1, w: 84, name: 'CELULARES', bg: CNAVY, fg: TILEW, kind: 'counter' },
   { x: 262, w: 84, name: 'BOLSAS', bg: FORNG, fg: TILEW, kind: 'rack' },
   { x: 346, w: 70, name: 'PRESENTES', bg: CGREEN, fg: TILEW, kind: 'shelf' },
@@ -86,18 +92,66 @@ function buildCeiling() {
 }
 
 /** One shop front: the pillar on its left, the sign board, the lit window and what is on show. */
+/** Where a shop's window starts below its sign (the big fascias are taller). */
+const glassTop = (s: Shop, top: number) => top + (s.big ? 17 : 12);
 function shopFront(s: Shop, top: number, bot: number) {
-  const { x, w } = s, gy = top + 12;
+  const { x, w } = s, gy = glassTop(s, top);
   L(room, x, top, w, bot - top, TILEW);
-  // sign board with the shop's category
-  L(room, x + 6, top + 1, w - 10, 9, s.bg);
-  text(room, s.name, x + 6 + ((w - 10 - textW(s.name)) >> 1), top + 3, s.fg);
+  if (s.big) {
+    // a full-width fascia with the name in large letters (lit after the grade: see the EMISSIVE letters)
+    L(room, x + 4, top, w - 4, 15, s.bg); L(room, x + 4, top + 14, w - 4, 1, s.bg === TILEW ? STONEL : STEEL);
+    text(room, s.name, x + 4 + ((w - 4 - textW(s.name, 2)) >> 1), top + 3, s.fg, 2);
+    if (s.kind === 'books') { // the bookshop's little open-book mark before the name
+      const bx = x + 4 + ((w - 4 - textW(s.name, 2)) >> 1) - 6;
+      L(room, bx, top + 6, 2, 4, s.fg); L(room, bx + 2, top + 5, 2, 4, s.fg);
+    }
+  } else {
+    // sign board with the shop's category
+    L(room, x + 6, top + 1, w - 10, 9, s.bg);
+    text(room, s.name, x + 6 + ((w - 10 - textW(s.name)) >> 1), top + 3, s.fg);
+  }
   // the window: a bright back wall and the floor inside
   L(room, x + 4, gy, w - 6, bot - gy, CHURCHL);
   L(room, x + 4, bot - 3, w - 6, 3, CBEIGE);
   for (let lx = x + 10; lx < x + w - 4; lx += 14) L(room, lx, gy, 4, 1, LIGHT); // track lights inside
   const ix0 = x + 7, ix1 = x + w - 5;
-  if (s.kind === 'rack') {
+  if (s.kind === 'dept') {
+    // the department store: two rails of clothes at the back, a display table of folded clothes and
+    // mannequins by the glass (one in a red dress, as in the photo)
+    L(room, ix0, gy + 8, ix1 - ix0, 1, STEEL);
+    for (let cx = ix0 + 1; cx < ix1 - 2; cx += 3) L(room, cx, gy + 9, 2, 9 + ((rr() * 5) | 0), GOODS[(rr() * GOODS.length) | 0]);
+    const ty = bot - 14;
+    L(room, x + 40, ty, 34, 2, WOOD); L(room, x + 41, ty + 2, 2, 11, WOOD); L(room, x + 71, ty + 2, 2, 11, WOOD);
+    for (let cx = x + 41; cx < x + 72; cx += 5) L(room, cx, ty - 3, 4, 3, GOODS[(rr() * GOODS.length) | 0]);
+    const mannequin = (mx: number, top: number, dress: number) => {
+      const my = bot - 3;
+      L(room, mx, my - 26, 4, 4, CBEIGE); L(room, mx - 1, my - 22, 6, 9, top);
+      if (dress >= 0) { L(room, mx - 2, my - 13, 8, 8, dress); L(room, mx + 1, my - 5, 1, 2, CBEIGE); L(room, mx + 2, my - 5, 1, 2, CBEIGE); }
+      else L(room, mx, my - 13, 4, 10, CNAVY);
+      L(room, mx - 1, my - 3, 6, 1, STEEL);
+    };
+    mannequin(x + 18, CRED, CRED); mannequin(x + 30, TILEW, -1); mannequin(x + w - 26, GOODS[(rr() * 8) | 0], -1); mannequin(x + w - 14, FPINK, FPINK);
+  } else if (s.kind === 'books') {
+    // the bookshop: tall shelves of spines at the back, low tables of books stacked flat in front
+    for (let sy = gy + 7; sy < bot - 16; sy += 6) {
+      L(room, ix0, sy, ix1 - ix0, 1, WOOD);
+      for (let cx = ix0 + 1; cx < ix1 - 1; cx += 2) L(room, cx, sy - 4, 1, 4, GOODS[(rr() * GOODS.length) | 0]);
+    }
+    for (const tx of [x + 10, x + 44]) {
+      L(room, tx, bot - 9, 26, 2, VOID); L(room, tx + 1, bot - 7, 2, 4, VOID); L(room, tx + 23, bot - 7, 2, 4, VOID);
+      for (let cx = tx; cx < tx + 26; cx += 4) L(room, cx, bot - 11 - ((rr() * 2) | 0), 3, 2 + ((rr() * 2) | 0), GOODS[(rr() * GOODS.length) | 0]);
+    }
+  } else if (s.kind === 'sport') {
+    // the sports store: racks of bright kit, a running track painted on the floor and the red SALDOS board
+    for (const ry of [gy + 17, gy + 38]) {
+      L(room, ix0, ry, ix1 - ix0, 1, STEEL);
+      for (let cx = ix0 + 1; cx < ix1 - 2; cx += 3) L(room, cx, ry + 1, 2, 7 + ((rr() * 5) | 0), [CRED, FPINK, CBLUE, TILEW, VOID, FORNG][(rr() * 6) | 0]);
+    }
+    L(room, x + 4, bot - 3, w - 6, 3, FORNG); L(room, x + 4, bot - 2, w - 6, 1, TILEW);
+    L(room, x + 12, gy + 1, 1, 3, STEEL); L(room, x + w - 14, gy + 1, 1, 3, STEEL);
+    L(room, x + 9, gy + 4, w - 20, 9, CRED); L(room, x + 9, gy + 12, w - 20, 1, VOID);
+    text(room, 'SALDOS', x + 9 + ((w - 20 - textW('SALDOS')) >> 1), gy + 6, TILEW);
+  } else if (s.kind === 'rack') {
     // a rail of hanging clothes and a mannequin by the glass
     for (const ry of [gy + 7, gy + Math.round((bot - gy) * 0.55)]) {
       if (ry + 14 > bot - 4) continue;
@@ -131,27 +185,40 @@ function shopFront(s: Shop, top: number, bot: number) {
   L(room, x, top, 4, bot - top, TILEW); L(room, x + 3, top, 1, bot - top, STONEL);
 }
 
-/** The cinema front: a dark marquee with CINEMA, two framed posters (generic colour blocks, no titles)
-    and the glass doors into a dim foyer. */
-function buildCinema() {
-  const { x, w } = CINE, top = UP_TOP, bot = UP_FLOOR;
-  L(room, x, top, w, bot - top, VOID);
+/** The passage to the food court and the cinema: an opening in the upper row of shops, a corridor
+    running back to the warm light of the food court, and a hanging sign "ALIMENTAÇÃO / CINEMA ->". */
+function buildPassage() {
+  const { x, w } = PASS, top = UP_TOP, bot = UP_FLOOR;
+  L(room, x, top, w, bot - top, TILEW);
   L(room, x, top, 4, bot - top, TILEW); L(room, x + 3, top, 1, bot - top, STONEL); L(room, x + w - 1, top, 1, bot - top, STONEL);
-  L(room, x + 6, top + 1, w - 10, 11, CNAVY);
-  text(room, 'CINEMA', x + 6 + ((w - 10 - textW('CINEMA')) >> 1), top + 4, TILEW);
-  for (const [px, a, b] of [[x + 8, CRED, CYELL], [x + w - 22, CBLUE, FORNG]] as const) { // posters
-    L(room, px - 1, top + 17, 16, 24, STEEL); L(room, px, top + 18, 14, 22, a); L(room, px + 2, top + 21, 10, 8, b); L(room, px + 2, top + 32, 10, 1, TILEW); L(room, px + 2, top + 35, 7, 1, TILEW);
+  // the corridor: side walls narrowing to the far end, the ceiling, the floor and the lit food court beyond
+  const fx0 = x + 26, fx1 = x + w - 26, fy0 = top + 30, fy1 = bot - 12;
+  for (let y = top + 4; y < bot; y++) {
+    const t = Math.min(1, Math.max(0, y < fy0 ? (y - top - 4) / (fy0 - top - 4) : y > fy1 ? (bot - y) / (bot - fy1) : 1));
+    const a = Math.round(x + 6 + (fx0 - x - 6) * t), b = Math.round(x + w - 4 - (x + w - 4 - fx1) * t);
+    L(room, x + 6, y, a - x - 6, 1, y < fy0 ? TILEW : y > fy1 ? CBEIGE : STONEL);
+    L(room, b, y, x + w - 4 - b, 1, y < fy0 ? TILEW : y > fy1 ? CBEIGE : STONEL);
+    L(room, a, y, b - a, 1, y < fy0 ? TILEW : y > fy1 ? CHURCHL : WWARM);
   }
-  // the doors: glass leaves into the foyer
-  const d0 = x + 28, d1 = x + w - 28;
-  L(room, d0, top + 20, d1 - d0, bot - top - 20, CNAVY);
-  L(room, d0, top + 20, d1 - d0, 1, STEEL); L(room, (d0 + d1) >> 1, top + 20, 1, bot - top - 20, STEEL);
-  for (let i = 0; i < 8; i++) Lp(room, d0 + 3 + i, bot - 4 - i * 3, FBLUE);
+  // little yellow chairs far off in the food court, and the downlights down the corridor
+  for (let cx = fx0 + 3; cx < fx1 - 2; cx += 6) { Lp(room, cx, fy1 - 3, CYELL); Lp(room, cx, fy1 - 2, CYELL); Lp(room, cx + 1, fy1 - 2, CYELL); }
+  for (const lx of [x + 16, x + 30, x + w - 32, x + w - 18]) Lp(room, lx, top + 6 + (lx < x + 40 ? (lx - x) >> 2 : (x + w - lx) >> 2), LIGHT);
+  // the hanging sign
+  const sx = x + 8, sw = w - 14, sy = top + 6;
+  L(room, sx + 10, top, 1, 6, STEEL); L(room, sx + sw - 11, top, 1, 6, STEEL);
+  L(room, sx, sy, sw, 19, CNAVY); L(room, sx, sy + 18, sw, 1, VOID);
+  const t1 = 'ALIMENTAÇAO', t1x = sx + ((sw - textW(t1)) >> 1);
+  text(room, t1, t1x, sy + 3, TILEW);
+  Lp(room, t1x + 36, sy + 2, TILEW); Lp(room, t1x + 37, sy + 1, TILEW); Lp(room, t1x + 38, sy + 2, TILEW); // the tilde of ALIMENTAÇÃO
+  const t2 = 'CINEMA', t2x = sx + ((sw - textW(t2) - 6) >> 1);
+  text(room, t2, t2x, sy + 11, CYELL);
+  const ax = t2x + textW(t2) + 2; // an arrow on: through the passage
+  L(room, ax, sy + 13, 4, 1, CYELL); Lp(room, ax + 2, sy + 12, CYELL); Lp(room, ax + 2, sy + 14, CYELL); Lp(room, ax + 3, sy + 13, CYELL);
 }
 
 function buildShops() {
   for (const s of UPPER) shopFront(s, UP_TOP, UP_FLOOR);
-  buildCinema();
+  buildPassage();
   for (const s of GROUND) shopFront(s, DN_TOP, FLOOR);
   // the walkway slab: white fascia with a LED strip, the underside with downlights
   L(room, 0, UP_FLOOR, WW, 8, TILEW); L(room, 0, UP_FLOOR, WW, 1, STONEL); L(room, 0, UP_FLOOR + 5, WW, 1, LEDW);
@@ -201,7 +268,7 @@ function shutters() {
   SHOPS.forEach((s, i) => {
     const k = shutterAt(wd(), hr(), i, SHOPS.length);
     if (k <= 0) return;
-    const top = (UPPER.includes(s) ? UP_TOP : DN_TOP) + 11, bot = UPPER.includes(s) ? UP_FLOOR : FLOOR;
+    const top = glassTop(s, UPPER.includes(s) ? UP_TOP : DN_TOP) - 1, bot = UPPER.includes(s) ? UP_FLOOR : FLOOR;
     const h = Math.round((bot - top) * k);
     rect(s.x + 4, top, s.w - 6, h, STONEL);
     for (let y = top + 1; y < top + h; y += 3) rect(s.x + 4, y, s.w - 6, 1, STONE);
@@ -265,49 +332,13 @@ function kiosk() {
   }
 }
 
-/** The cinema: marquee bulbs chasing round the sign and a lit foyer while a session is on or coming up. */
-function cinemaFront() {
-  const { x, w } = CINE, on = cinemaDoorTap(wd(), hr()).enter, t = S.ms / 1000, top = UP_TOP;
-  const d0 = x + 28, d1 = x + w - 28;
-  if (on) {
-    rect(d0 + 1, top + 22, d1 - d0 - 2, UP_FLOOR - top - 22, WWARM); rect((d0 + d1) >> 1, top + 21, 1, UP_FLOOR - top - 21, STEEL);
-    rect(d0 + 3, UP_FLOOR - 9, d1 - d0 - 6, 5, CRED); rect(d0 + 4, UP_FLOOR - 13, 3, 4, TILEW); rect(d0 + 9, UP_FLOOR - 12, 3, 3, CYELL); // the snack counter
-  }
-  for (let k = 0, bx = x + 6; bx < x + w - 4; bx += 4, k++) {
-    const c = on ? ((k + Math.floor(t * 6)) % 3 ? LIGHT : WWARM) : STEEL;
-    put(bx, top, c); put(bx, top + 12, c);
-  }
-}
-
 /** The SAÍDA sign over the glass doors (a light source, on even while closed). */
 const EXIT_SIGN = { x: EX0 + 9, y: DN_TOP + 2, w: EX1 - EX0 - 18, h: 10 };
 const exitSign = () => saidaSign(EXIT_SIGN.x, EXIT_SIGN.y, EXIT_SIGN.w, EXIT_SIGN.h);
 const onExit = (x: number, y: number) => x >= EX0 - 4 && x <= EX1 + 4 && y >= DN_TOP - 4 && y <= FLOOR + 4;
 
-/** Real rain (or the labelled #wx= test) beads and runs on the skylight. */
-function skylightRain() {
-  if (!raining(S.wxKind, S.rain, S.snow)) return;
-  const t = S.ms / 1000, n = Math.round(60 + 240 * Math.min(1, S.rain));
-  for (let i = 0; i < n; i++) {
-    const x = Math.floor(hashf(i * 17.3) * WW), y = SKY_TOP + Math.floor(((hashf(i * 5.1) * 36 + t * (4 + hashf(i) * 6)) % (SKY_BOT - SKY_TOP)));
-    put(x, y, RAINB); if (i & 1) put(x, y - 1, RAINB);
-  }
-}
-
-// ---------- the gallery's own light ----------
-/** The sky through the skylight and the glass doors keeps the global grade; everything else is lit by the mall. */
-const KEEP = new Set<number>([SKY1, SKY2, SKY3, SKY4, HAZE, GLOWO, GLOWI, CLOUD, CLOUDD, SUN, MOON]);
-function grade() {
-  const o = isOpen(), k = o ? 1 : 0.32, warm = o ? 1 - S.dayK : 0;
-  for (let i = 0; i < NPAL; i++) {
-    if (KEEP.has(i)) continue;
-    const lit = EMISSIVE[i], c = lit ? NIGHT_RGB[i] : DAY_RGB[i], kk = lit ? (o ? 1 : 0.6) : k;
-    const r = Math.min(255, c[0] * kk + 10 * warm) | 0, g = Math.min(255, c[1] * kk + 4 * warm) | 0, b = Math.max(0, Math.min(255, c[2] * kk - 6 * warm)) | 0;
-    PAL32[i] = (255 << 24) | (b << 16) | (g << 8) | r;
-  }
-  // the green exit sign and its letters stay lit, as in any building
-  for (const [i, h] of [[CGREEN, [30, 120, 60]], [FWG, [190, 255, 200]]] as const) PAL32[i] = (255 << 24) | (h[2] << 16) | (h[1] << 8) | h[0];
-}
+/** Rain on the skylight and the mall's own light, shared with the food court (partage-kit.ts). */
+const grade = () => mallGrade(isOpen());
 
 function update(dt: number) {
   tickSpawns(dt, insideCrowd(wd(), hr())); updatePeople(dt);
@@ -316,9 +347,8 @@ function update(dt: number) {
 function render() {
   drawSky(SKY_BOT);
   blitLayer(room);
-  skylightRain();
+  skylightRain(SKY_TOP, SKY_BOT);
   shutters();
-  cinemaFront();
   kiosk();
   escalator();
   drawPeople();
@@ -329,7 +359,7 @@ function render() {
 let built = false;
 export const partageInterior: Scene = {
   id: 'partage-interior',
-  name: 'Partage · Por dentro',
+  name: 'Partage · Lojas',
   build() {
     if (!built) { buildCeiling(); buildShops(); buildExit(); buildFloor(); buildProps(); built = true; }
     // the upper walkway and the ground-floor corridor; no bikes, and the weather does not reach them
@@ -345,11 +375,8 @@ export const partageInterior: Scene = {
   hint() { return { x: EXIT_SIGN.x + (EXIT_SIGN.w >> 1), y: EXIT_SIGN.y, text: 'Toque na SAÍDA pra voltar à rua' }; },
   tap(x, y) {
     if (onExit(x, y)) return { x: EXIT_SIGN.x + (EXIT_SIGN.w >> 1), y: EXIT_SIGN.y, goto: 'partage-shopping' };
-    // the cinema's doors: into the room while a session is on (cinema-partage), otherwise when it opens
-    if (x >= CINE.x + 4 && x <= CINE.x + CINE.w && y >= UP_TOP + 14 && y <= UP_FLOOR + 2) {
-      const d = cinemaDoorTap(wd(), hr()), cx = CINE.x + (CINE.w >> 1);
-      return d.enter ? { x: cx, y: UP_TOP + 14, goto: 'cinema-partage' } : { x: cx, y: UP_TOP + 14, say: d.say };
-    }
+    // the passage on the upper floor: on to the food court and the cinema's front (same building, same moment)
+    if (x >= PASS.x + 4 && x <= PASS.x + PASS.w && y >= UP_TOP && y <= UP_FLOOR + 2) return { x: PASS.x + (PASS.w >> 1), y: UP_TOP + 6, goto: 'partage-alimentacao' };
     if (isOpen() && x >= KIOSK.x + KIOSK.w - 16 && x <= KIOSK.x + KIOSK.w - 6 && y >= KIOSK.base - 32 && y <= KIOSK.base - 14) {
       return { x: KIOSK.x + KIOSK.w - 12, y: KIOSK.base - 31, speaker: { role: 'vendor' } };
     }

@@ -16,6 +16,7 @@ import { neonAlley } from './neon-alley';
 import { parqueCrianca } from './parque-da-crianca';
 import { partage } from './partage-shopping';
 import { partageInterior } from './partage-interior';
+import { partageAlimentacao } from './partage-alimentacao';
 import { piramide } from './piramide-parque-do-povo';
 import { pracaCultura } from './praca-cultura';
 import { praca } from './praca-matriz';
@@ -35,7 +36,7 @@ import { resolveSceneId } from './scene-aliases';
 export const SCENES: Record<CityId, Scene[]> = {
   tokyo: [rainCorner, neonAlley, konbini, shrine],
   esperanca: [praca, ruaComercio, capelinha, pracaCultura, campoRodoviaria, centroTeatro, armazemParaiba, ruaFaustino, ruaJoseBezerra, ruaManoelRodrigues],
-  campina: [acudeVelho, piramide, estacaoVelha, parqueCrianca, partage, partageInterior, cinemaPartage, terminalIntegracao, onibus],
+  campina: [acudeVelho, piramide, estacaoVelha, parqueCrianca, partage, partageInterior, partageAlimentacao, cinemaPartage, terminalIntegracao, onibus],
   joaopessoa: [caboBranco],
   areia: [centroAreia],
   remigio: [lagoaRemigio, cinemaRemigio, cinemaFachada],
