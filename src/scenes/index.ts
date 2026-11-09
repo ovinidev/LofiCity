@@ -5,7 +5,7 @@ import { caboBranco } from './cabo-branco';
 import { centroAreia } from './centro-areia';
 import { lagoaRemigio } from './lagoa-remigio';
 import { cinemaRemigio } from './cinema-remigio';
-import { cinemaFachada } from './cinema-fachada-remigio';
+import { cinemaFachada } from './cinema-facade-remigio';
 import { campoRodoviaria } from './campo-rodoviaria';
 import { capelinha } from './capelinha';
 import { centroTeatro } from './centro-teatro';
@@ -28,6 +28,7 @@ import { boardable } from './onibus-rules';
 import { terminalIntegracao } from './terminal-integracao';
 import type { Scene } from './types';
 import { nextCycleIndex } from '../scene-cycle';
+import { resolveSceneId } from './scene-aliases';
 
 export const SCENES: Record<CityId, Scene[]> = {
   tokyo: [rainCorner, neonAlley, konbini, shrine],
@@ -44,10 +45,11 @@ const LAST_KEY = 'loficity:lastScene:';
     can be boarded (so #scene=onibus and the permalink work there too). Not in the random pick. */
 const reachable = (city: CityId): Scene[] => (boardable(city) && !SCENES[city].includes(onibus) ? [...SCENES[city], onibus] : SCENES[city]);
 
-/** #scene=<id> pins a scene; otherwise every load picks a random one, never the previous. */
+/** #scene=<id> pins a scene (an old id from SCENE_ALIASES opens its renamed scene); otherwise every load picks a random one, never the previous. */
 export function pickScene(city: CityId): Scene {
   const list = SCENES[city];
-  const want = /scene=([\w-]+)/.exec(location.hash)?.[1];
+  const raw = /scene=([\w-]+)/.exec(location.hash)?.[1];
+  const want = raw && resolveSceneId(raw); // old shared links (renamed ids) still open the scene
   const pinned = reachable(city).find((s) => s.id === want);
   if (pinned) return pinned;
   let last: string | null = null;
@@ -59,7 +61,7 @@ export function pickScene(city: CityId): Scene {
 }
 
 /** A scene of the city by id (a door's `goto`), or null. */
-export const sceneById = (city: CityId, id: string): Scene | null => reachable(city).find((s) => s.id === id) ?? null;
+export const sceneById = (city: CityId, id: string): Scene | null => reachable(city).find((s) => s.id === resolveSceneId(id)) ?? null;
 
 /** The scene the automatic change moves to: the next one, skipping the bus and the cinema room you only enter yourself. */
 export function cycleScene(city: CityId, current: Scene): Scene {

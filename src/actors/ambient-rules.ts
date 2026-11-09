@@ -35,7 +35,7 @@ export const AMBIENT_SCENES: Readonly<Record<string, { city: CityId; kinds: read
 };
 
 /** Never hosts ambient events (documented above; checked by the tests). */
-export const AMBIENT_EXCLUDED = ['capelinha', 'praca-matriz', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues', 'campo-rodoviaria', 'cinema-remigio', 'cinema-fachada-remigio', 'onibus'] as const;
+export const AMBIENT_EXCLUDED = ['capelinha', 'praca-matriz', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues', 'campo-rodoviaria', 'cinema-remigio', 'cinema-facade-remigio', 'onibus'] as const;
 
 /** Kinds that need a known dry spell: a real reading (live or stale) or the #wx= test, without rain. */
 const FAIR = new Set<AmbientKind>(['vendor', 'kid-ball', 'pigeons']);

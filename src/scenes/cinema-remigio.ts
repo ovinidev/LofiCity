@@ -617,7 +617,7 @@ function render() {
 
 // ---------- the way out ----------
 /** The lit SAÍDA sign over the aisle near the back rows (always on, as in any cinema):
-    tapping it goes back out to the street front (cinema-fachada-remigio). */
+    tapping it goes back out to the street front (cinema-facade-remigio). */
 const EXIT = { x: AX - 13, y: 146, w: 27, h: 9 }; // above the control bar in landscape
 function exitSign() {
   const { x, y, w, h } = EXIT;
@@ -666,7 +666,7 @@ export const cinemaRemigio: Scene = {
   },
   hint() { return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, text: 'Toque na SAÍDA pra voltar à rua' }; },
   tap(x, y) {
-    if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, goto: 'cinema-fachada-remigio' };
+    if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, goto: 'cinema-facade-remigio' };
     if (session.phase === 'closed') return null;
     const heads = session.phase === 'preshow' ? [...HEADS, ...PRESHOW_HEADS] : HEADS;
     for (const h of heads) {
