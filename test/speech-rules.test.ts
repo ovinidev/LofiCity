@@ -26,6 +26,17 @@ const ctx = (o: Partial<SpeechCtx> & { wx?: Partial<WxCtx> } = {}): SpeechCtx =>
 const texts = (c: SpeechCtx) => new Set(candidates(c).map((p) => p.t));
 const seq = (vals: number[]) => { let i = 0; return () => vals[i++ % vals.length]; };
 
+test('the feira vendors and shoppers of Rua José Bezerra always have lines, only feira lines, and weather lines only with a real reading', () => {
+  for (const role of ['vendor', 'shopper'] as const) for (const hour of HOURS) {
+    const c = ctx({ scene: 'rua-jose-bezerra', hour, role, wx: { kind: 'unavailable', temp: null } });
+    assert.ok(candidates(c).length >= 3, `${role} at ${hour}h`);
+    for (const p of candidates(c)) { assert.equal(p.scene, 'rua-jose-bezerra'); assert.ok(!p.wx); }
+    for (const scene of ['praca-matriz', 'rua-faustino']) assert.equal(candidates(ctx({ scene, hour, role })).length, 0, `${role} lines leak into ${scene}`);
+  }
+  assert.ok(texts(ctx({ scene: 'rua-jose-bezerra', role: 'vendor', wx: { kind: 'live', rain: 0.6 } })).has('Chuva não espanta freguês!'));
+  assert.ok(!texts(ctx({ scene: 'rua-jose-bezerra', role: 'passerby' })).has('Olha a laranja docinha!'), 'passers-by do not call out prices');
+});
+
 test('the pool is authored, non-empty, deduplicated and short enough for a bubble', () => {
   assert.ok(PHRASES.length >= 100, `only ${PHRASES.length} phrases`);
   const seen = new Set<string>();
