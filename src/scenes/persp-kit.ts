@@ -5,7 +5,10 @@
    pedestrians are drawn every frame at their depth's scale, far to near.
 
    Vehicles stay on their lane on the roadway (persp-rules.ts); pedestrians walk only along the
-   sidewalks and, where a scene has a zebra crossing, across it while traffic waits. */
+   sidewalks and, where a scene has a zebra crossing, across it while traffic waits. In real rain
+   (rain-rules.ts, from S.wxKind / S.rain / S.snow only) most open an umbrella and the rest hurry or,
+   where the scene passes `shelters` (a drawn awning), wait it out underneath; unknown weather
+   changes nothing. */
 import { L, Lp, type Layer, WW, WY0, getW, put, rect, sx, sy } from '../engine/gfx';
 import { bay, mulberry32 } from '../engine/math';
 import {
@@ -13,6 +16,7 @@ import {
   SKIN1, SKIN2, SKIN3, SKIN4, STEEL, STONE, STONEL, TILEW, VOID, WCOOL, WDIM, WHITE, WWARM, LIGHT, FGREEN, FPINK,
 } from '../engine/palette';
 import { type DepthCar, type DepthRoad, canEnter, depthSpawnDir, stepDepthCars } from '../actors/persp-rules';
+import { type Shelter, pickUmbrella, raining, shelterAt, shelterWait, umbrellaOpen } from '../actors/rain-rules';
 import { peopleCap } from '../sky/rhythm';
 import { S } from '../sky/state';
 import { isNight } from './br-kit';
@@ -234,14 +238,27 @@ type Phase = 'walk' | 'wait' | 'cross';
 export interface Walker {
   on: boolean; X: number; z: number; dz: number; walk: number; phase: Phase; sp: number; ph: number; wait: number; tx: number; crossed: boolean;
   top: number; low: number; skin: number; hair: number; skirt: boolean;
+  /** Umbrella colour (255 = none), whether it is a sun umbrella, seconds left sheltering, sheltered once, X to return to. */
+  umb: number; sun: boolean; rest: number; waited: boolean; homeX: number;
 }
+/** A covered stretch of one sidewalk (an awning in the drawing): x0..x1 are depths (m) along walk
+    `walk`, X is where people stand underneath, cap how many fit. */
+export interface DepthShelter extends Shelter { walk: number; X: number }
+/** Umbrella decisions use their own seeded generator, so dry weather keeps the walkers' sequence as before. */
+const ur = mulberry32(0x5a1b2);
+const RAIN_UMBS = [VOID, VOID, CNAVY, CRED, CBLUE, CGREEN, CYELL, MAGD];
+const SUN_UMBS = [CRED, CYELL, CBLUE, MAGD, CGREEN];
 const wr = mulberry32(0x77a1c);
 const wpick = <T>(a: readonly T[]): T => a[(wr() * a.length) | 0];
 export function makeWalkers(n: number): Walker[] {
-  return Array.from({ length: n }, () => ({ on: false, X: 0, z: 0, dz: 1, walk: 0, phase: 'walk' as Phase, sp: 1.2, ph: 0, wait: 0, tx: 0, crossed: false, top: TILEW, low: VOID, skin: SKIN2, hair: HAIR1, skirt: false }));
+  return Array.from({ length: n }, () => ({ on: false, X: 0, z: 0, dz: 1, walk: 0, phase: 'walk' as Phase, sp: 1.2, ph: 0, wait: 0, tx: 0, crossed: false, top: TILEW, low: VOID, skin: SKIN2, hair: HAIR1, skirt: false, umb: 255, sun: false, rest: 0, waited: false, homeX: 0 }));
 }
 
-export interface WalkCfg { walks: Walk[]; zNear: number; zFar: number; zebra?: ZebraP | null }
+export interface WalkCfg {
+  walks: Walk[]; zNear: number; zFar: number; zebra?: ZebraP | null;
+  /** Awnings where people without an umbrella wait out real rain (only where the drawing has one). */
+  shelters?: DepthShelter[];
+}
 let walkT = 0.5;
 
 function spawnWalker(ws: Walker[], cfg: WalkCfg) {
@@ -258,6 +275,9 @@ function spawnWalker(ws: Walker[], cfg: WalkCfg) {
   w.skirt = wr() < 0.35; w.top = wpick([TILEW, CBLUE, CRED, CYELL, FPINK, STEEL, CGREEN, VOID, CBEIGE]);
   w.low = w.skirt ? w.top : wpick([VOID, BNEAR, CNAVY, CBLUE, STONE]);
   w.skin = wpick([SKIN1, SKIN2, SKIN2, SKIN3, SKIN3, SKIN4]); w.hair = wpick([HAIR1, HAIR1, HAIR2, HAIR3]);
+  const u = pickUmbrella(S.wxKind, S.rain, S.snow, S.city.br ? S.temp : null, S.dayK, S.cloud, ur(), ur());
+  w.umb = u.umbrella ? RAIN_UMBS[(ur() * RAIN_UMBS.length) | 0] : u.sun ? SUN_UMBS[(ur() * SUN_UMBS.length) | 0] : 255;
+  w.sun = u.sun; w.sp *= u.speedK; w.rest = 0; w.waited = false;
   w.on = true;
 }
 
@@ -272,10 +292,21 @@ export const zebraBusyP = (ws: Walker[]) => ws.some((w) => w.on && (w.phase === 
 export function updateWalkers(ws: Walker[], dt: number, cfg: WalkCfg, carsNear: () => boolean, density = 1) {
   walkT -= dt * 0.5 * S.busy * density;
   if (walkT <= 0) { walkT = 0.6 + wr() * 1.6; if (ws.filter((w) => w.on).length < Math.min(ws.length, peopleCap(S.busy * density))) spawnWalker(ws, cfg); }
-  const zb = cfg.zebra;
+  const zb = cfg.zebra, shelters = cfg.shelters ?? [], wet = shelters.length > 0 && raining(S.wxKind, S.rain, S.snow);
   for (const w of ws) {
     if (!w.on) continue;
     if (w.phase === 'walk') {
+      if (w.rest > 0) { // under an awning until the rain stops or they give up, then back to their line
+        w.rest = wet ? w.rest - dt : 0;
+        if (w.rest <= 0) { w.rest = 0; w.X = w.homeX; }
+        continue;
+      }
+      const sh = wet ? shelterAt(shelters.filter((s) => s.walk === w.walk), w.z) : null;
+      if (sh) {
+        const waiting = ws.reduce((n, o) => n + (o.on && o.rest > 0 && o.walk === w.walk && o.z >= sh.x0 && o.z <= sh.x1 ? 1 : 0), 0);
+        const t = shelterWait({ wet, umbrella: w.umb !== 255, onFoot: true, waited: w.waited, waiting, cap: sh.cap }, ur());
+        if (t > 0) { w.rest = t; w.waited = true; w.homeX = w.X; w.X = sh.X; continue; }
+      }
       w.z += w.dz * w.sp * dt; w.ph += dt * w.sp * 3;
       if (zb && !w.crossed && w.z > zb.z0 + 0.4 && w.z < zb.z1 - 0.4 && wr() < dt * 0.25) { w.phase = 'wait'; w.wait = 0.6 + wr(); }
       const wk = cfg.walks[w.walk];
@@ -297,6 +328,10 @@ export function updateWalkers(ws: Walker[], dt: number, cfg: WalkCfg, carsNear: 
   }
 }
 
+/** Debug: open rain umbrellas and people under an awning right now. */
+export const walkerRainDebug = (ws: Walker[]) =>
+  `umb x${ws.filter((w) => w.on && w.umb !== 255 && !w.sun && umbrellaOpen(false, S.wxKind, S.rain, S.snow)).length} abrigo x${ws.filter((w) => w.on && w.rest > 0).length}`;
+
 /** Debug: walkers on the roadway part of the crossing right now. */
 export const onZebra = (ws: Walker[], zb: ZebraP | null | undefined) => (zb ? ws.filter((w) => w.on && w.phase === 'cross' && w.X > zb.XL && w.X < zb.XR).length : 0);
 
@@ -306,7 +341,7 @@ export function drawWalker(v: View, w: Walker) {
   const k = scaleAt(v, w.z), cx = projX(v, w.X, w.z), gy = projY(v, 0, w.z);
   const X = (u: number) => Math.round(cx + u * k), Y = (h: number) => Math.round(gy - h * k);
   const R = (u0: number, u1: number, h1: number, h0: number, col: number) => rect(X(u0), Y(h1), Math.max(1, X(u1) - X(u0)), Math.max(1, Y(h0) - Y(h1)), col);
-  const st = w.phase === 'wait' ? 0 : Math.sin(w.ph * 2), side = w.phase === 'cross';
+  const st = w.phase === 'wait' || w.rest > 0 ? 0 : Math.sin(w.ph * 2), side = w.phase === 'cross';
   if (side) { const a = st * 1.6; R(-1 + a, 0.6 + a, 8, 0, w.skirt ? w.skin : w.low); R(-0.6 - a, 1 - a, 8, 0, w.skirt ? w.skin : w.low); }
   else { const lift = Math.abs(st) > 0.5 ? 0.8 : 0; R(-1.8, -0.4, 8, st > 0 ? lift : 0, w.skirt ? w.skin : w.low); R(0.4, 1.8, 8, st < 0 ? lift : 0, w.skirt ? w.skin : w.low); }
   if (w.skirt) R(-2, 2, 9, 5.5, w.low);
@@ -315,6 +350,11 @@ export function drawWalker(v: View, w: Walker) {
   if (w.dz > 0 && !side) R(-1.4, 1.4, 17.2, 14.6, w.hair); // seen from behind
   else R(-1.4, 1.4, 17.2, 16.2, w.hair);
   if (w.skirt && !side) R(-1.5, 1.5, 16.5, 13.5, w.hair);
+  if (w.umb !== 255 && umbrellaOpen(w.sun, S.wxKind, S.rain, S.snow)) { // canopy over the head, on its stick
+    R(1.5, 1.9, 19.5, 11, STEEL); // held at the side, clear of the face
+    R(-5, 5, 20.2, 19, w.umb); R(-3.2, 3.2, 21.4, 20.2, w.umb);
+    if (S.snowCover > 0.2 && S.snow > 0.05) R(-2.4, 2.4, 22, 21.4, WHITE);
+  }
 }
 
 export function tapWalker(v: View, ws: Walker[], x: number, y: number): { x: number; y: number; speaker: Speaker } | null {
