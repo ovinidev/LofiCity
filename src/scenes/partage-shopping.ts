@@ -12,7 +12,8 @@
    Opening hours are art direction, not the mall's real timetable: Monday to Saturday 10h-22h,
    Sundays 14h-20h (partage-rules.ts, shared with the inside). While open the doors and shop windows
    are lit after dark and the signs glow; closed, the signs go dark except a dim emblem and few people
-   pass. Tapping the main doors under the glass marquee goes inside (partage-interior.ts) while open. */
+   pass. Tapping the main doors under the glass marquee goes inside (partage-interior.ts) while open; a red
+   ENTRADA board on the marquee, steel door frames and light spilling out at night mark the way in. */
 import { L, Lp, WW, blitLayer, newLayer, put, rect } from '../engine/gfx';
 import { mulberry32 } from '../engine/math';
 import {
@@ -27,7 +28,7 @@ import { drawCars, setCarLanes, updateCars } from '../actors/cars';
 import { S } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
-  type Lamp, type Palm, type TowerWin, bandeirolas, christmasStar, drawPalm, drawTowerWins, isNight, lampLight, lampPost, text, textW, tower,
+  type Lamp, type Palm, type TowerWin, bandeirolas, christmasStar, drawPalm, drawTowerWins, isNight, lampLight, lampPost, text, textW, tower, warmPool,
 } from './br-kit';
 import { doorTap, mallOpen } from './partage-rules';
 import type { Scene } from './types';
@@ -195,6 +196,22 @@ function groundFloor() {
   if (n) for (let r = 0; r < 5; r++) for (let bay = 0; bay < 10; bay++) if ((bay * 7 + r * 3) % 9 === 0) put(LOUV + bay * 26 + 13, LOUV_TOP + 10 + r * 10, o ? LEDW : WDIM);
 }
 
+/** The way in, made easy to spot: a red ENTRADA board on the glass marquee (lit at night while open),
+    steel frames round the two door bays and, at night while open, warm light spilling onto the forecourt.
+    Art direction (the photo shows the marquee, not a sign): the doors are the scene's tap target. */
+function entrance() {
+  const n = isNight(), o = open(), lit = n && o, bx = DX - 22, by = 88, bw = 44;
+  rect(bx + 6, by + 8, 1, 2, STEEL); rect(bx + bw - 7, by + 8, 1, 2, STEEL); // hangers to the marquee
+  rect(bx - 1, by - 1, bw + 2, 10, lit ? LIGHT : STEEL); rect(bx, by, bw, 8, CRED);
+  text(null, 'ENTRADA', DX - (textW('ENTRADA') >> 1), by + 2, lit ? WHITE : o ? TILEW : STONEL);
+  // the door bays: a steel frame and a mat at the threshold
+  rect(DOOR0 - 1, GLASS_TOP - 1, DOOR1 - DOOR0 - 2, 1, STEEL);
+  for (const x of [DOOR0 - 1, DOOR0 + 24, DOOR1 - 4]) rect(x, GLASS_TOP - 1, 2, GROUND - 1 - GLASS_TOP, STEEL);
+  rect(DOOR0 + 2, GROUND - 2, DOOR1 - DOOR0 - 8, 1, VOID);
+  // while open, a small chevron pulses under the board, pointing at the doors
+  if (o && Math.floor(S.ms / 600) % 2 === 0) { const cy = by + 11; rect(DX - 2, cy, 5, 1, lit ? LIGHT : CRED); rect(DX - 1, cy + 1, 3, 1, lit ? LIGHT : CRED); put(DX, cy + 2, lit ? LIGHT : CRED); }
+}
+
 /** The parking entrance: dim ramp lights, headlights of a car leaving now and then while open. */
 function parking() {
   const n = isNight(), o = open(), t = S.ms / 1000;
@@ -242,10 +259,11 @@ function render() {
   drawSky(HORIZON); drawAnimalsSky(); drawLightning();
   blitLayer(far); drawTowerWins(wins); drawFireworks();
   blitLayer(mid);
-  groundFloor(); parking(); signs();
+  groundFloor(); entrance(); parking(); signs();
   if (S.natal && isNight()) christmasStar(195, 92, 1.4);
   drawFarPrecip();
   blitLayer(front);
+  if (open()) warmPool(DX, GROUND + 3, 34, 6, 0.6); // light from the doors on the forecourt (night only)
   for (const p of PALMS) drawPalm(p);
   for (const l of LAMPS) lampLight(l);
   if (S.saoJoao) { bandeirolas(LOGO1, 96, 316, 96, 6, 2); bandeirolas(316, 96, 420, 92, 8, 5); }

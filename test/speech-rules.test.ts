@@ -9,7 +9,7 @@ import { PHRASES } from '../src/actors/phrases.ts';
 
 const SCENES = {
   esperanca: ['praca-matriz', 'rua-comercio', 'capelinha', 'praca-cultura', 'campo-rodoviaria', 'centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues'],
-  campina: ['acude-velho', 'piramide-parque-do-povo', 'estacao-velha', 'parque-da-crianca', 'partage-shopping', 'partage-interior', 'cinema-partage', 'terminal-integracao'],
+  campina: ['acude-velho', 'piramide-parque-do-povo', 'estacao-velha', 'parque-da-crianca', 'partage-shopping', 'partage-interior', 'partage-alimentacao', 'cinema-partage', 'terminal-integracao'],
   joaopessoa: ['cabo-branco'], areia: ['centro-areia'], remigio: ['lagoa-remigio', 'cinema-remigio', 'cinema-facade-remigio'],
   tokyo: ['rain-corner', 'neon-alley', 'konbini', 'shrine'],
 } as const;
@@ -54,7 +54,7 @@ test('every scene, at every hour, has something to say for its speakers', () => 
       : scene === 'praca-cultura' ? (['passerby', 'student', 'player', 'volley'] as const)
       : scene === 'cinema-remigio' || scene === 'cinema-partage' ? (['attendee'] as const)
       : scene === 'onibus' ? (['rider', 'pupil'] as const)
-      : scene === 'partage-interior' ? (['passerby', 'vendor'] as const)
+      : scene === 'partage-interior' || scene === 'partage-alimentacao' ? (['passerby', 'vendor'] as const)
       : scene === 'cinema-facade-remigio' ? (['passerby', 'visitor', 'attendee'] as const) : (['passerby'] as const);
     for (const role of roles) {
       const c = ctx({ city, scene, hour, role, wx: { kind: 'unavailable', temp: null } });

@@ -70,35 +70,44 @@ test('only scenes whose photo shows a zebra wire up a crossing', () => {
 
 const CAMPINA_NEW = ['piramide-parque-do-povo', 'estacao-velha', 'parque-da-crianca', 'partage-shopping', 'terminal-integracao'];
 
-test('Campina Grande has Açude Velho first, then the five new scenes (the mall followed by its inside and its cinema), then the bus interior', () => {
-  const ids = [...CAMPINA_NEW]; ids.splice(ids.indexOf('partage-shopping') + 1, 0, 'partage-interior', 'cinema-partage');
+test('Campina Grande has Açude Velho first, then the five new scenes (the mall followed by its shops, its food court and its cinema), then the bus interior', () => {
+  const ids = [...CAMPINA_NEW]; ids.splice(ids.indexOf('partage-shopping') + 1, 0, 'partage-interior', 'partage-alimentacao', 'cinema-partage');
   assert.deepEqual(table.get('campina')!.map(sceneId), ['acude-velho', ...ids, 'onibus']);
 });
 
 test('Partage Shopping: the street door and the SAÍDA inside point at each other and share the hours; the inside is indoors', () => {
-  const front = read('src/scenes/partage-shopping.ts'), inside = read('src/scenes/partage-interior.ts');
+  const front = read('src/scenes/partage-shopping.ts'), inside = read('src/scenes/partage-interior.ts'), food = read('src/scenes/partage-alimentacao.ts');
   assert.match(front, /goto: 'partage-interior'/);
   assert.match(inside, /goto: 'partage-shopping'/);
-  for (const src of [front, inside]) {
+  // the shops and the food court lead to each other
+  assert.match(inside, /goto: 'partage-alimentacao'/);
+  assert.match(food, /goto: 'partage-interior'/);
+  for (const src of [front, inside, food]) {
     assert.match(src, /from '\.\/partage-rules'/, 'hours from the shared rules');
     assert.doesNotMatch(src, /hourIn\(S\.cal\.hour, (10|14)/, 'no opening hours copied into a scene');
     assert.doesNotMatch(src, /S\.(rain|snow|storm|cloud|fog|temp|wind|wet)\s*=[^=]/);
     assert.doesNotMatch(src, /Math\.random\(/);
   }
-  assert.match(inside, /grade\(\)/, 'lights itself (grade hook)');
-  assert.match(inside, /daylit: true/, 'lit room: daylight bloom day and night');
+  for (const src of [inside, food]) {
+    assert.match(src, /grade[:(]/, 'lights itself (grade hook)');
+    assert.match(src, /mallGrade\(isOpen\(\)\)/, 'the same mall light in both');
+    assert.match(src, /daylit: true/, 'lit room: daylight bloom day and night');
+    assert.match(src, /setLanes\([^)]*indoor: true/, 'the people inside ignore the weather (no umbrellas)');
+  }
   assert.match(read('src/main.ts'), /present\(clock, S\.shake, scene\.daylit \? 1 : scene\.grade && !scene\.seesSky \? 0 : S\.dayK\)/);
-  assert.match(inside, /setLanes\([^)]*indoor: true/, 'the people inside ignore the weather (no umbrellas)');
   assert.doesNotMatch(read('src/scenes/partage-rules.ts'), /Math\.random\(|from '\.\.\/engine|document\.|window\./);
   const line = read('docs/DEVELOPING.md').split('\n').find((l) => l.startsWith('- `#scene='))!;
-  assert.ok(line.includes('`partage-interior`'), 'partage-interior in the #scene list');
+  assert.ok(line.includes('`partage-interior`') && line.includes('`partage-alimentacao`'), 'both insides in the #scene list');
   const at = Date.parse('2026-11-09T14:30-03:00');
   assert.deepEqual(density('campina', 'partage-interior', at), density('campina', 'partage-shopping', at));
+  assert.deepEqual(density('campina', 'partage-alimentacao', at), density('campina', 'partage-shopping', at));
+  // look-alike names only: none of the real brands from the reference photos
+  for (const src of [inside, food]) assert.doesNotMatch(src, /'(RIACHUELO|LEITURA|CENTAURO|CINESERCLA)'/i);
 });
 
-test('the Partage cinema: the shared room, its own film order, in and out through the mall', () => {
-  const cine = read('src/scenes/cinema-partage.ts'), inside = read('src/scenes/partage-interior.ts');
-  assert.match(cine, /\.\.\.cinemaRoom\(\{ exitTo: 'partage-interior'/);
+test('the Partage cinema: the shared room, its own film order, in and out through the food court', () => {
+  const cine = read('src/scenes/cinema-partage.ts'), inside = read('src/scenes/partage-alimentacao.ts');
+  assert.match(cine, /\.\.\.cinemaRoom\(\{ exitTo: 'partage-alimentacao'/);
   assert.doesNotMatch(cine, /salt: 0 \}/, 'not the same film as Remígio');
   assert.match(inside, /goto: 'cinema-partage'/);
   assert.match(inside, /cinemaDoorTap\(wd\(\), hr\(\)\)/, 'door from the shared rules');

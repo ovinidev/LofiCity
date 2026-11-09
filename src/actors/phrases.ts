@@ -10,7 +10,7 @@
           the volleyball players there as 'volley' and the school's students as 'student'. Inside the
           bus (src/scenes/onibus.ts) the passengers speak as 'rider', the children on the school bus as 'pupil';
           the feira on Rua José Bezerra has its 'vendor's and 'shopper's, who only exist while the market runs;
-          inside Partage Shopping the coffee kiosk's attendant is a 'vendor' too. */
+          inside Partage Shopping the coffee kiosk's attendant and the food-court counter staff are 'vendor's too. */
 
 export type Tod = 'manha' | 'tarde' | 'noite' | 'madrugada';
 export type WxTag = 'heat' | 'cold' | 'rain' | 'snow';
@@ -112,10 +112,15 @@ export const PHRASES: Phrase[] = [
   ...group({ scene: 'partage-shopping' }, ['Vou pegar um cineminha.', 'Bora tomar um açaí no shopping?']),
   ...group({ scene: 'partage-shopping', wx: 'heat' }, ['Ar-condicionado do shopping, que delícia!']),
   // inside the mall (src/scenes/partage-interior.ts): shoppers in the corridors and the coffee kiosk
-  ...group({ scene: 'partage-interior' }, ['Só vim olhar as vitrines.', 'Tô procurando um presente.', 'Bora lanchar depois?', 'Achei um tênis massa!', 'Esse shopping tá cheio hoje!', 'Bora pegar um filme lá em cima?']),
+  ...group({ scene: 'partage-interior' }, ['Só vim olhar as vitrines.', 'Tô procurando um presente.', 'Bora lanchar depois?', 'Achei um tênis massa!', 'Esse shopping tá cheio hoje!', 'Bora pegar um filme depois?']),
   ...group({ scene: 'partage-interior', tod: ['noite'] }, ['Daqui a pouco fecha, bora!']),
   ...group({ scene: 'partage-interior', wx: 'heat' }, ['Aqui dentro tá fresquinho!']),
   ...group({ scene: 'partage-interior', wx: 'rain' }, ['Vou esperar a chuva passar aqui dentro.']),
+  // the food court and the cinema's front (src/scenes/partage-alimentacao.ts): diners and the counter staff
+  ...group({ scene: 'partage-alimentacao' }, ['Esse lanche tá uma delícia!', 'Depois do filme a gente come.', 'Pede uma tapioca pra mim?', 'Tá cheia a praça de alimentação!', 'Bora ver qual filme tá passando?', 'Guarda a mesa que eu vou pedir.']),
+  ...group({ scene: 'partage-alimentacao', tod: ['noite'] }, ['Jantar no shopping, que luxo!']),
+  ...group({ scene: 'partage-alimentacao', wx: 'heat' }, ['Um suco gelado nesse calor!']),
+  ...group({ scene: 'partage-alimentacao', who: ['vendor'] }, ['Próximo, por favor!', 'Vai querer com refri?', 'Sai rapidinho, viu?', 'O combo tá na promoção!']),
   ...group({ scene: 'partage-interior', who: ['vendor'] }, ['Cafezinho saindo agora!', 'Vai querer o quê, meu bem?', 'Tem pão de queijo quentinho!', 'Um capuccino pra animar?']),
   ...group({ scene: 'terminal-integracao' }, ['Será que o ônibus já passou?', 'Tô esperando o circular.', 'Ufa, achei um banquinho!']),
 
