@@ -327,6 +327,14 @@ function speak(who: Speaker, x: number, y: number) {
   recentPhrases = remember(recentPhrases, text);
   say(text, { x, y }, who.track);
 }
+// Mouse hover: the pointer cursor over anything the tap handler below would react to (a dry look, nothing moves).
+const viewEl = $('view');
+viewEl.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse') return;
+  const f = toFrame(e.clientX, e.clientY), x = f.x + G.camX, y = f.y - G.oy;
+  const hit = tapAnimals(x, y, true) || tapPeople(x, y) || tapCars(x, y) || scene.tap?.(x, y);
+  viewEl.style.cursor = hit ? 'pointer' : '';
+});
 // Tap what moves: birds fly off, cats bolt, dogs bark and run, people talk, vehicles honk.
 $('view').addEventListener('pointerdown', (e) => {
   const f = toFrame(e.clientX, e.clientY), x = f.x + G.camX, y = f.y - G.oy;
