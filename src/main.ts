@@ -25,7 +25,8 @@ import { mountCityMap } from './ui/city-map';
 import { followLive, weatherView } from './sky/live';
 import { hudWeather, manualLightningAllowed } from './sky/weather-feed';
 import { updateSky } from './scenes/common';
-import { nextScene, pickScene } from './scenes';
+import { nextScene, pickScene, sceneById } from './scenes';
+import type { Scene } from './scenes/types';
 import { cardFileName, shareUrl, viewHash } from './share-rules';
 import { copyText, downloadCanvas, drawCard } from './share';
 import { inject, pageview } from '@vercel/analytics';
@@ -177,11 +178,15 @@ function setCity(id: string) {
 const syncBells = () => bells.sync(() => ({ cityId: city.id, utc: city.utc, pinned: simOffset !== 0, near: scene.id === 'praca-matriz' }));
 addEventListener('pagehide', () => bells.dispose());
 addEventListener('pageshow', (e) => { if (e.persisted) syncBells(); }); // back from the bfcache
+/** Switches to another scene of the same city at the same moment (the scene button, or a door). */
+function enterScene(next: Scene) {
+  clearBubbles(); clearPeople(); scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash();
+}
 const actions: Record<string, () => void> = {
   sound: () => { press('b-sound', audio.toggle()); syncBells(); },
   crt: () => { opts.crt = !opts.crt; press('b-crt', opts.crt); },
   city: () => cityMap.open(),
-  scene: () => { clearBubbles(); clearPeople(); scene = nextScene(city.id, scene); direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); },
+  scene: () => enterScene(nextScene(city.id, scene)),
   music: () => radio.toggle(),
   station: () => radio.nextStation(),
   skip: () => radio.skip(),
@@ -311,7 +316,11 @@ $('view').addEventListener('pointerdown', (e) => {
   const c = tapCars(x, y);
   if (c) { sfx(c.sound); emote(c.x, c.y, '♪'); return; }
   const prop = scene.tap?.(x, y);
-  if (prop?.speaker) speak(prop.speaker, prop.x, prop.y);
+  // a door (e.g. the cinema in Remígio): the same scene change as the scene button, then the new scene's hint
+  const to = prop?.goto ? sceneById(city.id, prop.goto) : null;
+  if (to) { enterScene(to); const h = scene.hint?.(); if (h) say(h.text, h); return; }
+  if (prop?.say) say(prop.say, prop);
+  else if (prop?.speaker) speak(prop.speaker, prop.x, prop.y);
   else if (prop?.sfx) { sfx(prop.sfx); emote(prop.x, prop.y, '♪'); }
 });
 

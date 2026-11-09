@@ -86,6 +86,13 @@ export const PHRASES: Phrase[] = [
     'Fica até o fim, tem cena extra.', 'Quem é esse de capa verde?', 'Vixe, derrubou todo mundo!', 'Desliga o celular, por favor.',
   ]),
 
+  // the street front of the cinema (src/scenes/cinema-fachada-remigio.ts): passers-by, the queue at
+  // the door ('visitor', before a session) and the audience coming out ('attendee', after the film)
+  ...group({ scene: 'cinema-fachada-remigio' }, ['Que fachada bonita a do cine!', 'Já viu os horários na placa?', 'Bora pegar uma sessão qualquer dia?']),
+  ...group({ scene: 'cinema-fachada-remigio', tod: ['noite'] }, ['Cinema de noite tem outro clima.']),
+  ...group({ scene: 'cinema-fachada-remigio', who: ['visitor'] }, ['Será que ainda tem lugar?', 'Bora, que já vai começar!', 'Vou pegar uma pipoca grande.', 'Tô na fila desde cedo, visse?']),
+  ...group({ scene: 'cinema-fachada-remigio', who: ['attendee'] }, ['Que filme arretado!', 'Aquela explosão, hein?', 'Vou voltar pra ver de novo.', 'Gostei do final, viu?']),
+
   // ---------- Tóquio (pt-BR simples, com um toque de japonês) ----------
   ...group(TK, ['Konnichiwa!', 'Arigatô!', 'Sumimasen, com licença!', 'Tóquio nunca dorme.', 'Vou pegar um onigiri.', 'Oi, tudo bem? Genki?']),
   ...group({ ...TK, tod: ['manha'] }, ['Ohayô! Bom dia!', 'Correndo pro trem!']),

@@ -23,7 +23,7 @@ import {
 } from '../engine/palette';
 import { setupAnimals } from '../actors/animals';
 import { S } from '../sky/state';
-import { type Session, type Shot, sessionAt, shotAt } from './cinema-rules';
+import { type Session, type Shot, screenNotice, sessionAt, shotAt } from './cinema-rules';
 import type { Scene } from './types';
 
 // ---------- the scene's own palette ----------
@@ -192,7 +192,7 @@ function seat(x: number, y: number, w: number, h: number, gap: number, rim: numb
 
 // ---------- tiny 3x5 font for the screen notices ----------
 const GL: Record<string, string> = {
-  A: '.X.X.XXXXX.XX.X', E: 'XXXX..XX.X..XXX', H: 'X.XX.XXXXX.XX.X', I: 'XXX.X..X..X.XXX', L: 'X..X..X..X..XXX',
+  A: '.X.X.XXXXX.XX.X', D: 'XX.X.XX.XX.XXX.', E: 'XXXX..XX.X..XXX', H: 'X.XX.XXXXX.XX.X', I: 'XXX.X..X..X.XXX', L: 'X..X..X..X..XXX',
   M: 'X.XXXXXXXX.XX.X', O: 'XXXX.XX.XX.XXXX', P: 'XX.X.XXX.X..X..', R: 'XX.X.XXX.X.XX.X', S: '.XXX...X...XXX.',
   V: 'X.XX.XX.XX.X.X.', X: 'X.XX.X.X.X.XX.X', Z: 'XXX..X.X.X..XXX', '0': 'XXXX.XX.XX.XXXX', '1': '.X.XX..X..X.XXX',
   '2': 'XX...X.X.X..XXX', '3': 'XX...X.X...XXX.', '4': 'X.XX.XXXX..X..X', '5': 'XXXX..XX...XXX.', '6': '.XXX..XXXX.XXXX',
@@ -201,11 +201,11 @@ const GL: Record<string, string> = {
 function text(s: string, cx: number, y: number, c: number) {
   let x = Math.round(cx - (s.length * 4 - 1) / 2);
   for (const ch of s) {
-    const base = ch === 'Ã' ? 'A' : ch === 'Ó' ? 'O' : ch;
+    const base = ch === 'Ã' ? 'A' : ch === 'Ó' ? 'O' : ch === 'Í' ? 'I' : ch;
     const g = GL[base];
     if (g) for (let i = 0; i < 15; i++) if (g[i] === 'X') put(x + (i % 3), y + ((i / 3) | 0), c);
     if (ch === 'Ã') { put(x, y - 2, c); put(x + 1, y - 3, c); put(x + 2, y - 2, c); put(x + 3, y - 3, c); }
-    if (ch === 'Ó') { put(x + 1, y - 2, c); put(x + 2, y - 3, c); }
+    if (ch === 'Ó' || ch === 'Í') { put(x + 1, y - 2, c); put(x + 2, y - 3, c); }
     x += 4;
   }
 }
@@ -553,16 +553,16 @@ function render() {
     cover(1 - shot.vis, F.BLACK);
   } else if (session.phase === 'preshow') {
     mr(0, 0, PW, PH, F.SLIDE);
-    const h = session.next, hh = Math.floor(h), mm = Math.round((h - hh) * 60);
-    text(`SESSÃO ${hh}H${mm ? String(mm).padStart(2, '0') : ''}`, PX0 + PW / 2, PY0 + PH / 2 - 6, F.TEXT);
+    text(screenNotice(S.cal.hour)?.[0] ?? '', PX0 + PW / 2, PY0 + PH / 2 - 6, F.TEXT);
     // a little popcorn bucket
     const bx = PX0 + PW / 2 - 4, by = PY0 + PH / 2 + 6;
     rect(bx, by + 3, 8, 7, F.SHW); for (let i = 0; i < 8; i += 2) rect(bx + i, by + 3, 1, 7, F.SHR);
     for (let i = 0; i < 9; i++) put(bx + (i % 5) * 2 - 1 + (i > 4 ? 1 : 0), by + (i > 4 ? 0 : 2), F.FIRE1);
   } else {
-    // closed: dark screen with a lit notice
-    text('SALA VAZIA', PX0 + PW / 2, PY0 + PH / 2 - 8, F.TEXT);
-    text('PRÓXIMA SESSÃO 14H', PX0 + PW / 2, PY0 + PH / 2 + 4, F.TEXT);
+    // closed: dark screen with a lit notice (the same text the street board agrees with, see cinema-rules.ts)
+    const [a, b] = screenNotice(S.cal.hour) ?? [];
+    text(a ?? '', PX0 + PW / 2, PY0 + PH / 2 - 8, F.TEXT);
+    text(b ?? '', PX0 + PW / 2, PY0 + PH / 2 + 4, F.TEXT);
   }
   measure(dt, session.phase !== 'closed');
   if (session.phase !== 'closed') {
@@ -573,8 +573,22 @@ function render() {
     const period = session.phase === 'preshow' ? 45 : 140, walk = 26, c = ((now % period) + period) % period;
     if (c < walk) drawWalker(Math.round(182 - (182 - STAGE) * (c / walk)), now);
   }
+  exitSign();
   house += ((session.phase === 'closed' ? 0.35 : session.phase === 'preshow' ? 0.75 : 0) - house) * Math.min(1, dt * 2);
 }
+
+// ---------- the way out ----------
+/** The lit SAÍDA sign over the aisle near the back rows (always on, as in any cinema):
+    tapping it goes back out to the street front (cinema-fachada-remigio). */
+const EXIT = { x: AX - 13, y: 146, w: 27, h: 9 }; // above the control bar in landscape
+function exitSign() {
+  const { x, y, w, h } = EXIT;
+  rect(x - 1, y - 1, w + 2, h + 2, R.BLACK);
+  rect(x, y, w, h, F.DOOMG);
+  text('SAÍDA', x + (w >> 1), y + 3, F.GREEN);
+  put(x + 2, y + 4, F.GREEN); put(x + w - 3, y + 4, F.GREEN); // little arrows either side
+}
+const onExit = (x: number, y: number) => x >= EXIT.x - 8 && x <= EXIT.x + EXIT.w + 8 && y >= EXIT.y - 8 && y <= EXIT.y + EXIT.h + 6;
 
 /** Average colour of the picture, which then lights the room through grade(). The projector is off when closed. */
 function measure(dt: number, on: boolean) {
@@ -614,7 +628,9 @@ export const cinemaRemigio: Scene = {
     const s = shot ? `${shot.kind} #${shot.index} t${shot.t.toFixed(1)}` : '-';
     return `cinema  ${session.phase}  shot ${s}  light ${light.map((v) => v.toFixed(2)).join('/')}`;
   },
+  hint() { return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, text: 'Toque na SAÍDA pra voltar à rua' }; },
   tap(x, y) {
+    if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, goto: 'cinema-fachada-remigio' };
     if (session.phase === 'closed') return null;
     const heads = session.phase === 'preshow' ? [...HEADS, ...PRESHOW_HEADS] : HEADS;
     for (const h of heads) {
