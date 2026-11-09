@@ -1,6 +1,6 @@
 /* LoFi City — procedural lo-fi pixel scenes that follow each city's real clock and live weather. */
 import './style.css';
-import { G, frameFor, setFrame } from './engine/gfx';
+import { G, camFor, frameFor, setFrame } from './engine/gfx';
 import { backend, initPost, layout, opts, present, toFrame } from './engine/post';
 import { sfx } from './audio/sfx';
 import { drawEmotes, emote } from './fx/emotes';
@@ -384,6 +384,7 @@ function frame(now: number) {
   direct(simNow(), city, dt, scene.id);
   // the first genuine reading arrived: rebuild wet streets / snow cover from its past hours
   if (!hadData && S.wxKind !== 'unavailable') { settle(simNow(), city); direct(simNow(), city, 0, scene.id); }
+  G.camX = camFor(G.W, scene.focusX?.() ?? null); // portrait: the scene may ask the camera to look elsewhere
   updateSky(dt); updateSkyEvents(dt); updatePrecip(dt); scene.update(dt);
   scene.render();
   drawEmotes(dt);
