@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ARRIVE_H, LATE_H, LEAVE_H, SHIFTS, schoolDay, schoolState, sessionSeed, sportsState, sportsWindowAt, studentFlow,
+  ARRIVE_H, LATE_H, LEAVE_H, SHIFTS, noSchool, schoolDay, schoolState, sessionSeed, sportsState, sportsWindowAt, studentFlow,
 } from '../src/scenes/praca-cultura-schedule.ts';
+import { easterDoy } from '../src/sky/time.ts';
 import { BAR, GAME_TO, KickSim, NET_D, OUT_MAX, SET_TO, VolleySim, type Court, type Field } from '../src/scenes/praca-games.ts';
 
 const hm = (h: number, m: number) => h + m / 60;
@@ -58,6 +59,56 @@ test('students arrive before each shift and leave after it, never otherwise', ()
   assert.ok(studentFlow(1, hm(7, 9)).arrive < 0.3);
   assert.ok(studentFlow(3, hm(17, 31)).leave > 0.9);
   assert.equal(studentFlow(3, hm(17, 51)).leave, 0);
+});
+
+test('between the shifts the entrance stays open (no 10-minute blink at lunch)', () => {
+  for (const wd of WEEK) for (let h = 6.5; h < 17.5 + LEAVE_H - 1e-9; h += 1 / 60) assert.ok(schoolState(wd, h).entranceOpen, `shut at ${h}`);
+  assert.equal(schoolState(1, hm(12, 25)).lit, false); // open door, but nobody in class: windows dark
+  assert.equal(schoolState(1, hm(6, 29)).entranceOpen, false);
+  assert.equal(schoolState(1, hm(17, 51)).entranceOpen, false);
+});
+
+// ---------- school holidays and vacations (art direction) ----------
+const doy = (y: number, m: number, d: number) => Math.round((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / 864e5);
+const off = (y: number, m: number, d: number) => noSchool(y, doy(y, m, d));
+
+test('Easter from the shared DOM-free helper (sky/time.ts)', () => {
+  assert.equal(easterDoy(2026), doy(2026, 4, 5));
+  assert.equal(easterDoy(2027), doy(2027, 3, 28));
+  assert.equal(easterDoy(2028), doy(2028, 4, 16)); // leap year
+  assert.equal(easterDoy(2024), doy(2024, 3, 31));
+});
+
+test('national holidays close the school: fixed dates and the ones that move with Easter', () => {
+  for (const y of [2026, 2027, 2028]) for (const [m, d] of [[1, 1], [4, 21], [5, 1], [9, 7], [10, 12], [11, 2], [11, 15], [11, 20], [12, 25]]) assert.ok(off(y, m, d), `${y}-${m}-${d}`);
+  // 2026: Easter 5 Apr -> Carnival 16-17 Feb, Good Friday 3 Apr, Corpus Christi 4 Jun
+  for (const [m, d] of [[2, 16], [2, 17], [4, 3], [6, 4]]) assert.ok(off(2026, m, d), `2026-${m}-${d}`);
+  // 2027: Easter 28 Mar -> Carnival 8-9 Feb, Good Friday 26 Mar, Corpus Christi 27 May
+  for (const [m, d] of [[2, 8], [2, 9], [3, 26], [5, 27]]) assert.ok(off(2027, m, d), `2027-${m}-${d}`);
+  // the days around them are ordinary school days
+  for (const [m, d] of [[2, 18], [4, 2], [4, 6], [6, 5], [11, 10], [11, 19], [9, 8]]) assert.ok(!off(2026, m, d), `2026-${m}-${d}`);
+});
+
+test('school vacations: all of July, and 20 December to the end of January', () => {
+  for (const y of [2026, 2027, 2028]) {
+    for (let d = 1; d <= 31; d++) { assert.ok(off(y, 7, d), `${y}-07-${d}`); assert.ok(off(y, 1, d), `${y}-01-${d}`); }
+    for (let d = 20; d <= 31; d++) assert.ok(off(y, 12, d), `${y}-12-${d}`);
+    assert.ok(!off(y, 6, 30), `${y}-06-30`);
+    assert.ok(!off(y, 8, 3), `${y}-08-03`);
+    assert.ok(!off(y, 12, 18), `${y}-12-18`);
+  }
+  assert.ok(!off(2027, 2, 1), 'back to school in February');
+});
+
+test('a holiday or vacation day: no students, entrance shut, windows dark; the sports windows are untouched', () => {
+  for (const wd of WEEK) for (const h of ALL_DAY) {
+    const s = schoolState(wd, h, true), f = studentFlow(wd, h, true);
+    assert.ok(!s.inClass && !s.entranceOpen && !s.lit && !s.arriving && !s.leaving, `${wd} ${h}h`);
+    assert.equal(f.arrive + f.leave, 0);
+  }
+  // sportsState knows nothing of the calendar: a weekday holiday afternoon still has its game
+  assert.equal(sportsState(5, 15, LIVE), 'play');
+  assert.equal(sportsState(5, 15, { kind: 'unavailable', rain: 0, snow: 0 }), 'off');
 });
 
 test('sports windows: weekday afternoons after lunch, weekend mornings and afternoons, never at night', () => {

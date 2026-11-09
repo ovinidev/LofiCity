@@ -38,7 +38,7 @@ import {
 } from './br-kit';
 import type { Scene } from './types';
 import { dayKey } from './campo-matches';
-import { type SportsState, schoolState, sessionSeed, sportsState, sportsWindowAt, studentFlow } from './praca-cultura-schedule';
+import { type SportsState, noSchool, schoolState, sessionSeed, sportsState, sportsWindowAt, studentFlow } from './praca-cultura-schedule';
 import { type Court, type Field, type Kid, KickSim, NET_H, VolleySim } from './praca-games';
 
 const HORIZON = 108, STREET = 147, SH = 180 - STREET;
@@ -321,7 +321,7 @@ function spawnStudent(arriving: boolean) {
 }
 
 function updateStudents(dt: number) {
-  const f = studentFlow(S.cal.weekday, S.cal.hour);
+  const f = studentFlow(S.cal.weekday, S.cal.hour, noSchool(S.cal.year, S.cal.doy));
   if (f.arrive > 0) { arriveT -= dt * f.arrive; if (arriveT <= 0) { arriveT = 0.9 + sr() * 1.2; spawnStudent(true); } }
   if (f.leave > 0) { leaveT -= dt * f.leave; if (leaveT <= 0) { leaveT = 0.7 + sr() * 1.0; spawnStudent(false); } }
   for (const s of PUPILS) {
@@ -507,7 +507,7 @@ function drawCrosser(c: Crosser) {
 function update(dt: number) {
   updateAnimals(dt);
   const k = paixao() ? 5 : feira() ? 2.6 : weekendNight() ? 2.2 : S.festa || S.saoJoao ? 2 : 1.2;
-  school = schoolState(S.cal.weekday, S.cal.hour);
+  school = schoolState(S.cal.weekday, S.cal.hour, noSchool(S.cal.year, S.cal.doy)); // holidays and vacations: shut and dark
   tickSpawns(dt, k); updatePeople(dt); updateCrossers(dt); updateStudents(dt); updateSports(dt); updateCars(dt, 0.7); updateAmbient(dt);
   if (onRoad() && vehicleBetween(ZEBRA0, ZEBRA1)) conflicts++;
 }
