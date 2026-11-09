@@ -8,7 +8,7 @@ import {
 import { PHRASES } from '../src/actors/phrases.ts';
 
 const SCENES = {
-  esperanca: ['praca-matriz', 'rua-comercio', 'capelinha', 'praca-cultura', 'campo-rodoviaria', 'centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezerra'],
+  esperanca: ['praca-matriz', 'rua-comercio', 'capelinha', 'praca-cultura', 'campo-rodoviaria', 'centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues'],
   campina: ['acude-velho', 'piramide-parque-do-povo', 'estacao-velha', 'parque-da-crianca', 'partage-shopping', 'terminal-integracao'],
   joaopessoa: ['cabo-branco'], areia: ['centro-areia'], remigio: ['lagoa-remigio'],
   tokyo: ['rain-corner', 'neon-alley', 'konbini', 'shrine'],

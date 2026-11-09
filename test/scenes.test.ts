@@ -19,7 +19,7 @@ const sceneId = (name: string) => {
   assert.ok(m && m[1] === name, `${name} declares its id`);
   return m![2];
 };
-const NEW = ['centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezerra'];
+const NEW = ['centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues'];
 
 test('every scene id in SCENES is unique', () => {
   const ids = [...table.values()].flat().map(sceneId);
@@ -27,11 +27,12 @@ test('every scene id in SCENES is unique', () => {
   assert.equal(new Set(ids).size, ids.length, `duplicate ids: ${ids}`);
 });
 
-test('Esperança has the four new scenes after the existing five', () => {
+test('Esperança has the new scenes after the existing five', () => {
   const ids = table.get('esperanca')!.map(sceneId);
   assert.deepEqual(ids.slice(0, 5), ['praca-matriz', 'rua-comercio', 'capelinha', 'praca-cultura', 'campo-rodoviaria']);
   for (const id of NEW) assert.ok(ids.includes(id), `${id} registered`);
-  assert.equal(ids.length, 9);
+  assert.equal(ids.length, 10);
+  assert.ok(ids.indexOf('rua-manoel-rodrigues') > ids.indexOf('rua-jose-bezerra'), 'Rua Manoel Rodrigues comes after the earlier streets');
 });
 
 test('the developer guide lists each new #scene id', () => {
@@ -54,6 +55,14 @@ test('only scenes whose photo shows a zebra wire up a crossing', () => {
   assert.doesNotMatch(src('armazem-paraiba'), /setBrCrossing|crossing:/);
   assert.match(src('rua-jose-bezerra'), /crossing: null/);
   assert.doesNotMatch(src('rua-jose-bezerra'), /yieldLimit|setBrCrossing/);
+  // Rua Manoel Rodrigues: the distant zebra and its hanging light are in the photo, so both are wired:
+  // a signalised crossing, pedestrians held to the pedestrian phase, and a one-way road
+  const rmr = src('rua-manoel-rodrigues');
+  assert.match(rmr, /crossing: \{ z0: ZEB\.z0, z1: ZEB\.z1, occupied: false, signal: /);
+  assert.match(rmr, /c\.signal = s\.phase/);
+  assert.match(rmr, /pedestrianMayStart\(sig\(\), CROSS_TIME, SIG_T\)/);
+  assert.match(rmr, /updateCarsP\(CARS, dt, ROAD, laneX, 1, ONE_WAY\)/);
+  assert.match(rmr, /const ONE_WAY = 1 as const/);
   // no random weather anywhere in the new scenes
   for (const id of NEW) assert.doesNotMatch(src(id), /S\.(rain|snow|storm|cloud|fog|temp)\s*=[^=]/);
 });
