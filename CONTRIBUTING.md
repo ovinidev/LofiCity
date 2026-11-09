@@ -1,11 +1,11 @@
 # Contributing to LofiCity
 
-Thanks for helping. LofiCity is a small TypeScript + Vite app. Read `AGENTS.md` for the structure and project rules, and `README.md` for the cities, URL options and keys.
+Thanks for helping. LofiCity is a small TypeScript + Vite app. Read `AGENTS.md` for the structure and project rules, and [docs/DEVELOPING.md](docs/DEVELOPING.md) for the cities, URL options and keys (`README.md` is the short pt-BR overview).
 
 ## How to contribute
 
 1. Fork the repo and create a feature branch from `main`, one change per branch.
-2. Make your change. To add a new scene, follow the [create-scenario skill](.claude/skills/create-scenario/SKILL.md). It walks through the scene API, registration, README, tests and the screenshot check.
+2. Make your change. To add a new scene, follow the [create-scenario skill](.claude/skills/create-scenario/SKILL.md). It walks through the scene API, registration, developer guide, tests and the screenshot check.
 3. Run the checks (Node >= 22.18, pnpm):
    ```bash
    pnpm install
@@ -21,5 +21,5 @@ Thanks for helping. LofiCity is a small TypeScript + Vite app. Read `AGENTS.md` 
 - No image assets: everything is drawn in code.
 - Weather comes only from Open-Meteo. Never simulate it.
 - Music is streamed from the Internet Archive. Never add audio files.
-- Reference photos are for reference only and are never committed. Credit the source in the README.
+- Reference photos are for reference only and are never committed. Credit the source in `docs/DEVELOPING.md`.
 - Never commit secrets, keys or `.env` files.

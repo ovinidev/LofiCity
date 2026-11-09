@@ -15,6 +15,7 @@ import { radio } from './audio/radio';
 import { bells } from './audio/bells';
 import { precip, updatePrecip } from './fx/precip';
 import { animalsDebug } from './actors/animals';
+import { ambientDebug } from './actors/ambient';
 import { brTrafficDebug } from './actors/br-traffic';
 import { fireworksStats, updateSkyEvents, lightning } from './fx/sky-events';
 import { gradePalette } from './sky/grade';
@@ -24,6 +25,8 @@ import { followLive, weatherView } from './sky/live';
 import { hudWeather, manualLightningAllowed } from './sky/weather-feed';
 import { updateSky } from './scenes/common';
 import { nextScene, pickScene } from './scenes';
+import { cardFileName, shareUrl, viewHash } from './share-rules';
+import { copyText, downloadCanvas, drawCard } from './share';
 import { inject, pageview } from '@vercel/analytics';
 import { injectSpeedInsights } from '@vercel/speed-insights';
 
@@ -52,7 +55,14 @@ followLive(city);
 // Page views are reported as /tokyo or /esperanca so the dashboard shows which city people watch.
 const hosted = location.protocol === 'https:' && !/^(localhost|127\.)/.test(location.hostname);
 if (hosted) {
-  inject({ beforeSend: (e) => ({ ...e, url: `${location.origin}/${city.id}` }) });
+  // One page view per city: the hash now follows the scene (permalink), and those history updates must
+  // not count as extra visits.
+  let lastView = '';
+  inject({ beforeSend: (e) => {
+    const url = `${location.origin}/${city.id}`;
+    if (e.type === 'pageview') { if (url === lastView) return null; lastView = url; }
+    return { ...e, url };
+  } });
   injectSpeedInsights();
 }
 
@@ -70,6 +80,17 @@ let scene = pickScene(city.id);
 settle(simNow(), city);
 direct(simNow(), city, 0, scene.id);
 scene.build();
+
+// ---------- permalink ----------
+// The address bar always holds the current view (#city= #scene=, plus #at= when a moment is pinned), so
+// copying it reopens the same place. replaceState: no history entries, no hashchange, nothing reloads.
+const pinnedAt = () => (simOffset !== 0 ? params.get('at') : null);
+const view = () => ({ city: city.id, scene: scene.id, at: pinnedAt() });
+function syncHash() {
+  const h = viewHash(location.hash, view());
+  if (h !== location.hash) try { history.replaceState(history.state, '', h); } catch { /* sandboxed */ }
+}
+syncHash();
 
 // ---------- HUD ----------
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -148,6 +169,7 @@ function setCity(id: string) {
   settle(simNow(), city); direct(simNow(), city, 0, scene.id);
   scene.build();
   syncBells();
+  syncHash();
   updateHud();
   if (hosted) pageview({ route: '/[city]', path: `/${city.id}` });
 }
@@ -159,7 +181,7 @@ const actions: Record<string, () => void> = {
   sound: () => { press('b-sound', audio.toggle()); syncBells(); },
   crt: () => { opts.crt = !opts.crt; press('b-crt', opts.crt); },
   city: () => setCity(CITIES[(CITIES.indexOf(city) + 1) % CITIES.length].id),
-  scene: () => { clearBubbles(); clearPeople(); scene = nextScene(city.id, scene); direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); },
+  scene: () => { clearBubbles(); clearPeople(); scene = nextScene(city.id, scene); direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); },
   music: () => radio.toggle(),
   station: () => radio.nextStation(),
   skip: () => radio.skip(),
@@ -213,12 +235,47 @@ if (hudPref === 'off') setHud(false, false);
 
 // Upright phones stack the radio under the info panel; publish the panel's real height (it grows when
 // the city or weather line wraps) so the CSS can place the radio right below it.
-const hudEl = document.querySelector<HTMLElement>('.hud');
-if (hudEl) {
-  new ResizeObserver(() => {
-    if (hudEl.offsetHeight) document.documentElement.style.setProperty('--hud-h', `${hudEl.offsetHeight}px`);
-  }).observe(hudEl);
+// The control bar goes right under the radio the same way (--radio-h), so the street at the bottom of
+// the frame (e.g. the Matriz road and zebra) is not covered.
+for (const [sel, prop] of [['.hud', '--hud-h'], ['.radio', '--radio-h']]) {
+  const el = document.querySelector<HTMLElement>(sel);
+  if (el) new ResizeObserver(() => {
+    if (el.offsetHeight) document.documentElement.style.setProperty(prop, `${el.offsetHeight}px`);
+  }).observe(el);
 }
+
+// Share: copy the permalink or save a story card. Both are local only (clipboard / file download); the
+// person sends them on their own. No radio or ambience calls here, so playback is never touched.
+const shareBtn = $('b-share'), shareMenu = $('share-menu'), toastEl = $('toast');
+let toastTimer = 0, shareOpen = false;
+function toast(text: string) {
+  toastEl.textContent = text; toastEl.hidden = false;
+  clearTimeout(toastTimer); toastTimer = window.setTimeout(() => { toastEl.hidden = true; }, 1800);
+}
+function setShareMenu(open: boolean) {
+  shareOpen = open; shareMenu.hidden = !open; shareBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) (shareMenu.querySelector('button') as HTMLButtonElement | null)?.focus({ preventScroll: true });
+}
+shareBtn.addEventListener('click', () => setShareMenu(!shareOpen));
+document.addEventListener('pointerdown', (e) => { if (shareOpen && !$('share').contains(e.target as Node)) setShareMenu(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && shareOpen) { setShareMenu(false); shareBtn.focus(); } });
+$('b-copy').addEventListener('click', async () => {
+  setShareMenu(false);
+  toast(await copyText(shareUrl(location.href, view())) ? 'Link copiado' : 'Não foi possível copiar');
+});
+const cardBtn = $('b-card') as HTMLButtonElement;
+cardBtn.addEventListener('click', async () => {
+  cardBtn.disabled = true;
+  try {
+    const c = S.cal;
+    const card = await drawCard(() => scene.render(), {
+      city: city.name, scene: scene.name, time: `${pad2(c.hour)}:${pad2((c.hour % 1) * 60)}`,
+      date: `${WEEK[c.weekday]} ${c.day} ${MONTH[c.month]} · ${city.utc < 0 ? 'horário de Brasília' : 'horário de Tóquio'}`,
+    });
+    toast(await downloadCanvas(card, cardFileName(view(), c.hour)) ? 'Card salvo' : 'Não foi possível gerar o card');
+  } catch { toast('Não foi possível gerar o card'); }
+  finally { cardBtn.disabled = false; setShareMenu(false); }
+});
 
 const KEYS: Record<string, string> = {
   m: 'sound', r: 'music', p: 'station', n: 'skip', c: 'crt', t: 'city', s: 'scene', l: 'lightning', h: 'hud', enter: 'full',
@@ -267,7 +324,7 @@ function wake() {
   document.body.classList.remove('idle');
   clearTimeout(idleTimer);
   idleTimer = window.setTimeout(() => {
-    if (document.activeElement?.closest('.ui')) return; // keep controls up while one is focused
+    if (document.activeElement?.closest('.ui') || shareOpen) return; // keep controls up while one is focused or the share menu is open
     document.body.classList.add('idle'); $('hint').hidden = true;
   }, 3500);
   requestWake();
@@ -314,6 +371,7 @@ fps     ${fps}   work ${workMs.toFixed(1)} ms   ${backend()}
 drops   ${precip.liveDrops}/${precip.rainCap}  flakes ${precip.liveFlakes}  leaves ${precip.liveLeaves}
 fx      ${fireworksStats()}  fireworks ${S.fireworks}   radio ${radio.status()}   bells ${bells.status()}${city.br ? `
 life    ${animalsDebug()}
+ambient ${ambientDebug(scene.id)}
 traffic ${brTrafficDebug() || '-'}` : ''}`;
   }
   requestAnimationFrame(frame);

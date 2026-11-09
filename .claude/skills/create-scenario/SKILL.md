@@ -12,7 +12,7 @@ Turn the supplied photographs into a recognizable, code-drawn pixel-art scene th
 
 ## 1. Verify references and scope
 - Confirm the city (one of the `CityId`s in `src/sky/cities.ts`), the place, and whether this is a new scene or an enhancement of an existing one. Reuse what is already known instead of asking again.
-- Check that every reference file opens. Keep them outside the repo for the duration of the task. **Never commit reference photos**; credit their source in the README instead.
+- Check that every reference file opens. Keep them outside the repo for the duration of the task. **Never commit reference photos**; credit their source in `docs/DEVELOPING.md` instead.
 - Look at the actual photos and inventory: composition, facade proportions, colours, recognizable architecture, signs, paving, road and sidewalk edges, zebra crossings, trees, poles, wires, benches and other street furniture, visible vehicles. Separate map overlays from real features.
 - Keep three lists: what is directly observed, what the requester corrected, and what is unknown. A photo does not establish traffic direction, opening hours, service schedules or weather. Do not invent them. Ask only when a missing fact materially changes behaviour; otherwise pick a neutral artistic default and document it.
 - Readable signs may be reproduced; leave unreadable lettering blank or use non-specific marks. Never invent phone numbers or business claims.
@@ -54,7 +54,7 @@ Encode the real road edges and the confirmed direction of each road; a wide road
 Reuse the existing `tap` behaviours: emotes, synthesized SFX and pt-BR speech bubbles. Add phrases to `actors/phrases.ts` that fit the place, the hour and genuinely known weather; `speech-rules.ts` handles choice, placement and lifetime (brief, clamped to the viewport, cleared on scene change, not stealing unrelated taps). Do not introduce double-tap zoom / fullscreen regressions, autoplay, or interference with the radio. Ambient events are rare, bounded and never tied to invented weather.
 
 ## 6. Verify the real artifact
-- Run `pnpm typecheck`, `pnpm test` and `pnpm build`. Extend `test/scenes.test.ts` for the new id (unique, registered under the right city, listed in the README `#scene=` line, follows the city rhythm, does not assign `S.rain`/`S.temp`/etc., crossing only if photographed). Add focused tests in `test/` for any new pure rule (traffic direction, yielding, signal phases, schedules). Test modules must import nothing from the DOM.
+- Run `pnpm typecheck`, `pnpm test` and `pnpm build`. Extend `test/scenes.test.ts` for the new id (unique, registered under the right city, listed in the `#scene=` line of `docs/DEVELOPING.md`, follows the city rhythm, does not assign `S.rain`/`S.temp`/etc., crossing only if photographed). Add focused tests in `test/` for any new pure rule (traffic direction, yielding, signal phases, schedules). Test modules must import nothing from the DOM.
 - After the build, run `pnpm shot` and look at `./shots`. Also check the scene in `pnpm dev` with `#city=<city>&scene=<id>` at desktop and phone-portrait sizes, at day, afternoon and night (`#at=`). Check composition, clipping, road placement, actor paths, lighting and HUD overlap, and compare against the references. Do not commit screenshots.
 - Watch any new crossing or signal for several cycles: stopping, pedestrians crossing, queues, resumption. Confirm every spawn respects one-way rules and no vehicle appears in a pedestrian-only scene.
 - If weather reactions changed, check live weather, unavailable weather (`clima indisponível`) and a labelled `#wx=` precipitation override.
@@ -62,7 +62,7 @@ Reuse the existing `tap` behaviours: emotes, synthesized SFX and pt-BR speech bu
 - Do a scoped self-review and fix concrete problems without drifting into unrelated redesigns.
 
 ## 7. Document and deliver
-- Update the README: the city's scene list, the `#scene=` id list, and credit for the reference photos. Note any artistic assumptions.
+- Update `docs/DEVELOPING.md` (the long reference; `README.md` stays a short pt-BR overview): the city's scene list, the `#scene=` id list, and credit for the reference photos. Note any artistic assumptions.
 - Open a focused pull request to `main` from a feature branch, with a short description, the checks you ran, and the assumptions and known gaps.
 - A teaser, logo or screenshot gallery is a separate deliverable unless it was part of the request.
 
@@ -73,4 +73,4 @@ Reuse the existing `tap` behaviours: emotes, synthesized SFX and pt-BR speech bu
 - Pedestrian areas, road directions, crossing safety and any signals behave correctly.
 - Taps, bubbles and sound work without audio or input regressions.
 - `pnpm typecheck`, `pnpm test`, `pnpm build` pass; screenshots checked.
-- README updated; assumptions and remaining gaps stated in the PR.
+- `docs/DEVELOPING.md` updated; assumptions and remaining gaps stated in the PR.

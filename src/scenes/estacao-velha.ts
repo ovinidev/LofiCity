@@ -21,6 +21,7 @@ import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
+import { drawAmbient, drawAmbientRoad, setupAmbient, updateAmbient } from '../actors/ambient';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
@@ -237,7 +238,7 @@ function drawHoles() {
 
 function update(dt: number) {
   updateAnimals(dt);
-  tickSpawns(dt, (museumOpen() ? 1.1 : 0.85) * (S.saoJoao && S.cal.hour >= 18 ? 1.5 : 1)); updatePeople(dt); updateCars(dt, 0.9);
+  tickSpawns(dt, (museumOpen() ? 1.1 : 0.85) * (S.saoJoao && S.cal.hour >= 18 ? 1.5 : 1)); updatePeople(dt); updateCars(dt, 0.9); updateAmbient(dt);
 }
 
 const LANTERNS: [number, number][] = [[170, 101], [190, 101]];
@@ -252,8 +253,8 @@ function render() {
   lampLight(LAMP);
   if (S.natal) christmasStar(POLE + 1, 52, 1);
   if (S.saoJoao) { bandeirolas(0, 120, 150, 121, 3, 0); bandeirolas(196, 121, POLE, 120, 3, 2); bandeirolas(POLE, 48, 480, 40, 10, 4); }
-  drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
-  drawStreet(street); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
+  drawAnimalsPerched(); drawPeople(); drawAmbient(); drawAnimalsGround();
+  drawStreet(street); drawAmbientRoad(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
 let built = false;
@@ -267,6 +268,7 @@ export const estacaoVelha: Scene = {
       wires: [wireCurve(POLE, 44, WW, 30, 6), wireCurve(0, 34, POLE, 44, 4), wireCurve(POLE + 2, 46, WW, 40, 5)],
       walls: [{ x0: 2, x1: WW - 2, y: 118 }, { x0: C0 + 4, x1: C1 - 4, y: 53 }], lamps: [{ x: LAMP.x + 14, y: LAMP.top }] });
     setCarLanes(162, 175, 'br');
+    setupAmbient('estacao-velha', { walk: 145, stop: 260, feed: { x: 200, y: 141 }, wall: { x0: 300, x1: 420, y: 118 }, curb: 154, shop: 330 });
     configure({ roofs: [{ x0: LW0 - 3, x1: RW1 + 3, y: ROOF0 }, { x0: C0, x1: C1, y: 36 }, { x0: E0, x1: E1, y: 60 }, { x0: 414, x1: 482, y: 85 }],
       tips: [{ x: LW0 - 2, y: EAVE + 1, end: GROUND }, { x: RW1 + 1, y: EAVE + 1, end: GROUND }, { x: 414, y: 94, end: 120 }],
       lamps: [{ x: LAMP.x + 14, y: LAMP.top }], ground0: WALK, horizon: HORIZON });

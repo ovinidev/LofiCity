@@ -255,6 +255,21 @@ export function tapPeople(x: number, y: number): { x: number; y: number; dog: bo
   return null;
 }
 
+/** Someone walking on foot (no dog of their own, not running, not pushing a cart, not sheltering) between
+    world x0 and x1 for an ambient street dog to tag along behind (ambient.ts): a tracker of their feet
+    and heading while they stay on their lane, or null. Picks whoever has the most street ahead. */
+export function walkerToFollow(x0: number, x1: number): (() => { x: number; y: number; dir: number } | null) | null {
+  let best: Person | null = null, room = 0;
+  for (const p of P) {
+    if (!p.on || p.kind !== Kind.Walk || p.dog !== 255 || p.run || p.push !== 255 || p.wait > 0 || p.x < x0 || p.x > x1) continue;
+    const ahead = p.dir > 0 ? x1 - p.x : p.x - x0;
+    if (ahead > room) { room = ahead; best = p; }
+  }
+  if (!best) return null;
+  const p = best, lane = p.lane;
+  return () => (p.on && p.lane === lane ? { x: p.x, y: lanes[lane]?.y ?? 0, dir: p.dir } : null);
+}
+
 /** Takes everyone off the street before a scene is built: scenes with pedestrians set their lanes
     again, and scenes without them (the Capelinha) keep no invisible, still-tappable leftovers. */
 export function clearPeople() { for (const p of P) p.on = false; }

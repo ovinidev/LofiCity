@@ -19,6 +19,7 @@ import { configure, drawFarPrecip, drawNearPrecip, drawRipples } from '../fx/pre
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
+import { drawAmbient, setupAmbient, updateAmbient } from '../actors/ambient';
 import { S } from '../sky/state';
 import { drawFog, drawSky } from './common';
 import { type Lamp, type Palm, type TowerWin, bandeirolas, christmasStar, drawPalm, drawTowerWins, lampLight, lampPost, text, tower } from './br-kit';
@@ -172,7 +173,7 @@ function parkLevel() { const h = S.cal.hour, i = Math.floor(h) % 24, t = h - Mat
 
 function update(dt: number) {
   updateAnimals(dt);
-  tickSpawns(dt, parkLevel() * (S.saoJoao && S.cal.hour >= 17 ? 1.3 : 1)); updatePeople(dt);
+  tickSpawns(dt, parkLevel() * (S.saoJoao && S.cal.hour >= 17 ? 1.3 : 1)); updatePeople(dt); updateAmbient(dt);
 }
 
 /** Kids kicking a ball on the sand field by day. */
@@ -199,7 +200,7 @@ function render() {
   for (const l of LAMPS) lampLight(l);
   if (S.saoJoao) { bandeirolas(LAMPS[0].x + 14, LAMPS[0].top, LAMPS[1].x + 14, LAMPS[1].top, 9, 0); bandeirolas(LAMPS[1].x + 14, LAMPS[1].top, LAMPS[2].x + 14, LAMPS[2].top, 9, 3); }
   if (S.natal) for (const l of LAMPS) christmasStar(l.x + 1, l.top - 12, 1);
-  drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
+  drawAnimalsPerched(); drawPeople(); drawAmbient(); drawAnimalsGround();
   for (const p of NEAR) drawPalm(p);
   blitLayer(near);
   drawRipples(); drawFog(FOG); drawNearPrecip();
@@ -214,6 +215,7 @@ export const parqueCrianca: Scene = {
     setLanes([{ y: 141 }, { y: 144 }, { y: 147 }]);
     setupAnimals({ ground: [142, 147], dogs: 2, lamps: LAMPS.map((l) => ({ x: l.x + 14, y: l.top })),
       walls: [{ x0: 346, x1: 362, y: 122 }, { x0: 430, x1: 446, y: 122 }, { x0: CHIM - 9, x1: CHIM + 9, y: 107 }] });
+    setupAmbient('parque-da-crianca', { walk: 147, stop: 300, feed: { x: 180, y: 141 } }); // a park path: no road, no moto
     configure({ roofs: [], tips: [], lamps: LAMPS.map((l) => ({ x: l.x + 14, y: l.top })), ground0: BACK, horizon: HORIZON });
     for (let i = 0; i < 150; i++) update(1 / 30);
   },

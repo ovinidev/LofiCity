@@ -19,6 +19,7 @@ import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
+import { drawAmbient, setupAmbient, updateAmbient } from '../actors/ambient';
 import { setBrCrossing, vehicleBetween, vehicleNearCrossing } from '../actors/br-traffic';
 import { type Tree, drawTree, makeTree } from '../actors/trees';
 import { S, hourIn } from '../sky/state';
@@ -315,7 +316,7 @@ function drawCrosser(c: Crosser) {
 function update(dt: number) {
   updateAnimals(dt);
   const k = paixao() ? 5 : feira() ? 2.6 : weekendNight() ? 2.2 : S.festa || S.saoJoao ? 2 : 1.2;
-  tickSpawns(dt, k); updatePeople(dt); updateCrossers(dt); updateCars(dt, 0.7);
+  tickSpawns(dt, k); updatePeople(dt); updateCrossers(dt); updateCars(dt, 0.7); updateAmbient(dt);
   if (onRoad() && vehicleBetween(ZEBRA0, ZEBRA1)) conflicts++;
 }
 
@@ -332,7 +333,7 @@ function render() {
   for (const l of LAMPS) { lampLight(l); lampPool(l); }
   nightSpill(opens, hourIn(S.cal.hour, 8, 18) && S.cal.weekday !== 0);
   if (S.festa || S.saoJoao) { bandeirolas(142, 46, 318, 40, 12, 2); bulbs(0, 62, 142, 46, 6); bulbs(318, 40, 480, 62, 6); }
-  drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
+  drawAnimalsPerched(); drawPeople(); drawAmbient(); drawAnimalsGround();
   drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 156); for (const c of CROSSERS) if (c.on) drawCrosser(c); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
@@ -352,6 +353,8 @@ export const pracaCultura: Scene = {
     setCarLanes(160, 174, 'br');
     setBrCrossing({ x0: ZEBRA0, x1: ZEBRA1, occupied: zebraBusy }); // after setCarLanes, which clears it for every other scene
     for (const c of CROSSERS) c.on = false;
+    // on the front pavement: vendor and kid away from the zebra; pigeons on the plaza path; cat on the low wall
+    setupAmbient('praca-cultura', { walk: 146, stop: 330, kid: 400, feed: { x: 150, y: 122 }, wall: { x0: 0, x1: BLUE0 - 16, y: WALL } });
     configure({ roofs: [{ x0: B0, x1: B1, y: BTOP - 2 }], tips: [{ x: B0 + 1, y: BTOP - 1, end: BASE }, { x: B1 - 1, y: BTOP - 1, end: BASE }], lamps: LAMPS.map((l) => ({ x: l.x, y: l.top })), ground0: 140, horizon: HORIZON });
     for (let i = 0; i < 150; i++) update(1 / 30);
   },

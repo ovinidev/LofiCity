@@ -135,8 +135,27 @@ function cancelPeal() {
   setTimeout(() => bus.disconnect(), 600);
 }
 
+// ---------- ambient event cues (actors/ambient.ts) ----------
+/** A street vendor's call, very soft and once: the picolé / coco seller's little handbell, or the
+    pipoca cart's two-note whistle. Through the ambience master, so it follows the sound toggle; it is
+    skipped outright while the radio is on, never layered over the music. */
+function vendorCue(kind: 'picole' | 'pipoca' | 'coco') {
+  if (!A.ctx || !A.on || A.ctx.state !== 'running' || radio.isOn()) return;
+  const ac = A.ctx, t0 = ac.currentTime + 0.05, bus = ac.createGain();
+  bus.gain.value = 0.5; bus.connect(A.master!);
+  const voice = (f0: number, f1: number, at: number, peak: number, dur: number) => {
+    const o = ac.createOscillator(), g = ac.createGain(), t = t0 + at;
+    o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f1, t + dur * 0.8);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    o.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.05);
+  };
+  if (kind === 'pipoca') { voice(1850, 2350, 0, 0.035, 0.28); voice(2350, 1750, 0.34, 0.035, 0.34); }
+  else for (let i = 0; i < 3; i++) for (const [m, a] of [[1, 0.035], [2.76, 0.012], [5.4, 0.006]] as const) voice(1650 * m, 1650 * m, i * 0.16, a, 0.6 - i * 0.1);
+  setTimeout(() => bus.disconnect(), 2500);
+}
+
 export const audio = {
-  toggle, tick, rumble, boom, ringHour, cancelPeal,
+  toggle, tick, rumble, boom, ringHour, cancelPeal, vendorCue,
   isOn: () => A.on,
   /** The AudioContext exists and is running, i.e. it was unlocked by a user gesture. */
   ready: () => A.ctx?.state === 'running',

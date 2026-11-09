@@ -37,7 +37,7 @@ body.idle { cursor: none; }
 .bar button[aria-pressed="true"] { color: var(--cyan); border-color: var(--cyan); }
 .bar button:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
 #debug {
-  position: fixed; top: calc(var(--st) + 48px); right: var(--sr);
+  position: fixed; top: calc(var(--st) + 94px); /* below the eye and share buttons */ right: var(--sr);
   max-width: calc(100% - var(--sl) - var(--sr)); font: 11px/1.55 var(--font-data); background: var(--panel); color: var(--ink);
   border: 1px solid var(--line); padding: 10px 12px; white-space: pre; overflow-x: auto; font-variant-numeric: tabular-nums;
 }
@@ -76,7 +76,33 @@ body.idle { cursor: none; }
 .eye[aria-pressed="true"] { color: var(--muted); }
 .eye:hover { border-color: var(--muted); }
 .eye:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
-body.idle .eye { opacity: 0.35; }
+body.idle .eye, body.idle .share-btn { opacity: 0.35; }
+
+/* share: a twin of the eye just below it, with a two-item menu opening to its left */
+.share { position: fixed; top: calc(var(--st) + 46px); right: var(--sr); z-index: 5; }
+.share-btn {
+  width: 40px; height: 40px; padding: 10px; display: grid; place-items: center; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 2px; cursor: pointer; transition: opacity 0.7s ease, color 0.2s ease;
+}
+.share-btn svg { width: 100%; height: 100%; display: block; }
+.share-btn[aria-expanded="true"] { color: var(--cyan); border-color: var(--cyan); }
+.share-btn:hover { border-color: var(--muted); }
+.share-btn:focus-visible, .share-menu button:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
+.share-menu {
+  position: absolute; top: 0; right: calc(100% + 6px); display: flex; flex-direction: column; gap: 4px; padding: 4px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 2px;
+}
+.share-menu button {
+  font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; text-align: left;
+  color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 2px; padding: 8px 10px; min-height: var(--tap); cursor: pointer;
+}
+.share-menu button:hover { border-color: var(--muted); }
+.share-menu button:disabled { opacity: 0.5; cursor: progress; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(var(--sb) + 2 * var(--tap) + 16px); transform: translateX(-50%); z-index: 6; pointer-events: none;
+  font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cyan);
+  background: var(--panel); border: 1px solid var(--cyan); border-radius: 2px; padding: 8px 12px; white-space: nowrap;
+}
 body.idle .eye:focus-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .ui { transition: none; } }
 
@@ -201,8 +227,13 @@ body.idle .credit { opacity: 0.4; }
   .radio .ctl { gap: 4px; }
   .radio button { padding: 5px 6px; }
   .radio input[type="range"] { min-width: 40px; }
-  .bar { gap: 4px; }
+  /* the control strip sits under the radio, in the sky too (--radio-h: measured in main.ts), so the street
+     at the bottom of the frame stays visible (the Matriz road lane and zebra on the right) */
+  .bar { gap: 4px; bottom: auto; top: calc(var(--st) + var(--hud-h, 98px) + 10px + var(--radio-h, 78px) + 6px); }
   .bar button { padding: 7px 7px; font-size: 9px; letter-spacing: 0.03em; }
-  .credit { bottom: calc(var(--sb) + var(--tap) + 4px); font-size: 9px; } /* above the bar, which spans the width */
+  .credit { font-size: 9px; }
   .eye { width: 36px; height: 36px; padding: 8px; }
+  .share { top: calc(var(--st) + 42px); }
+  .share-btn { width: 36px; height: 36px; padding: 8px; }
+  .share-menu button { font-size: 10px; }
 }

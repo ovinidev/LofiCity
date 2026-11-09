@@ -34,8 +34,8 @@ test('Esperança has the four new scenes after the existing five', () => {
   assert.equal(ids.length, 9);
 });
 
-test('the README lists each new #scene id', () => {
-  const readme = read('README.md'), line = readme.split('\n').find((l) => l.startsWith('- `#scene='))!;
+test('the developer guide lists each new #scene id', () => {
+  const readme = read('docs/DEVELOPING.md'), line = readme.split('\n').find((l) => l.startsWith('- `#scene='))!;
   for (const id of NEW) assert.ok(line.includes(`\`${id}\``), `${id} in the #scene list`);
 });
 
@@ -64,8 +64,8 @@ test('Campina Grande has Açude Velho first, then the five new scenes', () => {
   assert.deepEqual(table.get('campina')!.map(sceneId), ['acude-velho', ...CAMPINA_NEW]);
 });
 
-test('the README lists each new Campina #scene id', () => {
-  const line = read('README.md').split('\n').find((l) => l.startsWith('- `#scene='))!;
+test('the developer guide lists each new Campina #scene id', () => {
+  const line = read('docs/DEVELOPING.md').split('\n').find((l) => l.startsWith('- `#scene='))!;
   for (const id of CAMPINA_NEW) assert.ok(line.includes(`\`${id}\``), `${id} in the #scene list`);
 });
 

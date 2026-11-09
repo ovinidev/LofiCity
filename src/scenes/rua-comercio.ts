@@ -13,6 +13,7 @@ import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
+import { drawAmbient, drawAmbientRoad, setupAmbient, updateAmbient } from '../actors/ambient';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
@@ -157,7 +158,7 @@ function parkedMotos() {
 function update(dt: number) {
   updateAnimals(dt);
   const evening = S.cal.hour >= 17 && S.cal.hour < 22;
-  tickSpawns(dt, (S.festa || S.saoJoao) && evening ? 2.2 : 1.2); updatePeople(dt); updateCars(dt, 0.9);
+  tickSpawns(dt, (S.festa || S.saoJoao) && evening ? 2.2 : 1.2); updatePeople(dt); updateCars(dt, 0.9); updateAmbient(dt);
 }
 
 const FOG = [{ y: 104, h: 9, sp: 0.5 }, { y: 140, h: 6, sp: -0.4 }];
@@ -174,8 +175,8 @@ function render() {
   if (S.festa || S.saoJoao) { bandeirolas(59, 74, 263, 74, 12, 1); bandeirolas(263, 74, 447, 74, 12, 4); }
   barTables();
   cart(222, 146, S.stallOpen);
-  drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
-  drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 158); parkedMotos(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
+  drawAnimalsPerched(); drawPeople(); drawAmbient(); drawAnimalsGround();
+  drawStreet(street); for (const l of LAMPS) lampRoadPool(l, 158); parkedMotos(); drawAmbientRoad(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
 let built = false;
@@ -189,6 +190,8 @@ export const ruaComercio: Scene = {
       wires: [wireCurve(59, 60, 263, 60, 9), wireCurve(59, 63, 263, 63, 12), wireCurve(263, 60, 447, 60, 9), wireCurve(263, 63, 447, 63, 12)],
       walls: ROW.filter((b) => !b.sign).map((b) => ({ x0: b.x, x1: b.x + b.w, y: 140 - b.h - 3 })) });
     setCarLanes(162, 174, 'br');
+    // vendor by the sobrado, kid by the green house, cat on the sobrado parapet, delivery to the mercadinho
+    setupAmbient('rua-comercio', { walk: 145, stop: 130, kid: 380, wall: { x0: 104, x1: 152, y: 140 - 58 - 3 }, curb: 154, shop: 432 });
     configure({
       roofs: ROW.map((b) => ({ x0: b.x, x1: b.x + b.w, y: 140 - b.h - 3 })),
       tips: [{ x: 104, y: 82, end: 140 }, { x: 250, y: 104, end: 140 }], lamps: LAMPS.map((l) => ({ x: l.x + 14, y: l.top })), ground0: 140, horizon: HORIZON,

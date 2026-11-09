@@ -14,6 +14,7 @@ import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { drawPeople, peopleCount, setLanes, tickSpawns, updatePeople } from '../actors/people';
 import { drawCars, setCarLanes, updateCars } from '../actors/cars';
+import { drawAmbient, drawAmbientRoad, setupAmbient, updateAmbient } from '../actors/ambient';
 import { S } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import { type Lamp, type Palm, drawPalm, isNight, lampLight, lampPost, water } from './br-kit';
@@ -128,7 +129,7 @@ function beam() {
 
 function update(dt: number) {
   updateAnimals(dt);
-  tickSpawns(dt, 1.6); updatePeople(dt); updateCars(dt, 1);
+  tickSpawns(dt, 1.6); updatePeople(dt); updateCars(dt, 1); updateAmbient(dt);
 }
 
 const FOG = [{ y: 106, h: 8, sp: 0.6 }, { y: 136, h: 5, sp: -0.4 }];
@@ -146,8 +147,8 @@ function render() {
   for (const p of PALMS) drawPalm(p);
   blitLayer(front);
   for (const l of LAMPS) lampLight(l);
-  drawAnimalsPerched(); drawPeople(); drawAnimalsGround();
-  drawStreet(street); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
+  drawAnimalsPerched(); drawPeople(); drawAmbient(); drawAnimalsGround();
+  drawStreet(street); drawAmbientRoad(); drawCars(); drawRipples(); drawFog(FOG); drawNearPrecip();
 }
 
 let built = false;
@@ -159,6 +160,8 @@ export const caboBranco: Scene = {
     setLanes([{ y: 143 }, { y: 146 }]);
     setupAnimals({ ground: [143, 146], dogs: 1, lamps: LAMPS.map((l) => ({ x: l.x + 14, y: l.top })) });
     setCarLanes(162, 175, 'br');
+    // água de coco by the kiosk, a kid on the calçadão, a delivery pulling over at the kiosk
+    setupAmbient('cabo-branco', { walk: 146, stop: 262, kid: 120, curb: 154, shop: 290 });
     configure({ roofs: [], tips: [], lamps: LAMPS.map((l) => ({ x: l.x + 14, y: l.top })), ground0: WALK, horizon: HORIZON });
     for (let i = 0; i < 150; i++) update(1 / 30);
   },

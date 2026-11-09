@@ -47,6 +47,21 @@
     </svg>
   </button>
 
+  <!-- share: always on screen under the eye (works with the HUD hidden); copies a link or saves a card, never posts -->
+  <div class="share" id="share">
+    <button id="b-share" class="share-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="share-menu" aria-label="Compartilhar" title="Compartilhar">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+        <circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/>
+        <path d="M8.3 10.8 15.7 6.3M8.3 13.2l7.4 4.5"/>
+      </svg>
+    </button>
+    <div class="share-menu" id="share-menu" role="menu" aria-label="Compartilhar" hidden>
+      <button type="button" role="menuitem" id="b-copy">Copiar link</button>
+      <button type="button" role="menuitem" id="b-card">Baixar card</button>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
   <a class="credit" href="https://github.com/ovinidev" target="_blank" rel="noopener" title="GitHub de ovinidev">@ovinidev</a>
 
   <div id="rotate" role="dialog" aria-modal="true" aria-labelledby="rotate-t">
