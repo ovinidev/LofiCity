@@ -35,7 +35,7 @@ import { bandeirolas, isNight, textBit, textW, wire, wireCurve } from './br-kit'
 import {
   type Facade, type Opening, type PCar, type PLamp, type View, type Walker, type WalkCfg, OPEN, drawByDepth, drawCarP, drawOpeningsP,
   drawWalker, lampLightP, lampPostP, makeCars, makeWalkers, onZebra, paintFacades, paintFront, paintGround, projX, projY, scaleAt,
-  tapCarP, tapWalker, updateCarsP, updateWalkers,
+  tapCarP, tapWalker, updateCarsP, updateWalkers, walkerRainDebug,
 } from './persp-kit';
 import type { Scene } from './types';
 
@@ -321,6 +321,8 @@ const WALK: WalkCfg = {
     { X0: XBL + 0.15, X1: XKL - 0.2, z1: SS0 - 0.6 }, // left, in front of the pink building: they turn into the side street
   ],
   zNear: 3.5, zFar: 75, zebra: ZEB,
+  // the two drawn canopies (canopies() below): people without an umbrella may wait out real rain under them
+  shelters: [{ walk: 2, x0: 6, x1: PINK_END, X: XBL + 0.45, cap: 3 }, { walk: 1, x0: 12.5, x1: 24.9, X: XBR - 0.4, cap: 3 }],
 };
 /** Seconds a pedestrian needs to cross (about 15 m from one sidewalk to the other at the slowest
     walking pace), for the pedestrian phase. */
@@ -448,7 +450,7 @@ export const ruaManoelRodrigues: Scene = {
   debug() {
     const s = sig();
     return `active  walkers x${WALKERS.filter((w) => w.on).length}  road x${CARS.filter((c) => c.on).length}  sinal ${s.phase} ${s.left.toFixed(0)}s`
-      + `  faixa x${onZebra(WALKERS, ZEB)} travessias ${crossings} conflitos ${conflicts} avanços ${redRuns}`;
+      + `  faixa x${onZebra(WALKERS, ZEB)} travessias ${crossings} conflitos ${conflicts} avanços ${redRuns}  ${walkerRainDebug(WALKERS)}`;
   },
   tap(x, y) { return (VEST.on ? tapWalker(V, [VEST], x, y) : null) ?? tapWalker(V, WALKERS, x, y) ?? tapCarP(V, CARS, x, y); },
 };

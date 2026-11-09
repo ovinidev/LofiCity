@@ -1,0 +1,10 @@
+const fs = require('fs');
+let s = fs.readFileSync('AGENTS.md', 'utf8'); const crlf = s.includes('\r\n'); if (crlf) s = s.replace(/\r\n/g, '\n');
+const m = s.match(/<<<<<<< HEAD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> origin\/main\n/);
+if (!m) throw new Error('no conflict block');
+const clause = 'the automatic 2-minute scene change in `src/scene-cycle.ts` (advance time, off in dialogs / bus / cinema room, skips those scenes, off when pinned), ';
+const k = 'and a source-level check of the scene list';
+if (!m[2].includes(k)) throw new Error('anchor missing in main line');
+const merged = m[2].replace(k, clause + k);
+s = s.replace(m[0], merged + '\n');
+if (crlf) s = s.replace(/\n/g, '\r\n'); fs.writeFileSync('AGENTS.md', s);

@@ -15,7 +15,7 @@
    school and at weekends teenagers play a two-backpack kick-about on the left of the plaza
    (./praca-games.ts) and two-a-side volleyball over a portable net in front of the red steps. */
 import { G, L, Lget, Lp, WW, blitLayer, newLayer, put, rect } from '../engine/gfx';
-import { mulberry32 } from '../engine/math';
+import { hashf, mulberry32 } from '../engine/math';
 import {
   BARK, BFAR, BNEAR, CBEIGE, CBLUE, CGREEN, CHURCH, CHURCHD, CNAVY, CRED, CYELL, FBLUE, FPINK, LEAFG, LEAFGD, LEDW, LIGHT, AMB,
   MAG, STEEL, STONE, STONEL, VOID, WHITE, WOOD, WWARM, TILEW, SKIN1, SKIN2, SKIN3, SKIN4, HAIR1, HAIR2, HAIR3, CORNG,
@@ -29,7 +29,7 @@ import { drawCars, setCarLanes, updateCars } from '../actors/cars';
 import { drawAmbient, setupAmbient, updateAmbient } from '../actors/ambient';
 import { setBrCrossing, vehicleBetween, vehicleNearCrossing } from '../actors/br-traffic';
 import { type Tree, drawTree, makeTree } from '../actors/trees';
-import { opensUmbrella } from '../actors/rain-rules';
+import { opensUmbrella, umbrellaOpen } from '../actors/rain-rules';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import {
@@ -352,7 +352,7 @@ function drawStudent(s: Student) {
     else if (s.view === 1) rect(X - 1, yHead + 3, 3, 2, s.hair);
     else { put(X - 2, yHead + 1, s.hair); put(X + 2, yHead + 1, s.hair); }
   }
-  if (s.umb !== 255 && S.rain + S.snow > 0.06) { rect(X - 3, yHead - 4, 7, 1, s.umb); rect(X - 4, yHead - 3, 9, 1, s.umb); for (let j = yHead - 2; j < yHead + 3; j++) put(X + 1, j, STEEL); }
+  if (s.umb !== 255 && umbrellaOpen(false, S.wxKind, S.rain, S.snow)) { rect(X - 3, yHead - 4, 7, 1, s.umb); rect(X - 4, yHead - 3, 9, 1, s.umb); for (let j = yHead - 2; j < yHead + 3; j++) put(X + 1, j, STEEL); }
 }
 
 // ---------- sports on the plaza ----------
@@ -432,11 +432,13 @@ function drawSports() {
 // sidewalk. They step out only once no vehicle is on the stripes or past a stop line; from the moment
 // one waits at the kerb until they are across, the traffic stops before the crossing (br-traffic.ts).
 type XPhase = 'approach' | 'wait' | 'cross' | 'leave';
-interface Crosser { on: boolean; phase: XPhase; x: number; y: number; tx: number; dir: number; vy: number; sp: number; ph: number; wait: number; top: number; low: number; skin: number; hair: number; skirt: boolean }
+interface Crosser { on: boolean; phase: XPhase; x: number; y: number; tx: number; dir: number; vy: number; sp: number; ph: number; wait: number; top: number; low: number; skin: number; hair: number; skirt: boolean; seed: number }
 const xr = mulberry32(0x2eb4a);
 const xpick = <T>(a: readonly T[]): T => a[(xr() * a.length) | 0];
-const CROSSERS: Crosser[] = Array.from({ length: 3 }, () => ({ on: false, phase: 'approach' as XPhase, x: 0, y: 0, tx: 0, dir: 1, vy: 1, sp: 10, ph: 0, wait: 0, top: WHITE, low: VOID, skin: SKIN2, hair: HAIR1, skirt: false }));
+const CROSSERS: Crosser[] = Array.from({ length: 3 }, () => ({ on: false, phase: 'approach' as XPhase, x: 0, y: 0, tx: 0, dir: 1, vy: 1, sp: 10, ph: 0, wait: 0, top: WHITE, low: VOID, skin: SKIN2, hair: HAIR1, skirt: false, seed: 0 }));
 const KERB = 146, FAR_KERB = 188; // the sidewalk lane, and the near kerb just below the frame
+/** Spawn counter: each crosser's fixed umbrella roll (rain-rules.ts), without drawing from xr. */
+let crossSeq = 0;
 let crossT = 2, crossings = 0, conflicts = 0;
 
 function spawnCrosser() {
@@ -444,7 +446,7 @@ function spawnCrosser() {
   if (!c) return;
   c.skirt = xr() < 0.4; c.top = xpick([WHITE, CBLUE, CRED, CYELL, FPINK, TILEW, CGREEN, STEEL]); c.low = c.skirt ? c.top : xpick([VOID, BNEAR, CNAVY, STONE]);
   c.skin = xpick([SKIN1, SKIN2, SKIN2, SKIN3, SKIN4]); c.hair = xpick([HAIR1, HAIR1, HAIR2, HAIR3]);
-  c.sp = 9 + xr() * 5; c.ph = xr() * 4; c.tx = ZEBRA0 + 5 + xr() * (ZEBRA1 - ZEBRA0 - 10); c.on = true;
+  c.sp = 9 + xr() * 5; c.ph = xr() * 4; c.tx = ZEBRA0 + 5 + xr() * (ZEBRA1 - ZEBRA0 - 10); c.on = true; c.seed = ++crossSeq;
   if (xr() < 0.55) { // along the sidewalk to the kerb, then across toward the viewer
     c.dir = xr() < 0.5 ? 1 : -1; c.x = c.dir > 0 ? G.camX - 8 : G.camX + G.W + 8; c.y = KERB; c.vy = 1; c.phase = 'approach';
   } else { // from the near kerb up to the sidewalk, then off along it
@@ -492,6 +494,8 @@ function drawCrosser(c: Crosser) {
   rect(X - 1, y - 14, 3, 3, c.skin); rect(X - 1, y - 15, 3, 1, c.hair);
   if (across && c.vy < 0) rect(X - 1, y - 14, 3, 2, c.hair); // seen from behind, walking up toward the steps
   else if (!across) put(X - c.dir, y - 14, c.hair);
+  // an umbrella only in real rain (as on the cinema front), from the crosser's fixed roll
+  if (opensUmbrella(S.wxKind, S.rain, S.snow, hashf(c.seed * 7 + 9))) { rect(X - 3, y - 19, 7, 2, UMB); rect(X + 1, y - 17, 1, 6, STEEL); }
 }
 
 function update(dt: number) {

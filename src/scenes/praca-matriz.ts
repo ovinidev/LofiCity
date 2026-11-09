@@ -8,12 +8,13 @@
    perspective, receding toward the church, and all traffic stays on it. It is one-way here: every
    vehicle drives up it, away from the viewer, tail lights showing; nothing comes the other way. */
 import { G, L, Lp, WW, blitLayer, getW, newLayer, put, rect, sx, sy } from '../engine/gfx';
-import { bay, mulberry32 } from '../engine/math';
+import { bay, hashf, mulberry32 } from '../engine/math';
 import {
   AMB, AMBD, ASPH, BARK, BFAR, BMID, BNEAR, CBLUE, CHURCH, CHURCHD, CHURCHL, CYELL, GOLD, HAIR1, HAIR2, HAIR3, LIGHT, MANTO,
   SKIN1, SKIN2, SKIN3, SKIN4, STEEL, STONE, STONEL, CBEIGE, MAGD, WDIM,
-  TILEW, VOID, WHITE, WOOD, WWARM, WCOOL, FBLUE, FGREEN, FPINK, MAG, CRED,
+  TILEW, VOID, WHITE, WOOD, WWARM, WCOOL, FBLUE, FGREEN, FPINK, MAG, CRED, UMB,
 } from '../engine/palette';
+import { opensUmbrella } from '../actors/rain-rules';
 import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '../fx/precip';
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
@@ -247,10 +248,12 @@ function windows() {
 // windows (doors open 09-12h and 16-19h), single people dropping in to pray: the faithful walk in
 // from the sides, linger chatting near the door, go in; at the end they come out and walk off.
 // Separate from the street pedestrians, so the rest of the praça keeps its quiet evening.
-interface Fiel { on: boolean; x: number; tx: number; dir: number; sp: number; ph: number; wait: number; out: boolean; top: number; low: number; skin: number; hair: number; skirt: boolean }
+interface Fiel { on: boolean; x: number; tx: number; dir: number; sp: number; ph: number; wait: number; out: boolean; top: number; low: number; skin: number; hair: number; skirt: boolean; seed: number }
 const fr = mulberry32(0xf1e15);
 const fpick = <T>(a: readonly T[]): T => a[(fr() * a.length) | 0];
-const FIEIS: Fiel[] = Array.from({ length: 8 }, () => ({ on: false, x: 0, tx: 0, dir: 1, sp: 8, ph: 0, wait: 0, out: false, top: WHITE, low: VOID, skin: SKIN2, hair: HAIR1, skirt: false }));
+const FIEIS: Fiel[] = Array.from({ length: 8 }, () => ({ on: false, x: 0, tx: 0, dir: 1, sp: 8, ph: 0, wait: 0, out: false, top: WHITE, low: VOID, skin: SKIN2, hair: HAIR1, skirt: false, seed: 0 }));
+/** Spawn counter: each one's fixed umbrella roll (rain-rules.ts), without drawing from fr. */
+let fielSeq = 0;
 const FIEL_Y = 141; // the sidewalk in front of the steps
 let fielT = 0, visitT = 6;
 let mass: MassState = massState(0);
@@ -260,7 +263,7 @@ function spawnFiel(out: boolean, visit = false) {
   if (!f) return;
   f.skirt = fr() < 0.55; f.top = fpick([WHITE, WHITE, CBLUE, MANTO, CRED, CYELL, FPINK, TILEW]); f.low = f.skirt ? f.top : fpick([VOID, BNEAR, CBLUE, STONE]);
   f.skin = fpick([SKIN1, SKIN2, SKIN2, SKIN3, SKIN4]); f.hair = fpick([HAIR1, HAIR1, HAIR2, HAIR3, HAIR3]);
-  f.sp = 7 + fr() * 4; f.ph = fr() * 4; f.out = out; f.on = true;
+  f.sp = 7 + fr() * 4; f.ph = fr() * 4; f.out = out; f.on = true; f.seed = ++fielSeq;
   if (out) { f.x = CX - 4 + fr() * 8; f.dir = fr() < 0.5 ? -1 : 1; }
   else {
     f.dir = fr() < 0.5 ? 1 : -1; f.x = f.dir > 0 ? G.camX - 8 : G.camX + G.W + 8;
@@ -305,6 +308,8 @@ function drawFiel(f: Fiel) {
   rect(X - 1, y - 10, 3, f.skirt ? 8 : 6, f.top);
   rect(X - 1, y - 14, 3, 3, f.skin); rect(X - 1, y - 15, 3, 1, f.hair); put(X - f.dir, y - 14, f.hair);
   if (f.skirt) put(X - f.dir, y - 13, f.hair);
+  // an umbrella only in real rain (as on the cinema front), from a fixed roll per person
+  if (opensUmbrella(S.wxKind, S.rain, S.snow, hashf(f.seed * 7 + 3))) { rect(X - 3, y - 19, 7, 2, UMB); rect(X + 1, y - 17, 1, 6, STEEL); }
 }
 
 // ---------- traffic: only on the road right of the church, in perspective ----------
