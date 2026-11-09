@@ -36,7 +36,7 @@ const NO_HELMET = 255;
 
 const r = mulberry32(0xb4a1);
 const pick = <T>(a: readonly T[]): T => a[(r() * a.length) | 0];
-const POOL = 8;
+const POOL = 11;
 const VS: V[] = Array.from({ length: POOL }, () => ({
   on: false, kind: 'hatch' as Kind, x: 0, dir: 1, sp: 0, cruise: 0, lane: 0, len: 26, body: TILEW, body2: TILEW, rider: CRED,
   helmet: VOID, pillion: false, pHelmet: true, mk: 'plain' as MotoKind, load: 'none' as Load, ph: 0, skin: SKIN2, hair: HAIR1, pTop: CBEIGE, pSkin: SKIN2,
@@ -142,7 +142,7 @@ function spawn() {
 
 export function updateBr(dt: number, density = 1) {
   // roughly one vehicle every 2-6 s at a busy hour, a trickle late at night
-  spawnT -= dt * (0.02 + 0.36 * S.traffic) * density;
+  spawnT -= dt * (0.02 + 0.5 * S.traffic) * density;
   if (spawnT <= 0) { spawnT = 0.6 + r() * 1.2; spawn(); }
   const on = VS.filter((v) => v.on);
   const zc = crossing, occupied = !!zc && zc.occupied(), held: V[] = [];
