@@ -468,6 +468,11 @@ export function tapBr(x: number, y: number) {
   return null;
 }
 
+/** Where the vehicles you can board are (their roof centre), for the first-seconds hints. */
+export function brBoardSpots(): { x: number; y: number }[] {
+  return VS.filter((v) => v.on && skinForVehicle(v.kind)).map((v) => ({ x: Math.round(v.x + v.len / 2), y: laneY[v.lane] - TALL[v.kind] }));
+}
+
 /** Far lane, then the motorcycles riding beside (between the lanes), then the near lane. */
 export function drawBr() {
   const aside = (v: V) => v.moto && v.sideK > 0.05;

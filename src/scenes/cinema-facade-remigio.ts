@@ -410,6 +410,7 @@ export const cinemaFachada: Scene = {
   },
   update,
   render,
+  hintSpots() { return doorTap(hour()).enter ? [{ x: DX, y: DTOP - 2, kind: 'door' }] : []; },
   hint() { return isOpen() ? { x: DX, y: DTOP, text: 'Toque na porta pra entrar no cinema' } : null; },
   debug() {
     const b = boardAt(hour());

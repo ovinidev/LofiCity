@@ -9,7 +9,9 @@ import { pickPhrase, remember } from './actors/speech-rules';
 import type { Speaker } from './scenes/types';
 import { tapAnimals } from './actors/animals';
 import { clearPeople, rainDebug, tapPeople } from './actors/people';
-import { tapCars } from './actors/cars';
+import { boardSpots, tapCars } from './actors/cars';
+import { drawHints } from './fx/hints';
+import type { HintSpot } from './fx/hints-rules';
 import { audio } from './audio/audio';
 import { radio } from './audio/radio';
 import { bells } from './audio/bells';
@@ -86,6 +88,7 @@ addEventListener('resize', resize);
 resize();
 
 let scene = pickScene(city.id);
+let sceneMs = 0, hintsUsed = false; // time in this scene (hints show in its first seconds); a door or bus used
 settle(simNow(), city);
 direct(simNow(), city, 0, scene.id);
 scene.build();
@@ -174,7 +177,7 @@ function setCity(id: string) {
   pinMoment();
   followLive(city);
   clearBubbles(); clearPeople(); cycleMs = 0;
-  scene = pickScene(city.id);
+  scene = pickScene(city.id); sceneMs = 0;
   settle(simNow(), city); direct(simNow(), city, 0, scene.id);
   scene.build();
   syncBells();
@@ -190,11 +193,12 @@ addEventListener('pagehide', () => bells.dispose());
 addEventListener('pageshow', (e) => { if (e.persisted) syncBells(); }); // back from the bfcache
 /** Switches to another scene of the same city at the same moment (the scene button, or a door). */
 function enterScene(next: Scene) {
-  clearBubbles(); clearPeople(); cycleMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit(); placeInfo.refresh();
+  clearBubbles(); clearPeople(); cycleMs = 0; sceneMs = 0; scene = next; direct(simNow(), city, 0, scene.id); scene.build(); syncBells(); syncHash(); syncExit(); placeInfo.refresh();
 }
 // Inside the bus, "Sair do ônibus" (or Esc) gets off: back to the scene it was boarded from, else the next scene.
 function syncExit() { $('b-exit').hidden = scene !== onibus; }
 function board(skin: BusSkin) {
+  hintsUsed = true;
   boardBus(skin, scene.id); enterScene(onibus);
   const h = scene.hint?.(); if (h) say(h.text, h);
 }
@@ -353,7 +357,7 @@ $('view').addEventListener('pointerdown', (e) => {
   const prop = scene.tap?.(x, y);
   // a door (e.g. the cinema in Remígio): the same scene change as the scene button, then the new scene's hint
   const to = prop?.goto ? sceneById(city.id, prop.goto) : null;
-  if (to) { enterScene(to); const h = scene.hint?.(); if (h) say(h.text, h); return; }
+  if (to) { hintsUsed = true; enterScene(to); const h = scene.hint?.(); if (h) say(h.text, h); return; }
   if (prop?.board) { if (prop.sfx) sfx(prop.sfx); board(prop.board); return; }
   if (prop?.say) say(prop.say, prop);
   else if (prop?.speaker) speak(prop.speaker, prop.x, prop.y);
@@ -384,6 +388,7 @@ function frame(now: number) {
   if (dt > 0.25) dt = 0.25;
   const t0 = performance.now();
   clock += dt;
+  sceneMs += dt * 1000;
   cycleMs += dt * 1000; // frames pause in a hidden tab, so the 2 minutes are minutes of watching
   if (shouldAdvance({ enabled: autoCycle, elapsedMs: cycleMs, sceneId: scene.id, dialogOpen: cityMap.isOpen() || placeInfo.isOpen() || shareOpen })) enterScene(cycleScene(city.id, scene));
   const hadData = S.wxKind !== 'unavailable';
@@ -394,6 +399,7 @@ function frame(now: number) {
   updateSky(dt); updateSkyEvents(dt); updatePrecip(dt); scene.update(dt);
   scene.render();
   drawEmotes(dt);
+  if (!cityMap.isOpen() && !placeInfo.isOpen()) drawHints([...(scene.hintSpots?.() ?? []), ...boardSpots().map((p): HintSpot => ({ ...p, kind: 'bus' }))], sceneMs / 1000, hintsUsed, clock);
   gradePalette();
   scene.grade?.(); // indoor scenes light themselves
   present(clock, S.shake, scene.grade && !scene.seesSky ? 0 : S.dayK);
