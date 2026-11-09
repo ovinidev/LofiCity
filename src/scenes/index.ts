@@ -4,6 +4,7 @@ import { armazemParaiba } from './armazem-paraiba';
 import { caboBranco } from './cabo-branco';
 import { centroAreia } from './centro-areia';
 import { lagoaRemigio } from './lagoa-remigio';
+import { cinemaRemigio } from './cinema-remigio';
 import { campoRodoviaria } from './campo-rodoviaria';
 import { capelinha } from './capelinha';
 import { centroTeatro } from './centro-teatro';
@@ -29,7 +30,7 @@ export const SCENES: Record<CityId, Scene[]> = {
   campina: [acudeVelho, piramide, estacaoVelha, parqueCrianca, partage, terminalIntegracao],
   joaopessoa: [caboBranco],
   areia: [centroAreia],
-  remigio: [lagoaRemigio],
+  remigio: [lagoaRemigio, cinemaRemigio],
 };
 
 const LAST_KEY = 'loficity:lastScene:';

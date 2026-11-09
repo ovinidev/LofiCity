@@ -23,7 +23,7 @@ const NEW = ['centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezer
 
 test('every scene id in SCENES is unique', () => {
   const ids = [...table.values()].flat().map(sceneId);
-  assert.ok(ids.length >= 22);
+  assert.ok(ids.length >= 23);
   assert.equal(new Set(ids).size, ids.length, `duplicate ids: ${ids}`);
 });
 
@@ -75,4 +75,18 @@ test('the new Campina scenes follow the city rhythm and never set the weather', 
     assert.deepEqual(density('campina', id, at), density('campina', 'acude-velho', at));
     assert.doesNotMatch(read(`src/scenes/${id}.ts`), /S\.(rain|snow|storm|cloud|fog|temp|wind)\s*=[^=]/);
   }
+});
+
+test('Remígio has the lagoon first, then the cinema, listed in the developer guide', () => {
+  assert.deepEqual(table.get('remigio')!.map(sceneId), ['lagoa-remigio', 'cinema-remigio']);
+  const line = read('docs/DEVELOPING.md').split('\n').find((l) => l.startsWith('- `#scene='))!;
+  assert.ok(line.includes('`cinema-remigio`'), 'cinema-remigio in the #scene list');
+});
+
+test('the cinema is indoors: it never touches the weather and takes no Math.random', () => {
+  const src = read('src/scenes/cinema-remigio.ts');
+  assert.doesNotMatch(src, /S\.(rain|snow|storm|cloud|fog|temp|wind|wet)\s*=[^=]/);
+  assert.doesNotMatch(src, /Math\.random\(/);
+  assert.doesNotMatch(read('src/scenes/cinema-rules.ts'), /Math\.random\(|from '\.\.\/engine|document\.|window\./);
+  assert.match(src, /grade\(\)/, 'lights itself (grade hook)');
 });

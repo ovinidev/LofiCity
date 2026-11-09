@@ -78,7 +78,13 @@ export const PHRASES: Phrase[] = [
   ...group({ city: 'joaopessoa', tod: ['manha'] }, ['Aqui o sol nasce primeiro!']),
   ...group({ city: 'joaopessoa', tod: ['noite'] }, ['Brisa do mar de noite é bom demais.']),
   ...group({ city: 'areia' }, ['Areia tem cada casarão lindo!', 'Bora comer uma rapadura?', 'Que ladeira, hein!']),
-  ...group({ city: 'remigio' }, ['A lagoa tá bonita hoje.', 'Remígio é puro sossego.', 'Bora sentar na beira da lagoa?']),
+  ...group({ city: 'remigio' }, ['Remígio é puro sossego.']),
+  ...group({ scene: 'lagoa-remigio' }, ['A lagoa tá bonita hoje.', 'Bora sentar na beira da lagoa?']),
+  // the audience in the cinema (src/scenes/cinema-remigio.ts): only movie talk, whispered
+  ...group({ scene: 'cinema-remigio', who: ['attendee'] }, [
+    'Psiu! O filme já começou.', 'Passa a pipoca, visse?', 'Eita, que explosão!', 'Essa luta tá arretada!',
+    'Fica até o fim, tem cena extra.', 'Quem é esse de capa verde?', 'Vixe, derrubou todo mundo!', 'Desliga o celular, por favor.',
+  ]),
 
   // ---------- Tóquio (pt-BR simples, com um toque de japonês) ----------
   ...group(TK, ['Konnichiwa!', 'Arigatô!', 'Sumimasen, com licença!', 'Tóquio nunca dorme.', 'Vou pegar um onigiri.', 'Oi, tudo bem? Genki?']),
