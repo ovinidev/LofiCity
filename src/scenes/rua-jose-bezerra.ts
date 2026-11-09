@@ -7,7 +7,10 @@
    row of two- and three-storey buildings (wood cladding over a yellow sign band, a beige block, a
    grey shop), low white houses and a tree in white flower, a blue truck and a white supermarket van
    ("SUPER ESPERANÇA") at the kerb. No zebra crossing is visible, so none is drawn: pedestrians keep
-   to the two sidewalks and never cross, and traffic runs both ways on the right-hand carriageway. */
+   to the two sidewalks and never cross, and traffic runs both ways on the right-hand carriageway.
+   On market mornings (assumed: Saturdays, a small feirinha on Wednesdays) a feira livre fills the
+   unused left carriageway between the wall and the median: ./rjb-feira.ts draws it, the rules are
+   in ../actors/feira-rules.ts. */
 import { L, Lp, WW, blitLayer, newLayer, put, rect } from '../engine/gfx';
 import { mulberry32 } from '../engine/math';
 import {
@@ -24,6 +27,8 @@ import { type Tree, drawTree, makeTree } from '../actors/trees';
 import { S, hourIn } from '../sky/state';
 import { drawFog, drawSky, drawStreet, type Street } from './common';
 import { bandeirolas, isNight, text, textW, wire, wireCurve } from './br-kit';
+import { feiraBoxes, feiraBuild, feiraDebug, feiraFlow, feiraItems, feiraTap, feiraUpdate } from './rjb-feira';
+import { sortZ, walkerBoost } from '../actors/feira-rules';
 import {
   type Facade, type Opening, type PCar, type PKind, type PLamp, type View, type Walker, type WalkCfg, OPEN, drawByDepth, drawCarP,
   drawOpeningsP, drawWalker, lampLightP, lampPostP, makeCars, makeWalkers, paintFacades, paintFront, paintGround, projX, projY, scaleAt,
@@ -130,14 +135,10 @@ function box(X: number, z0: number, z1: number, h: number, body: number, cabFrom
     },
   };
 }
-/** Along the wall nothing else is drawn in front of these, so they go into the static layer. */
-const leftVehicleSides = () => [
-  box(-14.15, 13.6, 18.6, 1.15, TILEW, 0.3, 2.4, 1.8), // white pickup along the wall
-  box(-12.6, 31, 35.2, 1.0, VOID, 0.9, 3.3, 1.45), // dark car
-];
-// The truck and the van at the right kerb overlap each other on screen, so each side gets its own
-// layer, drawn in depth order with the moving traffic and the pedestrians.
-const truckSide = newLayer(), vanSide = newLayer();
+// Each parked vehicle's side gets its own layer, drawn in depth order with the moving traffic and the
+// pedestrians: the truck and the van at the right kerb overlap each other on screen, and the feira's
+// stalls and shoppers stand beyond the pickup and the dark car along the wall.
+const truckSide = newLayer(), vanSide = newLayer(), pickupSide = newLayer(), carSide = newLayer();
 
 // ---------- far, poles, wires, ground ----------
 function buildFar() {
@@ -214,7 +215,7 @@ function buildKiosk() {
 
 // ---------- actors ----------
 const CARS: PCar[] = makeCars(7);
-const WALKERS: Walker[] = makeWalkers(8);
+const WALKERS: Walker[] = makeWalkers(10);
 const ROAD: DepthRoad = { zNear: 3, zFar: 140, gap: 1.6, stopGap: 1.2, crossing: null };
 const laneX = (dir: 1 | -1) => (dir > 0 ? 3.8 : 0.8);
 const WALK: WalkCfg = { walks: [{ X0: XW + 0.1, X1: XWS - 0.1, z0: 20 }, { X0: XKR + 0.3, X1: XBR - 0.2, z0: 13 }], zNear: 3.5, zFar: 75, zebra: null };
@@ -248,7 +249,8 @@ function vanLivery() {
 function update(dt: number) {
   updateAnimals(dt);
   updateCarsP(CARS, dt, ROAD, laneX);
-  updateWalkers(WALKERS, dt, WALK, () => false, 1);
+  feiraUpdate(dt);
+  updateWalkers(WALKERS, dt, WALK, () => false, walkerBoost(feiraFlow())); // market mornings bring more people out
 }
 
 const shopsOpen = () => S.cal.weekday !== 0 && hourIn(S.cal.hour, 7.5, 18.5);
@@ -266,11 +268,14 @@ function render() {
   for (const l of LAMPS) lampLightP(V, l);
   if (S.festa || S.saoJoao) { const [x0, y0, x1, y1] = WIRES[0]; bandeirolas(x0, y0 + 4, x1, y1 + 4, 10, 1); }
   drawAnimalsPerched();
+  const boxes = feiraBoxes();
   drawByDepth([
     ...PARKED.map((p) => ({ z: p.z, draw: () => { drawCarP(V, p, true); if (p === VAN) vanLivery(); } })),
     { z: 19.5, draw: () => blitLayer(truckSide) }, { z: 12.2, draw: () => blitLayer(vanSide) },
+    { z: 18.6, draw: () => blitLayer(pickupSide) }, { z: 35.2, draw: () => blitLayer(carSide) },
     ...CARS.filter((c) => c.on).map((c) => ({ z: c.z, draw: () => drawCarP(V, c) })),
-    ...WALKERS.filter((w) => w.on).map((w) => ({ z: w.z, draw: () => drawWalker(V, w) })),
+    ...WALKERS.filter((w) => w.on).map((w) => ({ z: sortZ(w.X, w.z, boxes), draw: () => drawWalker(V, w) })),
+    ...feiraItems(),
   ]);
   if (isNight()) for (let x = 250; x < 300; x += 6) put(x, Math.round(projY(V, 2.6, 140)), (x / 6) % 3 ? CYELL : TILEW);
   drawRipples(); drawFog(FOG); drawNearPrecip();
@@ -283,7 +288,9 @@ export const ruaJoseBezerra: Scene = {
   build() {
     if (!built) {
       buildFar();
-      paintFacades(mid, V, [wall(), ...rightSide(), ...leftVehicleSides()], opens);
+      paintFacades(mid, V, [wall(), ...rightSide()], opens);
+      paintFacades(pickupSide, V, [box(-14.15, 13.6, 18.6, 1.15, TILEW, 0.3, 2.4, 1.8)], opens); // white pickup along the wall
+      paintFacades(carSide, V, [box(-12.6, 31, 35.2, 1.0, VOID, 0.9, 3.3, 1.45)], opens); // dark car
       paintFacades(truckSide, V, [box(7.05, 16, 23, 1.3, CBLUE, 0, 0, 0)], opens); // the blue truck's flatbed
       paintFacades(vanSide, V, [box(5.15, 10, 14.4, 1.95, TILEW, 0, 0, 0)], opens); // the van's side
       buildKiosk(); buildPoles(); buildGround(); buildPlanter();
@@ -302,10 +309,11 @@ export const ruaJoseBezerra: Scene = {
     for (const w of WALKERS) w.on = false;
     setupAnimals({ ground: [], dogs: 0, wires: WIRES.slice(0, 2).map(([a, b, c, d, s]) => wireCurve(a, b, c, d, s)), lamps: LAMPS.map((l) => ({ x: projX(V, l.X + l.arm, l.z), y: projY(V, l.h, l.z) })) });
     configure({ roofs: [], tips: [], lamps: LAMPS.map((l) => ({ x: projX(V, l.X + l.arm, l.z), y: projY(V, l.h, l.z) })), ground0: HORIZON + 14, horizon: HORIZON });
+    feiraBuild(V);
     for (let i = 0; i < 300; i++) update(1 / 30);
   },
   update,
   render,
-  debug() { return `active  walkers x${WALKERS.filter((w) => w.on).length}  road x${CARS.filter((c) => c.on).length}`; },
-  tap(x, y) { return tapWalker(V, WALKERS, x, y) ?? tapCarP(V, CARS, x, y); },
+  debug() { return `active  walkers x${WALKERS.filter((w) => w.on).length}  road x${CARS.filter((c) => c.on).length}${feiraDebug()}`; },
+  tap(x, y) { return tapWalker(V, WALKERS, x, y) ?? feiraTap(x, y) ?? tapCarP(V, CARS, x, y); },
 };

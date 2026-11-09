@@ -1,18 +1,22 @@
-/* Praça da Cultura (Esperança): when the little public school beside the plaza is open, when its
-   students arrive and leave, and when teenagers play volleyball and football on the plaza.
+/* Praça da Cultura (Esperança): when the school is open, when its students arrive and leave, and
+   when teenagers play volleyball and football on the plaza. The school is the large cream-yellow
+   building at the back of the square (owner's direction); its arched central entrance is where
+   the students go in and come out.
 
    ART DIRECTION, NOT THE SCHOOL'S REAL TIMETABLE. Assumed hours, local Esperança time, Monday to
    Friday only (no holidays or school vacations are modelled):
    - morning shift 07:00-12:00, afternoon shift 13:00-17:30;
    - students arrive from 30 min before a shift until 10 min after it starts, busiest just before
      the bell, and leave over the 20 min after it ends;
-   - the gate is open from the first arrivals to the last leavers of each shift; the classroom
-     windows are lit only inside a shift; on Saturdays, Sundays and outside these hours the gate is
-     shut and every window is dark.
+   - the entrance stands open from the first arrivals to the last leavers of each shift; the
+     classroom windows are open and lit only inside a shift; on Saturdays, Sundays and outside
+     these hours the entrance is shut and every window is closed and dark.
    Sports on the plaza (also assumed): weekdays 14:00-17:30 (the morning-shift teenagers, after
    lunch), Saturdays 08:00-11:30 and 14:00-17:30, Sundays 08:00-11:30 and 15:00-17:30. Never at
-   night or in the small hours. They need a real weather reading with no rain: real rain pauses a
-   game already running (and nobody starts one), unknown weather means nobody plays.
+   night or in the small hours, and never while students are arriving or leaving (their way to the
+   entrance crosses the plaza and the volleyball court; the windows are set so, see the tests).
+   They need a real weather reading with no rain: real rain pauses a game already running (and
+   nobody starts one), unknown weather means nobody plays.
 
    Pure module: no DOM, no engine imports; the weather comes in from the scene (real reading only). */
 import { type WxState, raining } from '../actors/rain-rules.ts';
@@ -34,20 +38,21 @@ export interface SchoolState {
   inClass: boolean;
   arriving: boolean;
   leaving: boolean;
-  gateOpen: boolean;
-  /** Classroom windows lit. */
+  /** The arched central entrance stands open. */
+  entranceOpen: boolean;
+  /** Classroom windows open and lit. */
   lit: boolean;
 }
 
 /** The school at a local weekday and fractional hour. */
 export function schoolState(weekday: number, hour: number): SchoolState {
-  const st: SchoolState = { shift: -1, inClass: false, arriving: false, leaving: false, gateOpen: false, lit: false };
+  const st: SchoolState = { shift: -1, inClass: false, arriving: false, leaving: false, entranceOpen: false, lit: false };
   if (!schoolDay(weekday)) return st;
   SHIFTS.forEach((s, i) => {
     if (hour >= s.start && hour < s.end) { st.inClass = true; st.shift = i; }
     if (hour >= s.start - ARRIVE_H && hour < s.start + LATE_H) st.arriving = true;
     if (hour >= s.end && hour < s.end + LEAVE_H) st.leaving = true;
-    if (hour >= s.start - ARRIVE_H && hour < s.end + LEAVE_H) st.gateOpen = true;
+    if (hour >= s.start - ARRIVE_H && hour < s.end + LEAVE_H) st.entranceOpen = true;
   });
   st.lit = st.inClass;
   return st;

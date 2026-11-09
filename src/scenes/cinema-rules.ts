@@ -37,15 +37,103 @@ export function localTime(ms: number, utc: number): { hour: number; day: number 
   return { hour: (((local % DAY_MS) + DAY_MS) % DAY_MS) / HOUR_MS, day: Math.floor(local / DAY_MS) };
 }
 
+/** Number of sessions a day. */
+const BLOCKS = Math.ceil(((CLOSE_H - OPEN_H) * 60) / BLOCK_MIN);
+/** Local hour each session starts (14, 16.5, 19, 21.5), derived from the constants above. */
+export const SESSION_STARTS: readonly number[] = Array.from({ length: BLOCKS }, (_, i) => OPEN_H + (i * BLOCK_MIN) / 60);
+/** Local hour the film of each session starts, after its pre-show. */
+export const FILM_STARTS: readonly number[] = SESSION_STARTS.map((h) => h + PRESHOW_MIN / 60);
+/** Local hour the film of each session ends: the next session's start, or closing time. */
+export const FILM_ENDS: readonly number[] = SESSION_STARTS.map((_, i) => SESSION_STARTS[i + 1] ?? CLOSE_H);
+
+/** A session time as the room writes it: 14 -> "14H", 16.5 -> "16H30". */
+export function hourLabel(h: number): string {
+  const hh = Math.floor(h + 1e-9), mm = Math.round((h - hh) * 60);
+  return `${hh}H${mm ? String(mm).padStart(2, '0') : ''}`;
+}
+
 /** Session state at a local fractional hour. */
 export function sessionAt(hour: number): Session {
-  const blocks = Math.ceil(((CLOSE_H - OPEN_H) * 60) / BLOCK_MIN);
+  const blocks = BLOCKS;
   if (hour < OPEN_H || hour >= CLOSE_H) return { phase: 'closed', block: -1, sec: 0, next: OPEN_H };
   // the tiny epsilon keeps boundaries like 14:12 on the right side despite float rounding
   const min = (hour - OPEN_H) * 60, block = Math.min(blocks - 1, Math.floor((min + 1e-9) / BLOCK_MIN)), into = min - block * BLOCK_MIN;
   const nextMin = (block + 1) * BLOCK_MIN, next = nextMin < (CLOSE_H - OPEN_H) * 60 ? OPEN_H + nextMin / 60 : OPEN_H;
   if (into + 1e-9 < PRESHOW_MIN) return { phase: 'preshow', block, sec: Math.max(0, into) * 60, next: OPEN_H + (block * BLOCK_MIN) / 60 };
   return { phase: 'film', block, sec: Math.max(0, into - PRESHOW_MIN) * 60, next };
+}
+
+// ---------- what the room and the street front show (both read the same session state) ----------
+/** The lit notice on the screen inside: the closed-room card, the pre-show slide, or null while the film runs. */
+export function screenNotice(hour: number): string[] | null {
+  const s = sessionAt(hour);
+  if (s.phase === 'closed') return ['SALA VAZIA', `PRÓXIMA SESSÃO ${hourLabel(OPEN_H)}`];
+  if (s.phase === 'preshow') return [`SESSÃO ${hourLabel(s.next)}`];
+  return null;
+}
+
+export type RowState = 'done' | 'now' | 'next' | 'later';
+export interface Board {
+  phase: Phase;
+  /** One row per session of the day, in order. */
+  rows: { label: string; start: number; state: RowState }[];
+  /** The status line under the times. */
+  status: string;
+}
+
+/** The showtimes board on the street front: every session time, the running or next one
+    highlighted, and a status line, all from sessionAt (so it always agrees with the room). */
+export function boardAt(hour: number): Board {
+  const s = sessionAt(hour);
+  const rows = SESSION_STARTS.map((start, i) => {
+    let state: RowState;
+    if (s.phase === 'closed') state = i === 0 ? 'next' : 'later';
+    else state = i < s.block ? 'done' : i === s.block ? 'now' : i === s.block + 1 && s.phase === 'film' ? 'next' : 'later';
+    return { label: hourLabel(start), start, state };
+  });
+  const status = s.phase === 'closed' ? 'FECHADO' : s.phase === 'preshow' ? 'VAI COMEÇAR' : 'EM EXIBIÇÃO';
+  return { phase: s.phase, rows, status };
+}
+
+/** Tapping the street door: in while the room is open, otherwise a short note and no entry. */
+export function doorTap(hour: number): { enter: true } | { enter: false; say: string } {
+  return sessionAt(hour).phase === 'closed' ? { enter: false, say: `Fechado, volta às ${OPEN_H}h` } : { enter: true };
+}
+
+// ---------- the crowd at the street door (bounded, nothing while the room is closed) ----------
+/** At most this many people queue at the door. */
+export const QUEUE_MAX = 4;
+/** Minutes before a session start that its queue begins to form (only while the room is open). */
+export const QUEUE_LEAD_MIN = 15;
+/** At most this many people come out when a film ends, one every EXIT_GAP_S seconds. */
+export const EXIT_MAX = 5;
+export const EXIT_GAP_S = 35;
+/** Minutes the last audience takes to leave before closing time (the credits of the last film). */
+export const LAST_EXIT_MIN = 5;
+
+/** How many people stand in the queue at the door: it forms in the minutes before a session and
+    goes in during the pre-show, one by one, until the film starts. 0 whenever the room is closed. */
+export function queueAt(hour: number): number {
+  if (sessionAt(hour).phase === 'closed') return 0;
+  for (const s of SESSION_STARTS) {
+    const lead = s - QUEUE_LEAD_MIN / 60, film = s + PRESHOW_MIN / 60;
+    if (hour >= lead && hour < s) return Math.min(QUEUE_MAX, 1 + Math.floor(((hour - lead) / (s - lead)) * QUEUE_MAX));
+    if (hour >= s && hour < film) return Math.max(1, Math.ceil(QUEUE_MAX * (1 - (hour - s) / (film - s))));
+  }
+  return 0;
+}
+
+/** Seconds since each person leaving the film came out of the door (newest last), when a film ends:
+    right after it ends, or, for the last session, in the minutes before closing. Empty when closed. */
+export function exitsAt(hour: number): number[] {
+  if (sessionAt(hour).phase === 'closed') return [];
+  const out: number[] = [];
+  for (const e of FILM_ENDS) {
+    const from = e >= CLOSE_H ? e - LAST_EXIT_MIN / 60 : e, sec = (hour - from) * 3600;
+    if (sec < 0 || sec >= EXIT_MAX * EXIT_GAP_S + 60) continue;
+    for (let k = 0; k < EXIT_MAX; k++) if (sec >= k * EXIT_GAP_S) out.push(sec - k * EXIT_GAP_S);
+  }
+  return out;
 }
 
 // ---------- the movie: short shots in a seeded order ----------
