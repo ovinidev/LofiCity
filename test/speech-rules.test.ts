@@ -39,7 +39,8 @@ test('the pool is authored, non-empty, deduplicated and short enough for a bubbl
 test('every scene, at every hour, has something to say for its speakers', () => {
   for (const { city, scene } of ALL) for (const hour of HOURS) {
     const roles = scene === 'capelinha' ? (['visitor', 'attendee', 'priest'] as const)
-      : scene === 'campo-rodoviaria' ? (['passerby', 'player'] as const) : (['passerby'] as const);
+      : scene === 'campo-rodoviaria' ? (['passerby', 'player'] as const)
+      : scene === 'praca-cultura' ? (['passerby', 'student', 'player', 'volley'] as const) : (['passerby'] as const);
     for (const role of roles) {
       const c = ctx({ city, scene, hour, role, wx: { kind: 'unavailable', temp: null } });
       assert.ok(candidates(c).length >= 3, `${city}/${scene}/${role} at ${hour}h has too few phrases`);
