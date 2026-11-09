@@ -42,7 +42,7 @@ body.idle, body.idle canvas#view { cursor: none !important; }
 /* inside the bus: the way out stands out from the other controls */
 .bar #b-exit { color: var(--cyan); border-color: var(--cyan); }
 #debug {
-  position: fixed; top: calc(var(--st) + 94px); /* below the eye and share buttons */ right: var(--sr);
+  position: fixed; top: calc(var(--st) + 140px); /* below the eye, share and info buttons */ right: var(--sr);
   max-width: calc(100% - var(--sl) - var(--sr)); font: 11px/1.55 var(--font-data); background: var(--panel); color: var(--ink);
   border: 1px solid var(--line); padding: 10px 12px; white-space: pre; overflow-x: auto; font-variant-numeric: tabular-nums;
 }
@@ -67,7 +67,7 @@ body.idle, body.idle canvas#view { cursor: none !important; }
 @keyframes bubble-out { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .bubble { animation: none; } }
 /* Quick repeated taps on controls must not trigger double-tap zoom; pinch-zoom stays available. */
-.ui, .radio, .eye, .credit, #rotate, button, select, input, a { touch-action: manipulation; }
+.ui, .radio, .eye, .info-btn, .credit, #rotate, button, select, input, a { touch-action: manipulation; }
 
 /* eye: shows/hides the whole HUD; always on screen, faint while idle */
 .eye {
@@ -81,7 +81,7 @@ body.idle, body.idle canvas#view { cursor: none !important; }
 .eye[aria-pressed="true"] { color: var(--muted); }
 .eye:hover { border-color: var(--muted); }
 .eye:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
-body.idle .eye, body.idle .share-btn { opacity: 0.35; }
+body.idle .eye, body.idle .share-btn, body.idle .info-btn { opacity: 0.35; }
 
 /* share: a twin of the eye just below it, with a two-item menu opening to its left */
 .share { position: fixed; top: calc(var(--st) + 46px); right: var(--sr); z-index: 5; }
@@ -108,7 +108,16 @@ body.idle .eye, body.idle .share-btn { opacity: 0.35; }
   font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cyan);
   background: var(--panel); border: 1px solid var(--cyan); border-radius: 2px; padding: 8px 12px; white-space: nowrap;
 }
-body.idle .eye:focus-visible { opacity: 1; }
+body.idle .eye:focus-visible, body.idle .info-btn:focus-visible { opacity: 1; }
+/* place info: a third twin under share; only rendered for scenes with a story (Esperança) */
+.info-btn {
+  position: fixed; top: calc(var(--st) + 92px); right: var(--sr); z-index: 5;
+  width: 40px; height: 40px; padding: 10px; display: grid; place-items: center; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 2px; cursor: pointer; transition: opacity 0.7s ease, color 0.2s ease;
+}
+.info-btn svg { width: 100%; height: 100%; display: block; }
+.info-btn:hover { border-color: var(--muted); }
+.info-btn:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .ui { transition: none; } }
 
 /* city selector + temperature */
@@ -244,6 +253,7 @@ body.idle .credit { opacity: 0.4; }
   .share { top: calc(var(--st) + 42px); }
   .share-btn { width: 36px; height: 36px; padding: 8px; }
   .share-menu button { font-size: 10px; }
+  .info-btn { top: calc(var(--st) + 84px); width: 36px; height: 36px; padding: 8px; }
 }
 
 /* city map: a native modal dialog (top layer); closed it is display:none and takes no taps */
@@ -285,4 +295,40 @@ body.idle .credit { opacity: 0.4; }
   .cm-head h2 { font-size: 11px; }
   .cm-pins button, .cm-row button, .cm-world { font-size: 9px; }
   .cm-pins button { padding: 0 5px; }
+}
+
+/* place info: a native modal dialog with the story of the current place; scrolls inside on small screens,
+   kept clear of notches and the home bar (safe-area insets) */
+.place-info {
+  padding: 0; border: 1px solid var(--line); border-radius: 2px; background: #0c0a1a; color: var(--ink); cursor: auto;
+  width: min(560px, calc(100vw - var(--sl) - var(--sr))); max-width: none;
+  max-height: calc(100dvh - var(--st) - var(--sb)); overflow: auto; overscroll-behavior: contain;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6);
+}
+.place-info::backdrop { background: rgba(5, 4, 11, 0.7); }
+.pi-box { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; font: 13px/1.5 var(--font-data); }
+.pi-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; position: sticky; top: 0; margin: -12px -14px 0; padding: 12px 14px 8px; background: #0c0a1a; border-bottom: 1px solid var(--line); }
+.pi-head h2 {
+  margin: 0; font: normal 13px/1.4 var(--font-ui); letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink);
+  text-shadow: 0 0 8px rgba(255, 79, 163, 0.5); align-self: center;
+}
+.pi-close {
+  flex: none; font: 18px/1 var(--font-ui); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 2px;
+  width: 36px; height: 36px; padding: 0; cursor: pointer;
+}
+.pi-close:hover { border-color: var(--muted); }
+.place-info :focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
+.pi-body p { margin: 0 0 8px; }
+.pi-body p:last-child { margin: 0; }
+.pi-box h3 { margin: 0 0 4px; font: normal 11px/1.4 var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--cyan); }
+.pi-box ul { margin: 0; padding-left: 18px; }
+.pi-box li { margin: 0 0 4px; }
+.pi-src { font-size: 12px; }
+.pi-src a { color: var(--muted); overflow-wrap: anywhere; }
+.pi-src a:hover { color: var(--cyan); }
+@media (max-width: 600px), (max-height: 500px) {
+  .pi-box { padding: 10px 12px 12px; gap: 8px; font-size: 12px; }
+  .pi-head { margin: -10px -12px 0; padding: 10px 12px 8px; }
+  .pi-head h2 { font-size: 11px; }
+  .pi-src { font-size: 11px; }
 }

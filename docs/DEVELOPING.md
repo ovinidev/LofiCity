@@ -100,13 +100,15 @@ Nothing is uploaded or posted; the person sends the link or image themselves. Th
 
 ## Keys
 
-The scene changes by itself every 2 minutes (rules in `src/scene-cycle.ts`, unit-tested): the next scene of the city in the list, skipping the bus and the cinema room, which you only ever enter yourself. The timer restarts on any manual scene or city change, never fires while the city map or the share menu is open, never pulls you out of the bus or the cinema room, and counts only visible time (a hidden tab does not run it). It starts on, except when the page was opened with `#scene=` or `#cycle=off`; the **Auto** button or A toggles it. The 2 minutes are the owner's choice.
+The scene changes by itself every 2 minutes (rules in `src/scene-cycle.ts`, unit-tested): the next scene of the city in the list, skipping the bus and the cinema room, which you only ever enter yourself. The timer restarts on any manual scene or city change, never fires while the city map, the place-info dialog or the share menu is open, never pulls you out of the bus or the cinema room, and counts only visible time (a hidden tab does not run it). It starts on, except when the page was opened with `#scene=` or `#cycle=off`; the **Auto** button or A toggles it. The 2 minutes are the owner's choice.
 
-T city map, S scene, A automatic scene change on/off (the **Auto** button), Esc get off the bus, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
+T city map, S scene, A automatic scene change on/off (the **Auto** button), Esc get off the bus, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, I place info (Esperança scenes), Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
 
 The city map is a pixel map of Paraíba with a pin per city, generated from the city registry; cities outside Paraíba (Tóquio) are listed under it. Esc, the × button or a tap outside closes it without changing the city.
 
 The eye button (top-right) hides the whole HUD, credit included, for a clean view; the choice is remembered. Hiding it does not pause the radio. The radio tries to start by itself on load; browsers block that until the page has had a gesture, so it then starts on the first tap or key press (unless the listener already used the radio controls). Fullscreen is on the button and Enter only (no double-click), so quick taps on the scene never resize it.
+
+The "i" button under the share button (Esperança scenes only; not rendered elsewhere) opens "Sobre este lugar", a modal with the real story of the current scene's place: title, short paragraphs, curiosities and a list of sources with links. Esc, the × button or a tap outside closes it, and focus goes back to the button; it follows the scene if it changes. The texts live in `src/data/place-info.ts`, one entry per Esperança scene id, using only facts from the cited sources (local history blog História Esperancense, Revivendo Esperança, the Prefeitura, g1, Wikipedia); where no history of a street name or shop was found (Rua Faustino Porto, Rua José Bezerra da Costa, Casa de Amigos) the entry says so and only describes the scene. Tested in `test/place-info.test.ts`.
 
 ## Layout
 
@@ -115,7 +117,8 @@ The eye button (top-right) hides the whole HUD, credit included, for a clean vie
 - `src/fx`: rain, snow, petals and leaves, lightning, fireworks
 - `src/actors`: pedestrians, cars and motorcycles, trees
 - `src/scenes`: shared passes, the Esperança prop kit (`br-kit.ts`) and one file per scene
-- `src/ui`: the city map (`map-rules.ts` holds the pure, unit-tested projection, label layout and pick/dismiss rules; `paraiba.ts` the state outline)
+- `src/data`: the place stories behind the "i" button (`place-info.ts`, pure, unit-tested)
+- `src/ui`: the place-info dialog (`place-info.ts`) and the city map (`map-rules.ts` holds the pure, unit-tested projection, label layout and pick/dismiss rules; `paraiba.ts` the state outline)
 - `src/audio`: generative ambience, synthesized SFX and church bells (`bells-schedule.ts` holds the pure rules and `bells-scheduler.ts` the timer, both unit-tested), and the radio
 - `test`: `node --test` unit tests
 
