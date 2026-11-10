@@ -2,9 +2,11 @@
    test/speech-rules.test.ts): which authored phrase fits the city, the scene, the hour and the
    REAL weather, without repeating itself; where the bubble goes on screen; and when it hides.
    Weather phrases follow the same rule as everything else: only a genuine Open-Meteo reading
-   (live or stale) or the explicit #wx= test counts. Unknown weather gives no weather phrase at all. */
+   (live or stale) or the explicit #wx= / #wind= test counts. Unknown weather gives no weather phrase at all.
+   Wind lines need strong wind (≥ 30 km/h, src/sky/wind-rules.ts). */
 import { type WxState, raining } from './rain-rules.ts';
 import { PHRASES, type Phrase, type Role, type Tod, type WxTag } from './phrases.ts';
+import { strongWind } from '../sky/wind-rules.ts';
 
 export type { Phrase, Role, Tod, WxTag };
 export type City = 'esperanca' | 'campina' | 'joaopessoa' | 'areia' | 'remigio' | 'tokyo';
@@ -14,7 +16,8 @@ export const HOT_C = 30;
 /** At or below this real temperature (°C) people may mention the cold (the Nordeste feels it sooner). */
 export const COLD_C = { br: 18, tokyo: 8 } as const;
 
-export interface WxCtx { kind: WxState; temp: number | null; rain: number; snow: number }
+/** `wind` is the signed S.wind (sky/wind-rules.ts); missing = calm. */
+export interface WxCtx { kind: WxState; temp: number | null; rain: number; snow: number; wind?: number }
 export interface SpeechCtx { city: City; scene: string; hour: number; role: Role; wx: WxCtx }
 
 /** manhã 5–12, tarde 12–18, noite 18–24, madrugada 0–5 (city time). */
@@ -33,6 +36,7 @@ export function weatherTags(wx: WxCtx, city: City): WxTag[] {
     if (t >= HOT_C) tags.push('heat');
     else if (t <= COLD_C[city === 'tokyo' ? 'tokyo' : 'br']) tags.push('cold');
   }
+  if (wx.wind !== undefined && strongWind(wx.wind)) tags.push('wind'); // ≥ 30 km/h
   return tags;
 }
 

@@ -102,7 +102,10 @@ export interface HudIn {
   now: number; utc: number;
   /** #at= pins the clock (previews only). */
   pinned: boolean;
+  /** The #wx= test override (e.g. 'storm'). */
   override?: string;
+  /** The #wind= test override label (e.g. 'wind=40'); the view is a test even with a real reading. */
+  windOverride?: string;
 }
 export interface HudOut { temp: string; text: string; badge: { text: string; cls: 'live' | 'stale' | 'test' } | null }
 
@@ -110,7 +113,10 @@ export interface HudOut { temp: string; text: string; badge: { text: string; cls
     never shows the live badge for anything but a fresh real reading at the real time. */
 export function hudWeather(i: HudIn): HudOut {
   const deg = (n: number | undefined) => (n === undefined ? '' : `${Math.round(n)}°C`);
-  if (i.kind === 'override') return { temp: '', text: i.word, badge: { text: `teste #wx=${i.override ?? ''} · não é ao vivo`, cls: 'test' } };
+  if (i.kind === 'override') {
+    const tests = [i.override || !i.windOverride ? `#wx=${i.override ?? ''}` : '', i.windOverride ? `#${i.windOverride}` : ''].filter(Boolean).join(' ');
+    return { temp: '', text: i.word, badge: { text: `teste ${tests} · não é ao vivo`, cls: 'test' } };
+  }
   const pinBadge = { text: 'teste #at · horário fixado', cls: 'test' } as const;
   if (i.kind === 'unavailable') return { temp: '', text: 'clima indisponível', badge: i.pinned ? pinBadge : null };
   if (i.pinned) return { temp: deg(i.temp), text: i.word, badge: pinBadge };

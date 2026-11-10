@@ -13,7 +13,7 @@
           inside Partage Shopping the coffee kiosk's attendant and the food-court counter staff are 'vendor's too. */
 
 export type Tod = 'manha' | 'tarde' | 'noite' | 'madrugada';
-export type WxTag = 'heat' | 'cold' | 'rain' | 'snow';
+export type WxTag = 'heat' | 'cold' | 'rain' | 'snow' | 'wind';
 export type Role = 'passerby' | 'visitor' | 'attendee' | 'priest' | 'player' | 'volley' | 'student' | 'rider' | 'pupil' | 'vendor' | 'shopper';
 export interface Phrase { t: string; city?: string; scene?: string; tod?: Tod[]; wx?: WxTag; who?: Role[] }
 
@@ -46,6 +46,11 @@ export const PHRASES: Phrase[] = [
 
   // ---------- Esperança ----------
   ...group({ city: 'esperanca' }, ['Esperança é pequena, mas é arretada!', 'Daqui do Agreste, com carinho.']),
+  // strong wind (≥ 30 km/h, src/sky/wind-rules.ts), only with a real reading or the labelled #wind= / #wx= test;
+  // every Esperança scene is outdoors, and only the people who are out in it say these
+  ...group({ city: 'esperanca', wx: 'wind', who: ['passerby', 'visitor', 'shopper'] }, ['Que ventania!', 'Segura o chapéu!', 'Eita, que vento danado!', 'Vento do Agreste, visse?', 'Esse vento levanta poeira que só!']),
+  ...group({ city: 'esperanca', wx: 'wind', who: ['player', 'volley'] }, ['Esse vento leva a bola!']),
+  ...group({ city: 'esperanca', wx: 'wind', who: ['vendor'] }, ['Segura a lona, que o vento tá forte!']),
   ...group({ scene: 'praca-matriz' }, ['A Matriz tá linda hoje.', 'Vou acender uma vela na Matriz.', 'Já ouviu o sino da Matriz?', 'Me encontra aqui na praça!']),
   ...group({ scene: 'praca-matriz', tod: ['noite'] }, ['A Matriz iluminada é outra coisa.']),
   ...group({ scene: 'praca-cultura' }, ['Praça da Cultura é o point!', 'Bora sentar um pouco na praça?']),

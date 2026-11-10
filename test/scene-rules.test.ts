@@ -254,3 +254,15 @@ test('no image or sprite assets: nothing in src/ references one, and public/ hol
     ...lsDeep('public').filter((p) => !PUBLIC_OK.test(p)).map((p) => `${p}  not an approved public file (icons, manifest, README screenshots)`),
   ], 'No image assets: everything is drawn in code (AGENTS.md)');
 });
+
+// ---------- strong wind only through wind-rules.ts ----------
+test('wind thresholds live in sky/wind-rules.ts and debris is gated by debrisOn()', () => {
+  const files = ALL_SRC.filter((p) => p.endsWith('.ts') && p !== 'src/sky/wind-rules.ts');
+  none([
+    ...scan(files, /\bconst\s+\w*(STRONG_KMH|FULL_KMH|STRONG_DELTA|WIND_CALM)\w*\s*=/, 'wind threshold redefined'),
+    // km/h back from S.wind by hand (the 55 / 0.9 of live.ts) instead of windKmh / windStrength / strongWind
+    ...scan(files, /S\.wind[^;\n]*\*\s*55\b|S\.wind[^;\n]*\/\s*0\.9\b/, 'private wind conversion'),
+    ...scan(files, (l) => /\bupdateDebris\(/.test(l) && !/export function updateDebris/.test(l) && !/debrisOn\(/.test(l), 'debris without debrisOn()'),
+  ], 'Strong wind, its strength and the debris gate come from src/sky/wind-rules.ts');
+  assert.match(codeOf('src/sky/state.ts'), /parseWindOverride\(location\.hash\)/, 'state.ts: the #wind= test is read in sky/state.ts only');
+});

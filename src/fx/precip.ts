@@ -4,6 +4,7 @@ import { G, putS, sx, sy } from '../engine/gfx';
 import { mulberry32 } from '../engine/math';
 import { FOG, HALO, LEAF1, LEAF2, MOMIJI, PETAL, RAIN, RAINB, SAKURAD, SNOW, SNOWS, WDIM, WHITE } from '../engine/palette';
 import { S } from '../sky/state';
+import { clearDebris, drawDebris } from './wind-debris';
 
 const r = mulberry32(0x5eed11);
 const ND = 1400, NS = 300, NR = 60, NP = 40, NF = 1100, NL = 160;
@@ -32,7 +33,7 @@ export const precip = P;
 export function configure(o: { roofs: Roof[]; tips: Tip[]; lamps: Lamp[]; ground0: number; horizon: number }) {
   P.roofs = o.roofs; P.tips = o.tips; P.lamps = o.lamps; P.ground0 = o.ground0; P.horizon = o.horizon;
   P.tipT = new Float32Array(o.tips.length).map(() => r() * 3);
-  dL.fill(0); fL.fill(0); lK.fill(0); sLf.fill(0); rLf.fill(0); pA.fill(0);
+  dL.fill(0); fL.fill(0); lK.fill(0); sLf.fill(0); rLf.fill(0); pA.fill(0); clearDebris();
 }
 
 function splash(x: number, y: number, n: number) {
@@ -160,6 +161,7 @@ export function drawNearPrecip() {
     putS(lX[i], lY[i], c);
     if (!flip && lRest[i] <= 0) putS(lX[i] + 1, lY[i], c);
   }
+  drawDebris(); // strong dry wind (Esperança only; updateDebris decides, wind-debris.ts)
 }
 
 export function drawRipples() {

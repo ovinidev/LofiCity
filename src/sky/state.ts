@@ -7,10 +7,11 @@ import { gateRain, usableObs } from './rain-gate';
 import { birdActivity, density } from './rhythm';
 import { type Cal, calendar, doyOf, inDoy, moonElev, moonHourAngle, moonPhase, solarHour, sunElev } from './time';
 import { type WxKind, sampleAt } from './weather-feed';
+import { parseWindOverride } from './wind-rules';
 
 export const S = {
   ms: 0, city: CITIES[0] as City, cal: calendar(0, CITIES[0]) as Cal,
-  /** Where the weather comes from: a genuine reading (live / stale), none, or the #wx= test override. */
+  /** Where the weather comes from: a genuine reading (live / stale), none, or a test override (#wx= and / or #wind=). */
   wxKind: 'unavailable' as WxKind | 'override',
   /** Esperança: festa da padroeira (January), São João (June), Christmas lights. */
   festa: false, procissao: false, saoJoao: false, natal: false,
@@ -91,8 +92,21 @@ const FORCE: Record<string, Partial<Wx>> = {
 };
 const forced = /wx=(\w+)/.exec(location.hash)?.[1] ?? '';
 export const wxOverride: string | null = FORCE[forced] ? forced : null;
+/** Test override of the wind alone (#wind=40 km/h, #wind=-40, #wind=strong, #wind=calm; wind-rules.ts):
+    the rest of the weather stays as it is (reading, #wx= or neutral), but the whole view is then a
+    labelled test, never "ao vivo". `#wx=clear&wind=40` is a dry windy day. */
+const windForce = parseWindOverride(location.hash);
+export const windOverride: string | null = windForce?.label ?? null;
 
-/** Weather for the scene: the genuine reading for this city, the test override, or neutral. */
+/** Weather for the scene: the genuine reading for this city, the test override, or neutral; then the
+    #wind= test, if any, replaces only the wind and marks the view as a test. */
+function weatherNow(ms: number, city: City): Wx {
+  const w = wx(ms, city);
+  if (!windForce) return w;
+  S.wxKind = 'override';
+  return { ...w, wind: windForce.wind };
+}
+
 function wx(ms: number, city: City): Wx {
   if (wxOverride) { S.wxKind = 'override'; return { ...NEUTRAL, ...FORCE[wxOverride] }; }
   const v = weatherView(city.id);
@@ -112,7 +126,7 @@ function wx(ms: number, city: City): Wx {
 /** `scene` is the current scene id, for scene-specific rhythms (Esperança's praças). */
 export function direct(ms: number, city: City, dtSim: number, scene = '') {
   const cal = deriveTime(ms, city), h = cal.hour;
-  const w = wx(ms, city);
+  const w = weatherNow(ms, city);
   S.temp = w.temp; S.rain = w.rain; S.snow = w.snow; S.storm = w.storm; S.cloud = w.cloud; S.fog = w.fog;
   S.wind = w.wind;
   integrate(dtSim);
@@ -159,7 +173,7 @@ export function settle(ms: number, city: City) {
   S.wet = 0; S.snowCover = 0;
   for (let t = ms - 8 * 3.6e6; t < ms; t += 120e3) {
     deriveTime(t, city);
-    const w = wx(t, city);
+    const w = weatherNow(t, city);
     S.temp = w.temp; S.rain = w.rain; S.snow = w.snow;
     integrate(120);
   }
