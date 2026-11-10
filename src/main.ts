@@ -197,7 +197,6 @@ function enterScene(next: Scene) {
 function board(skin: BusSkin) {
   hintsUsed = true;
   boardBus(skin, scene.id); enterScene(onibus);
-  const h = scene.hint?.(); if (h) say(h.text, h);
 }
 function leaveBus() {
   if (scene !== onibus) return;
@@ -355,7 +354,7 @@ $('view').addEventListener('pointerdown', (e) => {
   if (prop?.leave) { leaveBus(); return; } // the SAÍDA sign inside the bus
   // a door (e.g. the cinema in Remígio): the same scene change as the scene button, then the new scene's hint
   const to = prop?.goto ? sceneById(city.id, prop.goto) : null;
-  if (to) { hintsUsed = true; enterScene(to); const h = scene.hint?.(); if (h) say(h.text, h); return; }
+  if (to) { hintsUsed = true; enterScene(to); return; }
   if (prop?.board) { if (prop.sfx) sfx(prop.sfx); board(prop.board); return; }
   if (prop?.say) say(prop.say, prop);
   else if (prop?.speaker) speak(prop.speaker, prop.x, prop.y);

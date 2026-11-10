@@ -373,7 +373,6 @@ export const partageInterior: Scene = {
   daylit: true,
   debug() { return `mall ${isOpen() ? 'aberto' : 'fechado'}  people x${peopleCount()}  crowd ${insideCrowd(wd(), hr()).toFixed(2)}`; },
   hintSpots() { return [{ x: EXIT_SIGN.x + (EXIT_SIGN.w >> 1), y: EXIT_SIGN.y - 2, kind: 'door' as const, back: true }, { x: PASS.x + (PASS.w >> 1), y: UP_TOP, kind: 'door' as const }]; },
-  hint() { return { x: EXIT_SIGN.x + (EXIT_SIGN.w >> 1), y: EXIT_SIGN.y, text: 'Toque na SAÍDA pra voltar à rua' }; },
   tap(x, y) {
     if (onExit(x, y)) return { x: EXIT_SIGN.x + (EXIT_SIGN.w >> 1), y: EXIT_SIGN.y, goto: 'partage-shopping' };
     // the passage on the upper floor: on to the food court and the cinema's front (same building, same moment)

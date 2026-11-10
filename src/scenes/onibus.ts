@@ -38,6 +38,8 @@ import type { Scene } from './types';
 /** Far wall: the window band, the floor line under the seats, the ceiling edge. Near (aisle): the floor
     at the bottom of the frame and the handrail. */
 const CEIL = 12, WTOP = 25, SILL = 92, FLOOR = 150, RAILY = 18;
+/** Tint of the side windows' glass, dithered over half their pixels (see the window pass). */
+const GLASS = CYAND;
 /** Cruising speed of the street right outside (px per second); far layers move slower. */
 const SPEED = 26;
 
@@ -99,6 +101,9 @@ function buildCabin(s: BusSkin): Cabin {
   for (const [a, b] of wins) {
     L(room, a - 2, WTOP - 2, b - a + 4, SILL - WTOP + 4, VOID);
     L(room, a, WTOP, b - a, SILL - WTOP, 255);
+    // the glass is half see-through: every other pixel tinted (a checkerboard dither, as pixel art does
+    // translucency), so the city shows through a dimmed, cool pane
+    for (let y = WTOP; y < SILL; y++) for (let x = a; x < b; x++) if ((x + y) & 1) Lp(room, x, y, GLASS);
     L(room, a, WTOP + 16, b - a, 2, VOID); L(room, ((a + b) >> 1) - 1, WTOP, 2, 16, VOID);
   }
   // the micro's rear door: two glazed leaves

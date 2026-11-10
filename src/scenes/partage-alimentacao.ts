@@ -332,7 +332,6 @@ export const partageAlimentacao: Scene = {
     if (cinemaDoorTap(wd(), hr()).enter) spots.push({ x: (BOX.x0 + BOX.x1) >> 1, y: BOX.top - 2, kind: 'door' as const });
     return spots;
   },
-  hint() { return { x: (PASS.x0 + PASS.x1) >> 1, y: CTR_TOP, text: 'Toque em LOJAS pra voltar' }; },
   tap(x, y) {
     if (onPass(x, y)) return { x: (PASS.x0 + PASS.x1) >> 1, y: CTR_TOP, goto: 'partage-interior' };
     // the cinema: into the room while both the mall and the cinema are open, otherwise when it opens

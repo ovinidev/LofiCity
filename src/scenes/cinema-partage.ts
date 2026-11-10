@@ -9,5 +9,5 @@ import type { Scene } from './types';
 export const cinemaPartage: Scene = {
   id: 'cinema-partage',
   name: 'Cinema · Partage',
-  ...cinemaRoom({ exitTo: 'partage-alimentacao', hint: 'Toque na SAÍDA pra voltar ao shopping', salt: 0x9a47 }),
+  ...cinemaRoom({ exitTo: 'partage-alimentacao', salt: 0x9a47 }),
 };
