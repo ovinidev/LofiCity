@@ -38,6 +38,8 @@ import type { Scene } from './types';
 /** Far wall: the window band, the floor line under the seats, the ceiling edge. Near (aisle): the floor
     at the bottom of the frame and the handrail. */
 const CEIL = 12, WTOP = 25, SILL = 92, FLOOR = 150, RAILY = 18;
+/** Tint of the side windows' glass, dithered over a quarter of their pixels (see the window pass). */
+const GLASS = CYAND;
 /** Cruising speed of the street right outside (px per second); far layers move slower. */
 const SPEED = 26;
 
@@ -99,6 +101,9 @@ function buildCabin(s: BusSkin): Cabin {
   for (const [a, b] of wins) {
     L(room, a - 2, WTOP - 2, b - a + 4, SILL - WTOP + 4, VOID);
     L(room, a, WTOP, b - a, SILL - WTOP, 255);
+    // the glass is mostly see-through: one pixel in four tinted (a dither, as pixel art does
+    // translucency), so the city shows through a lightly dimmed, cool pane
+    for (let y = WTOP; y < SILL; y += 2) for (let x = a; x < b; x += 2) Lp(room, x, y, GLASS);
     L(room, a, WTOP + 16, b - a, 2, VOID); L(room, ((a + b) >> 1) - 1, WTOP, 2, 16, VOID);
   }
   // the micro's rear door: two glazed leaves
@@ -378,11 +383,11 @@ export const onibus: Scene = {
   render,
   grade,
   seesSky: true,
+  hintSpots() { return [{ x: EXIT.x + (EXIT.w >> 1), y: EXIT.y - 2, kind: 'door' as const, back: true }]; },
   debug() {
     const s = state;
     return `ônibus  ${skin}  ${running() ? (s.atStop ? 'parado no ponto' : `rodando ${Math.round(s.speed * 100)}%`) : 'recolhido'}  parada ${s.stop}  sentados ${s.seated}  em pé ${s.standing}  carga ${Math.round(s.load * 100)}%  luz ${light.k.toFixed(2)}`;
   },
-  hint() { return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y + EXIT.h, text: 'Toque na SAÍDA pra descer' }; },
   tap(x, y) {
     if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, leave: true };
     for (let i = boxes.length - 1; i >= 0; i--) {

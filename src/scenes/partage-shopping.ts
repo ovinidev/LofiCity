@@ -1,7 +1,8 @@
 /* PARTAGE SHOPPING (Campina Grande, PB), drawn from Street View captures on Av. Prefeito Severino
    Bezerra Cabral (Dec and Aug 2024; used as reference only, they are not in the repo). On the left
-   the tall grey wall stacked with the anchor stores' boards (RCHLO, RENNER, KALUNGA, LEITURA, MARISA
-   and two more whose lettering is too small to read, left blank), and under them the parking
+   the tall grey wall stacked with the anchor stores' boards, under the same look-alike names as the
+   shops inside (RIACHINHO, CENTAURA, KALANGA, LEITORA, MARIZA; two more whose lettering is too
+   small to read, left blank), and under them the parking
    entrance with "ESTACIONAMENTO", "SAÍDA" and "ENTRADA" in big spaced letters. Then the white tiled
    entrance block with the red flower emblem and "PARTAGE SHOPPING / CAMPINA GRANDE", a green hedge
    at its foot, and the long façade of salmon louvre bands in white frames over a glazed ground floor
@@ -48,11 +49,11 @@ const PALMS: Palm[] = [{ x: 246, ground: 149, h: 88, lean: 0, ph: 0.4, imperial:
 interface Board { x: number; y: number; w: number; h: number; bg: number; fg: number; txt: string; s: number }
 const BOARDS: Board[] = [
   { x: 8, y: 46, w: 40, h: 14, bg: TILEW, fg: CRED, txt: '', s: 1 }, // the round logo at the top left is not legible
-  { x: 54, y: 44, w: 44, h: 16, bg: VOID, fg: TILEW, txt: 'RCHLO', s: 2 },
-  { x: 104, y: 48, w: 40, h: 14, bg: CRED, fg: TILEW, txt: 'RENNER', s: 1 },
-  { x: 54, y: 64, w: 44, h: 13, bg: TILEW, fg: CNAVY, txt: 'KALUNGA', s: 1 },
-  { x: 104, y: 66, w: 40, h: 14, bg: CBLUE, fg: TILEW, txt: 'LEITURA', s: 1 },
-  { x: 6, y: 70, w: 44, h: 14, bg: FPINK, fg: TILEW, txt: 'MARISA', s: 1 },
+  { x: 54, y: 44, w: 44, h: 16, bg: VOID, fg: WHITE, txt: 'RIACHINHO', s: 1 },
+  { x: 104, y: 48, w: 40, h: 14, bg: TILEW, fg: CRED, txt: 'CENTAURA', s: 1 },
+  { x: 54, y: 64, w: 44, h: 13, bg: CNAVY, fg: TILEW, txt: 'KALANGA', s: 1 },
+  { x: 104, y: 66, w: 40, h: 14, bg: WOOD, fg: TILEW, txt: 'LEITORA', s: 1 },
+  { x: 6, y: 70, w: 44, h: 14, bg: FPINK, fg: TILEW, txt: 'MARIZA', s: 1 },
   { x: 54, y: 81, w: 44, h: 10, bg: CORNG, fg: CYELL, txt: '', s: 1 }, // too small to read in the photo
   { x: 104, y: 83, w: 40, h: 10, bg: CBLUE, fg: TILEW, txt: '', s: 1 },
 ];
@@ -208,8 +209,6 @@ function entrance() {
   rect(DOOR0 - 1, GLASS_TOP - 1, DOOR1 - DOOR0 - 2, 1, STEEL);
   for (const x of [DOOR0 - 1, DOOR0 + 24, DOOR1 - 4]) rect(x, GLASS_TOP - 1, 2, GROUND - 1 - GLASS_TOP, STEEL);
   rect(DOOR0 + 2, GROUND - 2, DOOR1 - DOOR0 - 8, 1, VOID);
-  // while open, a small chevron pulses under the board, pointing at the doors
-  if (o && Math.floor(S.ms / 600) % 2 === 0) { const cy = by + 11; rect(DX - 2, cy, 5, 1, lit ? LIGHT : CRED); rect(DX - 1, cy + 1, 3, 1, lit ? LIGHT : CRED); put(DX, cy + 2, lit ? LIGHT : CRED); }
 }
 
 /** The parking entrance: dim ramp lights, headlights of a car leaving now and then while open. */
@@ -291,7 +290,7 @@ export const partage: Scene = {
   update,
   render,
   debug() { return `active  people x${peopleCount()}  shopping ${open() ? 'aberto' : 'fechado'}`; },
-  hint() { return open() ? { x: DX, y: GLASS_TOP, text: 'Toque na porta pra entrar no shopping' } : null; },
+  hintSpots() { return doorTap(S.cal.weekday, S.cal.hour).enter ? [{ x: DX, y: GLASS_TOP + 4, kind: 'door' as const }] : []; },
   tap(x, y) {
     // the main doors: inside while the mall is open (partage-interior, same moment); otherwise when it opens
     if (x >= DOOR0 && x <= DOOR1 && y >= GLASS_TOP - 4 && y <= GROUND + 2) {

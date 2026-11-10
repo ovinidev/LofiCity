@@ -655,7 +655,7 @@ function grade() {
 
 /** The room's behaviour, shared by every cinema with this room (Remígio, Partage Shopping in Campina):
     where its SAÍDA leads, the hint shown on the way in and a salt that gives each cinema its own film order. */
-export function cinemaRoom(o: { exitTo: string; hint: string; salt: number }): Omit<Scene, 'id' | 'name'> {
+export function cinemaRoom(o: { exitTo: string; salt: number }): Omit<Scene, 'id' | 'name'> {
   return {
     build() {
       salt = o.salt;
@@ -669,7 +669,7 @@ export function cinemaRoom(o: { exitTo: string; hint: string; salt: number }): O
       const s = shot ? `${shot.kind} #${shot.index} t${shot.t.toFixed(1)}` : '-';
       return `cinema  ${session.phase}  shot ${s}  light ${light.map((v) => v.toFixed(2)).join('/')}`;
     },
-    hint() { return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, text: o.hint }; },
+    hintSpots() { return [{ x: EXIT.x + (EXIT.w >> 1), y: EXIT.y - 2, kind: 'door' as const, back: true }]; },
     tap(x, y) {
       if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, goto: o.exitTo };
       if (session.phase === 'closed') return null;
@@ -686,5 +686,5 @@ export function cinemaRoom(o: { exitTo: string; hint: string; salt: number }): O
 export const cinemaRemigio: Scene = {
   id: 'cinema-remigio',
   name: 'Cinema · Remígio',
-  ...cinemaRoom({ exitTo: 'cinema-facade-remigio', hint: 'Toque na SAÍDA pra voltar à rua', salt: 0 }),
+  ...cinemaRoom({ exitTo: 'cinema-facade-remigio', salt: 0 }),
 };

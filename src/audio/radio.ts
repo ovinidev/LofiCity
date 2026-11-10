@@ -141,7 +141,7 @@ const MAX_FAILS = 5;
 /** Each track fades in, so a stream never bursts in at full volume. */
 const FADE_IN_MS = 1200;
 
-let el: HTMLElement | null = null, playing = false, si = 0, volume = 0.7;
+let el: HTMLElement | null = null, playing = false, si = 0, volume = 0.7, muted = false;
 let current: Track | null = null, preloaded: Track | null = null, queue: Track[] = [], recent: string[] = [];
 let fails = 0, gen = 0, startTimer = 0, stallTimer = 0, retryTimer = 0, fadeTimer = 0;
 /** Status line (pt-BR) shown instead of the track while tuning, retrying or failed; '' when playing fine. */
@@ -151,9 +151,10 @@ try {
   const saved = localStorage.getItem('loficity:station');
   si = Math.max(0, STATIONS.findIndex((s) => s.id === (saved === 'vapor' ? 'neon' : saved)));
   volume = Number(localStorage.getItem('loficity:volume') ?? 0.7);
+  muted = localStorage.getItem('loficity:muted') === '1';
 } catch { /* storage unavailable */ }
 if (!Number.isFinite(volume) || volume < 0 || volume > 1) volume = 0.7;
-for (const p of players) p.volume = volume;
+for (const p of players) { p.volume = volume; p.muted = muted; }
 const station = () => STATIONS[si];
 
 function clearTimers() {
@@ -306,7 +307,7 @@ function watchAutostart(p: HTMLAudioElement, my: number) {
   if (!autoTry) return;
   setTimeout(() => {
     if (!autoTry || my !== gen || !playing) return;
-    if (p.paused || p.currentTime < 0.3 || p.muted) blocked(); else autoTry = false;
+    if (p.paused || p.currentTime < 0.3 || (p.muted && !muted)) blocked(); // muted by the browser, not by the listener else autoTry = false;
   }, 2500);
 }
 
@@ -328,6 +329,13 @@ function stop() {
   render();
 }
 function toggle() { touched = true; disarm(); if (playing) stop(); else start(); }
+/** The listener's mute: silences the stream without stopping it (the volume level is kept). */
+function setMuted(on: boolean) {
+  muted = on;
+  for (const p of players) p.muted = on;
+  try { localStorage.setItem('loficity:muted', on ? '1' : '0'); } catch { /* ignore */ }
+  render();
+}
 function setStation(i: number) {
   touched = true; disarm();
   if (i === si) return;
@@ -361,22 +369,27 @@ function render() {
   const play = el.querySelector('[data-a=play]') as HTMLElement;
   play.textContent = playing ? 'Pausar' : 'Tocar';
   play.setAttribute('aria-pressed', String(playing));
+  const mute = el.querySelector('[data-a=mute]') as HTMLElement;
+  mute.textContent = muted ? 'Som' : 'Mudo'; mute.setAttribute('aria-pressed', String(muted));
+  mute.title = muted ? 'Ativar o som da rádio' : 'Silenciar a rádio';
   for (const b of el.querySelectorAll<HTMLElement>('[data-st]')) b.setAttribute('aria-pressed', String(b.dataset.st === s.id));
 }
 function mount(e: HTMLElement) {
   el = e;
   el.setAttribute('aria-label', 'Rádio');
-  el.innerHTML = `<div class="now"><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><span class="meta"><span class="head"><span class="station"></span><span class="tag"></span></span><span class="track" aria-live="polite"></span><a class="lic" target="_blank" rel="noopener" hidden></a></span></div>
+  el.innerHTML = `<div class="now"><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><span class="meta"><span class="head"><span class="station"></span><span class="tag"></span></span><span class="track" aria-live="polite"></span><a class="lic" target="_blank" rel="noopener" hidden></a></span><button data-a="mute" class="mute" aria-pressed="false"></button></div>
 <div class="ctl"><button data-a="play" title="Tocar / pausar (R)">Tocar</button><button data-a="skip" title="Próxima faixa (N)">Próxima</button>
 <span class="stations" role="group" aria-label="Estação (P)">${STATIONS.map((s) => `<button data-st="${s.id}" aria-pressed="false" title="${s.name}: ${s.tag} (P)">${s.id === 'lofi' ? 'Lo-fi' : 'Neon'}</button>`).join('')}</span>
 <input type="range" min="0" max="1" step="0.01" aria-label="Volume da rádio" title="Volume"></div>`;
   el.querySelector('[data-a=play]')!.addEventListener('click', toggle);
   el.querySelector('[data-a=skip]')!.addEventListener('click', skip);
+  el.querySelector('[data-a=mute]')!.addEventListener('click', () => setMuted(!muted));
   for (const b of el.querySelectorAll<HTMLElement>('[data-st]')) b.addEventListener('click', () => setStation(STATIONS.findIndex((s) => s.id === b.dataset.st)));
   const vol = el.querySelector('input') as HTMLInputElement;
   vol.value = String(volume);
   vol.addEventListener('input', () => {
     volume = Number(vol.value); clearInterval(fadeTimer); for (const p of players) p.volume = volume;
+    if (muted) setMuted(false); // moving the slider is an intent to hear it
     try { localStorage.setItem('loficity:volume', String(volume)); } catch { /* ignore */ }
   });
   if ('mediaSession' in navigator) {

@@ -365,6 +365,7 @@ export const terminalIntegracao: Scene = {
     const bays = BUSES.filter((b) => b.on);
     return `active  people x${peopleCount()}  ônibus x${bays.length} (${bays.filter((b) => b.st === 'dwell').length} na plataforma)  terminal ${operating() ? (rush() ? 'pico' : 'aberto') : 'fechado'}  pax ${Math.round(paxLevel() * 100)}%`;
   },
+  hintSpots() { return BUSES.filter((b) => b.on).map((b) => ({ x: Math.round(b.x + LEN / 2), y: laneY(b) - 24, kind: 'bus' as const })); },
   // tap a bus in the bays: it honks and you board it (an STTP bus, src/scenes/onibus.ts)
   tap(x, y) {
     for (const b of BUSES) {

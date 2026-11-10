@@ -410,7 +410,7 @@ export const cinemaFachada: Scene = {
   },
   update,
   render,
-  hint() { return isOpen() ? { x: DX, y: DTOP, text: 'Toque na porta pra entrar no cinema' } : null; },
+  hintSpots() { return doorTap(hour()).enter ? [{ x: DX, y: DTOP - 2, kind: 'door' }] : []; },
   debug() {
     const b = boardAt(hour());
     return `active  people x${peopleCount()}  cine ${b.phase} ${b.status}  fila x${queueAt(hour())} saindo x${exitsAt(hour()).length}  faixa x${onRoad()} travessias ${crossings} conflitos ${conflicts}`;

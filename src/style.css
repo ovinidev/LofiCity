@@ -153,6 +153,7 @@ body.idle .eye:focus-visible, body.idle .info-btn:focus-visible { opacity: 1; }
 .radio .station { color: var(--cyan); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .radio .track { color: var(--muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .radio .ctl { display: flex; gap: 6px; align-items: center; transition: opacity 0.7s ease; }
+.radio .mute { align-self: center; margin-left: auto; transition: opacity 0.7s ease; }
 .radio button {
   font: inherit; letter-spacing: inherit; text-transform: inherit; background: transparent; color: var(--ink);
   border: 1px solid var(--line); border-radius: 2px; padding: 6px 8px; cursor: pointer; min-height: var(--tap); min-width: var(--tap);
@@ -178,6 +179,7 @@ body.idle .eye:focus-visible, body.idle .info-btn:focus-visible { opacity: 1; }
 .radio.busy .eq i { animation: none; opacity: 0.5; }
 body.idle .radio { background: transparent; border-color: transparent; pointer-events: none; }
 body.idle .radio .ctl { opacity: 0; }
+body.idle .radio .mute { opacity: 0; }
 body.idle .radio:not(.playing) { opacity: 0; }
 .radio .lic { color: var(--muted); font-size: 9px; opacity: 0.75; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; }
 .radio .lic:hover { text-decoration: underline; opacity: 1; }

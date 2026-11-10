@@ -5,7 +5,7 @@ import { G, put, rect } from '../engine/gfx';
 import { bay, mulberry32 } from '../engine/math';
 import { CBLUE, CGREEN, CNAVY, CRED, CYELL, HALO, LIGHT, MAG, MAGD, STEEL, VOID, WCOOL, WDIM, WHITE, CBEIGE, SNOW } from '../engine/palette';
 import { S } from '../sky/state';
-import { drawBr, setBrLanes, tapBr, updateBr } from './br-traffic';
+import { brBoardSpots, drawBr, setBrLanes, tapBr, updateBr } from './br-traffic';
 import type { BusSkin } from '../scenes/onibus-rules';
 
 type CarKind = 'taxi' | 'kei' | 'sedan' | 'truck' | 'bus' | 'moto';
@@ -128,6 +128,9 @@ export function tapCars(x: number, y: number): { sound: 'moto' | 'car' | 'kombi'
   }
   return null;
 }
+
+/** Boardable vehicles on screen (Tokyo's buses only honk), for the first-seconds hints. */
+export const boardSpots = (): { x: number; y: number }[] => (style === 'br' ? brBoardSpots() : []);
 
 export function drawCars() {
   if (style === 'br') { drawBr(); return; }

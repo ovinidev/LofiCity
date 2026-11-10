@@ -9,7 +9,7 @@
    names, never the real brands: a department store with a dark band and backlit white letters
    (RIACHINHO: racks, mannequins, a display table), a bookshop with a wood fascia (LEITORA: shelves and
    low tables of books) and a sports store with red letters on white and a red SALDOS board
-   (CENTAURA). The other shops show only a category (MODA, PERFUMARIA, ...).
+   (CENTAURA). The other shops show only a category (MODA, BRINQUEDOS, ...).
 
    Reached from the main doors of the street front (partage-shopping.ts) while the mall is open;
    tapping SAÍDA goes back out, and the passage on the upper floor (signposted ALIMENTAÇÃO · CINEMA)
@@ -53,7 +53,7 @@ const UPPER: Shop[] = [
   { x: 0, w: 80, name: 'MODA', bg: VOID, fg: TILEW, kind: 'rack' },
   { x: 80, w: 80, name: 'CENTAURA', bg: TILEW, fg: CRED, kind: 'sport', big: true },
   { x: 160, w: 80, name: 'LEITORA', bg: WOOD, fg: TILEW, kind: 'books', big: true },
-  { x: 320, w: 80, name: 'PERFUMARIA', bg: FPINK, fg: TILEW, kind: 'counter' },
+  { x: 320, w: 80, name: 'MARIZA', bg: FPINK, fg: TILEW, kind: 'rack' },
   { x: 400, w: 80, name: 'BRINQUEDOS', bg: CYELL, fg: CRED, kind: 'shelf' },
 ];
 /** The passage on the upper floor, between the bookshop and the perfumery, to the food court and the
@@ -61,7 +61,7 @@ const UPPER: Shop[] = [
 const PASS = { x: 240, w: 80 };
 const GROUND: Shop[] = [
   { x: 0, w: 128, name: 'RIACHINHO', bg: VOID, fg: WHITE, kind: 'dept', big: true },
-  { x: EX1, w: 84, name: 'CELULARES', bg: CNAVY, fg: TILEW, kind: 'counter' },
+  { x: EX1, w: 84, name: 'KALANGA', bg: CNAVY, fg: TILEW, kind: 'counter' },
   { x: 262, w: 84, name: 'BOLSAS', bg: FORNG, fg: TILEW, kind: 'rack' },
   { x: 346, w: 70, name: 'PRESENTES', bg: CGREEN, fg: TILEW, kind: 'shelf' },
   { x: 416, w: 64, name: 'INFANTIL', bg: FLILAC, fg: VOID, kind: 'rack' },
@@ -372,7 +372,7 @@ export const partageInterior: Scene = {
   grade,
   daylit: true,
   debug() { return `mall ${isOpen() ? 'aberto' : 'fechado'}  people x${peopleCount()}  crowd ${insideCrowd(wd(), hr()).toFixed(2)}`; },
-  hint() { return { x: EXIT_SIGN.x + (EXIT_SIGN.w >> 1), y: EXIT_SIGN.y, text: 'Toque na SAÍDA pra voltar à rua' }; },
+  hintSpots() { return [{ x: EXIT_SIGN.x + (EXIT_SIGN.w >> 1), y: EXIT_SIGN.y - 2, kind: 'door' as const, back: true }, { x: PASS.x + (PASS.w >> 1), y: UP_TOP, kind: 'door' as const }]; },
   tap(x, y) {
     if (onExit(x, y)) return { x: EXIT_SIGN.x + (EXIT_SIGN.w >> 1), y: EXIT_SIGN.y, goto: 'partage-shopping' };
     // the passage on the upper floor: on to the food court and the cinema's front (same building, same moment)
