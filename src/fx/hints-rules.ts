@@ -3,7 +3,8 @@
    has already used a door or a bus (they know). Doors and boardable vehicles only. */
 
 export type HintKind = 'door' | 'bus';
-export interface HintSpot { x: number; y: number; kind: HintKind }
+/** `back`: a way out of where you are (a SAÍDA sign), which keeps showing even after a door or bus was used. */
+export interface HintSpot { x: number; y: number; kind: HintKind; back?: boolean }
 
 /** Seconds a scene shows its hints, counted from entering it. */
 export const HINT_START = 0.8;

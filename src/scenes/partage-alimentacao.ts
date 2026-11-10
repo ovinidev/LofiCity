@@ -328,7 +328,7 @@ export const partageAlimentacao: Scene = {
   daylit: true,
   debug() { return `mall ${isOpen() ? 'aberto' : 'fechado'}  cinema ${cinemaOn() ? 'on' : 'off'}  people x${peopleCount()}  crowd ${insideCrowd(wd(), hr()).toFixed(2)}`; },
   hintSpots() {
-    const spots = [{ x: (PASS.x0 + PASS.x1) >> 1, y: CTR_TOP - 2, kind: 'door' as const }];
+    const spots: { x: number; y: number; kind: 'door'; back?: boolean }[] = [{ x: (PASS.x0 + PASS.x1) >> 1, y: CTR_TOP - 2, kind: 'door', back: true }];
     if (cinemaDoorTap(wd(), hr()).enter) spots.push({ x: (BOX.x0 + BOX.x1) >> 1, y: BOX.top - 2, kind: 'door' as const });
     return spots;
   },

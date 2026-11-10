@@ -669,7 +669,7 @@ export function cinemaRoom(o: { exitTo: string; hint: string; salt: number }): O
       const s = shot ? `${shot.kind} #${shot.index} t${shot.t.toFixed(1)}` : '-';
       return `cinema  ${session.phase}  shot ${s}  light ${light.map((v) => v.toFixed(2)).join('/')}`;
     },
-    hintSpots() { return [{ x: EXIT.x + (EXIT.w >> 1), y: EXIT.y - 2, kind: 'door' as const }]; },
+    hintSpots() { return [{ x: EXIT.x + (EXIT.w >> 1), y: EXIT.y - 2, kind: 'door' as const, back: true }]; },
     hint() { return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, text: o.hint }; },
     tap(x, y) {
       if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, goto: o.exitTo };

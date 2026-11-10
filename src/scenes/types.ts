@@ -31,7 +31,7 @@ export interface Scene {
   tap?(x: number, y: number): TapResult | null;
   /** Optional: where a door that works right now is (hint kind 'door') or a boardable bus (kind 'bus'),
       for the little first-seconds "tap here" animation (src/fx/hints.ts); doors that are shut are left out. */
-  hintSpots?(): { x: number; y: number; kind: 'door' | 'bus' }[];
+  hintSpots?(): { x: number; y: number; kind: 'door' | 'bus'; back?: boolean }[];
   /** Optional: a short pt-BR hint bubble shown when this scene is reached through another scene's
       door (a tap result's `goto`), e.g. how to get back out. */
   hint?(): { x: number; y: number; text: string } | null;

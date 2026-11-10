@@ -378,6 +378,7 @@ export const onibus: Scene = {
   render,
   grade,
   seesSky: true,
+  hintSpots() { return [{ x: EXIT.x + (EXIT.w >> 1), y: EXIT.y - 2, kind: 'door' as const, back: true }]; },
   debug() {
     const s = state;
     return `ônibus  ${skin}  ${running() ? (s.atStop ? 'parado no ponto' : `rodando ${Math.round(s.speed * 100)}%`) : 'recolhido'}  parada ${s.stop}  sentados ${s.seated}  em pé ${s.standing}  carga ${Math.round(s.load * 100)}%  luz ${light.k.toFixed(2)}`;
