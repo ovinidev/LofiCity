@@ -266,3 +266,18 @@ test('wind thresholds live in sky/wind-rules.ts and debris is gated by debrisOn(
   ], 'Strong wind, its strength and the debris gate come from src/sky/wind-rules.ts');
   assert.match(codeOf('src/sky/state.ts'), /parseWindOverride\(location\.hash\)/, 'state.ts: the #wind= test is read in sky/state.ts only');
 });
+
+test('PMPB patrols go through police-rules.ts: Esperança gate, shared cooldown, the #police= test', () => {
+  const files = ALL_SRC.filter((p) => p.endsWith('.ts') && p !== 'src/actors/police-rules.ts');
+  // every file that makes a vehicle a patrol asks patrolDue() and restarts the cooldown with patrolSpawned()
+  const makers = files.filter((f) => /(?<![=!])=\s*'pmpb'|\?\s*'pmpb'/.test(codeOf(f))); // an assignment or a pick, not a comparison
+  assert.ok(makers.length >= 3, `the three traffic paths spawn patrols (${makers.join(', ')})`);
+  for (const f of makers) {
+    const src = codeOf(f);
+    assert.ok(/\bpatrolDue\(/.test(src) && /\bpatrolSpawned\(/.test(src) && /\btickPatrol\(/.test(src), `${f}: a patrol must come from patrolDue / patrolSpawned / tickPatrol (police-rules.ts)`);
+  }
+  none([
+    ...scan(files, /police=/, 'the #police= test parsed outside police-rules.ts'),
+    ...scan(files, /\bsiren|sirene\b/i, 'no siren'),
+  ], 'The #police= test is read by policeForced() only, and patrols make no siren');
+});

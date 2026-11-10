@@ -8,6 +8,8 @@ test('view hash puts city and scene first and keeps the other options', () => {
     '#city=esperanca&scene=praca-cultura&debug&wx=rain');
   assert.equal(viewHash('#wx=clear&wind=40', { city: 'esperanca', scene: 'praca-matriz' }),
     '#city=esperanca&scene=praca-matriz&wx=clear&wind=40');
+  assert.equal(viewHash('#police=1&car=pmpb', { city: 'esperanca', scene: 'rua-comercio' }),
+    '#city=esperanca&scene=rua-comercio&police=1&car=pmpb');
 });
 
 test('a pinned moment stays in the hash, readable and round-trippable', () => {
@@ -21,6 +23,9 @@ test('the shared link drops test and developer options', () => {
   const url = shareUrl('https://loficity-lac.vercel.app/#debug&wx=storm&wind=40&car=bus&bus=micro&scene=x', { city: 'campina', scene: 'acude-velho' });
   assert.equal(url, 'https://loficity-lac.vercel.app/#city=campina&scene=acude-velho');
   assert.ok(!/wx=|wind=|debug|car=|bus=/.test(url));
+  const pm = shareUrl('https://loficity-lac.vercel.app/#city=esperanca&scene=praca-matriz&police=1&car=pmpb', { city: 'esperanca', scene: 'praca-matriz' });
+  assert.equal(pm, 'https://loficity-lac.vercel.app/#city=esperanca&scene=praca-matriz');
+  assert.ok(!/police=|pmpb/.test(pm));
 });
 
 test('the #egg= test override stays in the address bar but never in a copied link', () => {

@@ -14,6 +14,10 @@ export const Y_EXIT = 136;
 export const CROSS0 = 141, CROSS1 = 147;
 /** Stop line while the zebra is in use: two rows short of its near edge. */
 export const STOP_ROW = CROSS1 + 2;
+/** The road's curbs in world pixels at row y (drawing geometry, shared with praca-matriz.ts): the plaza
+    curb on the left and the shops' curb on the right, converging toward the church. */
+export const curbL = (y: number) => 316 - 1.35 * (y - 140);
+export const curbR = (y: number) => 344 + 3.25 * (y - 140);
 /** The only direction of travel: toward smaller rows, away from the viewer. */
 export const AWAY = -1 as const;
 

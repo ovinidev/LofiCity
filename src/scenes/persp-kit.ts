@@ -20,6 +20,8 @@ import { type Shelter, pickUmbrella, raining, shelterAt, shelterWait, umbrellaOp
 import { peopleCap } from '../sky/rhythm';
 import { S } from '../sky/state';
 import { isNight } from './br-kit';
+import { PATROL, patrolDue, patrolSpawned, policeForced, tickPatrol } from '../actors/police-rules';
+import { pmpbDepth } from '../actors/pmpb-draw';
 import type { Speaker } from './types';
 
 // ---------- projection ----------
@@ -144,11 +146,12 @@ export function lampLightP(v: View, l: PLamp) {
 }
 
 // ---------- vehicles ----------
-export type PKind = 'moto' | 'car' | 'pickup' | 'van' | 'bus';
+/** 'pmpb': a Polícia Militar patrol car, Esperança only, on the shared cooldown (police-rules.ts). */
+export type PKind = 'moto' | 'car' | 'pickup' | 'van' | 'bus' | 'pmpb';
 export interface PCar extends DepthCar { kind: PKind; body: number; rider: number; helmet: number; X: number }
 const rr = mulberry32(0x9e25);
 const rpick = <T>(a: readonly T[]): T => a[(rr() * a.length) | 0];
-const LEN: Record<PKind, number> = { moto: 2, car: 4.2, pickup: 5, van: 4.4, bus: 11 };
+const LEN: Record<PKind, number> = { moto: 2, car: 4.2, pickup: 5, van: 4.4, bus: 11, pmpb: 4.4 };
 
 export function makeCars(n: number): PCar[] {
   return Array.from({ length: n }, () => ({ on: false, z: 0, dir: 1 as const, sp: 0, cruise: 0, len: 4, kind: 'car' as PKind, body: TILEW, rider: CRED, helmet: VOID, X: 0 }));
@@ -163,18 +166,21 @@ export function spawnCar(cars: PCar[], road: DepthRoad, laneX: (dir: 1 | -1) => 
   const c = cars.find((o) => !o.on);
   if (!c) return;
   const dir = depthSpawnDir(rr(), oneWay), k = rr(), h = S.cal.hour;
-  const kind: PKind = k < 0.48 ? 'moto' : k < 0.82 ? 'car' : k < 0.93 ? 'pickup' : k < 0.97 || !buses || h < 6 || h > 22 ? 'van' : 'bus';
+  const patrol = patrolDue(PATROL, { city: S.city.id, forced: policeForced(location.hash) }, cars.some((o) => o.on && o.kind === 'pmpb'));
+  const kind: PKind = patrol ? 'pmpb' : k < 0.48 ? 'moto' : k < 0.82 ? 'car' : k < 0.93 ? 'pickup' : k < 0.97 || !buses || h < 6 || h > 22 ? 'van' : 'bus';
   if (!canEnter(cars, dir, LEN[kind], road)) return;
+  if (patrol) patrolSpawned(PATROL, h);
   c.kind = kind; c.len = LEN[kind]; c.dir = dir; c.X = laneX(dir); c.committed = false;
-  c.body = kind === 'bus' ? TILEW : kind === 'moto' ? rpick([CRED, CRED, VOID, CBLUE, STONEL]) : rpick([TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, STONE]);
+  c.body = kind === 'bus' || kind === 'pmpb' ? TILEW : kind === 'moto' ? rpick([CRED, CRED, VOID, CBLUE, STONEL]) : rpick([TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, STONE]);
   c.rider = rpick([CRED, CBLUE, VOID, CYELL, TILEW, FGREEN]); c.helmet = rpick([VOID, VOID, VOID, TILEW, CRED, CBLUE, NO_HELMET]); // most wear one
-  c.cruise = (kind === 'moto' ? 9 : kind === 'bus' ? 6 : 7.5) * (0.85 + rr() * 0.3); c.sp = c.cruise; // m/s, town speeds
+  c.cruise = (kind === 'moto' ? 9 : kind === 'bus' || kind === 'pmpb' ? 6 : 7.5) * (0.85 + rr() * 0.3); c.sp = c.cruise; // m/s, town speeds
   c.z = dir > 0 ? road.zNear : road.zFar; c.on = true;
 }
 
 let spawnT = 0.5;
 /** Spawns at the hour's traffic level and moves everyone (with the crossing state already set on the road). */
 export function updateCarsP(cars: PCar[], dt: number, road: DepthRoad, laneX: (dir: 1 | -1) => number, density = 1, oneWay: 1 | -1 | 0 = 0) {
+  tickPatrol(PATROL, dt, S.city.id);
   spawnT -= dt * (0.04 + 0.5 * S.traffic) * density;
   if (spawnT <= 0) { spawnT = 0.8 + rr() * 2; spawnCar(cars, road, laneX, true, oneWay); }
   stepDepthCars(cars, dt, road);
@@ -206,6 +212,7 @@ export function drawCarP(v: View, c: { z: number; dir: number; kind: PKind; body
     R(-hw, hw, 3.4, 2, STEEL); // bumper
     R(-2, 2, 6, 4, front ? BNEAR : TILEW); // grille / plate
     R(-hw + 0.5, -hw + 3, 7.5, 6, parked ? STEEL : front ? head : tail); R(hw - 3, hw - 0.5, 7.5, 6, parked ? STEEL : front ? head : tail);
+    if (c.kind === 'pmpb') pmpbDepth(R, hw, H, 9, front, n);
   }
   if (!n) return;
   if (front) { // headlight pool on the road ahead of it, toward the viewer

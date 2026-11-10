@@ -4,7 +4,8 @@
    sedans, SUVs and small pickups carrying botijões, melons or a wardrobe from the furniture shops;
    the odd Fusca, Veraneio or Kombi; white passenger vans; the carro de som crawling by with
    speakers on the roof; carros-pipa bringing water in the dry season; donkey carts; and Viação
-   São José buses and micro-buses.
+   São José buses and micro-buses. In Esperança only, now and then a Polícia Militar (PMPB) patrol car,
+   on the shared cooldown in police-rules.ts; it obeys the same lanes, light and zebra as everyone.
    Two lanes: the far lane drives left, the near lane right. Slower vehicles hold up the cars
    behind them; motorcycles weave past, riding beside (drawn between the lanes) while level with a
    bigger vehicle. At a zebra crossing everyone queues without overlapping (street-rules.ts).
@@ -19,8 +20,10 @@ import { S, hourIn } from '../sky/state';
 import { PAST_LINE, type Phase, mayGo, nextCommitted, spawnDir } from './signal-rules';
 import { inService, schoolRun, skinForVehicle } from '../scenes/onibus-rules';
 import { besideAny, holdLimit, leadX, overlaps, queueLimit, yieldLimit } from './street-rules';
+import { PATROL, patrolDue, patrolSpawned, policeCity, policeForced, tickPatrol } from './police-rules';
+import { barColors } from './pmpb-draw';
 
-type Kind = 'moto' | 'hatch' | 'sedan' | 'suv' | 'pickup' | 'fusca' | 'veraneio' | 'kombi' | 'van' | 'som' | 'pipa' | 'carroca' | 'bus' | 'micro' | 'escolar';
+type Kind = 'moto' | 'hatch' | 'sedan' | 'suv' | 'pickup' | 'fusca' | 'veraneio' | 'kombi' | 'van' | 'som' | 'pipa' | 'carroca' | 'bus' | 'micro' | 'escolar' | 'pmpb';
 type MotoKind = 'plain' | 'mototaxi' | 'delivery' | 'gas' | 'scooter' | 'trail' | 'eletrica';
 type Load = 'none' | 'gas' | 'melon' | 'furniture' | 'sacks';
 interface V {
@@ -78,10 +81,10 @@ export const vehicleNearCrossing = () => !!crossing && VS.some((v) => v.on && ov
 /** Whether any vehicle's body overlaps world x0..x1 (debug check). */
 export const vehicleBetween = (x0: number, x1: number) => VS.some((v) => v.on && overlaps(v.x, v.len, x0, x1));
 
-const LEN: Record<Kind, number> = { moto: 12, hatch: 26, sedan: 31, suv: 31, pickup: 31, fusca: 24, veraneio: 34, kombi: 28, van: 38, som: 27, pipa: 42, carroca: 34, bus: 66, micro: 44, escolar: 50 };
+const LEN: Record<Kind, number> = { moto: 12, hatch: 26, sedan: 31, suv: 31, pickup: 31, fusca: 24, veraneio: 34, kombi: 28, van: 38, som: 27, pipa: 42, carroca: 34, bus: 66, micro: 44, escolar: 50, pmpb: 31 };
 const CAR_COLORS = [TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, CNAVY, STONE, CBEIGE];
 
-function choose(v: V) {
+function choose(v: V, patrol: boolean) {
   const h = S.cal.hour, day = hourIn(h, 6, 18.5);
   const w: [Kind, number][] = [
     ['moto', 44], ['hatch', 18], ['sedan', 6], ['suv', 5], ['pickup', 8], ['fusca', 1.5], ['veraneio', 1.5], ['kombi', 2], ['van', 2.5],
@@ -91,12 +94,13 @@ function choose(v: V) {
     // prefeitura school buses at the start and end of each school shift on weekdays
     ['escolar', schoolRun(S.cal.weekday, h) ? 6 : 0],
   ];
-  // #car=bus (or any kind) makes most spawns that kind, for previews
+  // #car=bus (or any kind) makes most spawns that kind, for previews (#car=pmpb in Esperança only)
   const want = /car=(\w+)/.exec(location.hash)?.[1] as Kind | undefined;
-  if (want && want in LEN) w.push([want, 400]);
+  if (want && want in LEN && (want !== 'pmpb' || policeCity(S.city.id))) w.push([want, 400]);
   let t = 0; for (const [, x] of w) t += x;
   let q = r() * t; v.kind = 'hatch';
   for (const [k, x] of w) { q -= x; if (q <= 0) { v.kind = k; break; } }
+  if (patrol) v.kind = 'pmpb'; // the shared PMPB cooldown ran out (police-rules.ts)
   v.len = LEN[v.kind]; v.body = pick(CAR_COLORS); v.body2 = TILEW; v.pillion = false; v.load = 'none'; v.ph = r() * 6;
   v.moto = v.kind === 'moto'; v.beside = false; v.sideK = 0;
   switch (v.kind) {
@@ -125,6 +129,7 @@ function choose(v: V) {
     case 'bus': v.cruise = 34 + r() * 6; break;
     case 'micro': v.cruise = 38 + r() * 6; break;
     case 'escolar': v.cruise = 32 + r() * 6; break;
+    case 'pmpb': v.body = TILEW; v.cruise = 34 + r() * 8; break; // a patrol takes it easy
     default: v.cruise = 42 + r() * 14;
   }
   v.sp = v.cruise;
@@ -138,11 +143,14 @@ function spawn() {
   if (VS.some((o) => o.on && o.lane === lane && Math.abs(o.x - entry) < 80)) return;
   const v = VS.find((o) => !o.on);
   if (!v) return;
-  choose(v);
+  const patrol = patrolDue(PATROL, { city: S.city.id, forced: policeForced(location.hash) }, VS.some((o) => o.on && o.kind === 'pmpb'));
+  choose(v, patrol);
+  if (v.kind === 'pmpb') patrolSpawned(PATROL, S.cal.hour);
   v.on = true; v.lane = lane; v.dir = dir; v.committed = false; v.x = dir > 0 ? left - v.len - 4 : G.camX + G.W + 4;
 }
 
 export function updateBr(dt: number, density = 1) {
+  tickPatrol(PATROL, dt, S.city.id); // Esperança viewing time only
   // roughly one vehicle every 2-6 s at a busy hour, a trickle late at night
   spawnT -= dt * (0.02 + 0.5 * S.traffic) * density;
   if (spawnT <= 0) { spawnT = 0.6 + r() * 1.2; spawn(); }
@@ -221,7 +229,7 @@ function lights(front: number, back: number, y: number, f: number, cone = 26) {
 }
 
 /** A car in profile. `cab` is [start, end] of the cabin along the body (front = 1), `hood` how far the nose slopes. */
-function car(x0: number, y: number, L: number, f: number, body: number, opt: { h?: number; roof?: number; cab?: [number, number]; roofC?: number; boxy?: boolean; wins?: number } = {}) {
+function car(x0: number, y: number, L: number, f: number, body: number, opt: { h?: number; roof?: number; cab?: [number, number]; roofC?: number; boxy?: boolean; wins?: number; parked?: boolean } = {}) {
   const h = opt.h ?? 5, roof = opt.roof ?? 4, [a, b] = opt.cab ?? [0.22, 0.7], n = night();
   const top = y - 3 - h;
   rect(x0, top, L, h, body);
@@ -239,7 +247,8 @@ function car(x0: number, y: number, L: number, f: number, body: number, opt: { h
   // bumpers, wheels, lights
   rect(x0, y - 4, L, 1, STONE);
   wheel(x0 + 5, y); wheel(x0 + L - 6, y);
-  lights(f > 0 ? x0 + L - 1 : x0, f > 0 ? x0 : x0 + L - 1, y - 5, f);
+  if (opt.parked) { put(f > 0 ? x0 + L - 1 : x0, y - 5, STONEL); put(f > 0 ? x0 : x0 + L - 1, y - 5, MAGD); } // lights off
+  else lights(f > 0 ? x0 + L - 1 : x0, f > 0 ? x0 : x0 + L - 1, y - 5, f);
 }
 
 function drawMoto(v: V, y: number) {
@@ -429,6 +438,29 @@ function drawEscolar(v: V, y: number) {
   lights(f > 0 ? x0 + L - 1 : x0, f > 0 ? x0 : x0 + L - 1, y - 6, f, 28);
 }
 
+/** PMPB patrol car (Fiat Cronos, 2024 livery; sources in pmpb-draw.ts): near-white sedan, a band of
+    black (rear third) and red with white dashes along its top edge and "PM" in white on the red, dark
+    windows, silver wheels, a red-and-blue roof bar that blinks softly only at night. */
+export function drawPmpbSide(x0: number, y: number, f: number, parked = false) {
+  const L = 31, h = 8, roof = 4, top = y - 3 - h, n = night() && !parked; // parked: lights off, the bar dark
+  car(x0, y, L, f, TILEW, { h, roof, cab: [0.24, 0.68], parked });
+  // white top row, then the band's dashed upper edge, then 5 rows of band (y-9..y-5) above the bumper
+  const b0 = f > 0 ? x0 + 2 : x0 + 4, b1 = f > 0 ? x0 + L - 4 : x0 + L - 2, split = f > 0 ? b0 + 9 : b1 - 9;
+  const rear = (x: number) => (f > 0 ? x < split : x >= split);
+  for (let x = b0; x < b1; x++) {
+    rect(x, top + 2, 1, 5, rear(x) ? VOID : CRED);
+    if ((x & 1) === 0) put(x, top + 1, rear(x) ? VOID : CRED); // the dashed edge
+  }
+  const r0 = f > 0 ? split : b0, r1 = f > 0 ? b1 : split;
+  drawText4('PM', Math.round((r0 + r1) / 2) - 3, top + 2, TILEW);
+  for (let i = 0; i < 3; i++) put((f > 0 ? b0 + 2 : b1 - 7) + i * 2, top + 4, TILEW); // the prefix, white marks on the black
+  // roof bar over the cabin
+  const c0 = Math.round(x0 + L * (f > 0 ? 0.24 : 0.32)), c1 = Math.round(x0 + L * (f > 0 ? 0.68 : 0.76)), bx = ((c0 + c1) >> 1) - 3, by = top - roof - 1;
+  const [rc, bc] = barColors(n);
+  rect(bx, by, 3, 1, rc); rect(bx + 3, by, 3, 1, bc);
+  wheel(x0 + 5, y); wheel(x0 + L - 6, y); put(x0 + 5, y - 2, STONEL); put(x0 + L - 6, y - 2, STONEL); // silver hubs
+}
+
 /** How far a motorcycle riding beside moves toward the other lane: into the gap between the lanes. */
 const besideOffset = (v: V) => Math.round(v.sideK * (laneY[1] - laneY[0]) * 0.45) * (v.lane === 0 ? 1 : -1);
 
@@ -450,14 +482,15 @@ function drawV(v: V) {
     case 'bus': drawBus(v, y, false); break;
     case 'micro': drawBus(v, y, true); break;
     case 'escolar': drawEscolar(v, y); break;
+    case 'pmpb': drawPmpbSide(x0, y, f); break;
   }
 }
 
 const HORN: Record<Kind, 'moto' | 'car' | 'kombi' | 'bus' | 'truck' | 'bray' | 'som'> = {
   moto: 'moto', hatch: 'car', sedan: 'car', suv: 'car', pickup: 'car', fusca: 'kombi', veraneio: 'kombi', kombi: 'kombi', van: 'car', som: 'som',
-  pipa: 'truck', carroca: 'bray', bus: 'bus', micro: 'bus', escolar: 'bus',
+  pipa: 'truck', carroca: 'bray', bus: 'bus', micro: 'bus', escolar: 'bus', pmpb: 'car', // a patrol just honks: no siren
 };
-const TALL: Record<Kind, number> = { moto: 15, hatch: 13, sedan: 13, suv: 15, pickup: 14, fusca: 13, veraneio: 15, kombi: 16, van: 18, som: 24, pipa: 17, carroca: 24, bus: 22, micro: 19, escolar: 24 };
+const TALL: Record<Kind, number> = { moto: 15, hatch: 13, sedan: 13, suv: 15, pickup: 14, fusca: 13, veraneio: 15, kombi: 16, van: 18, som: 24, pipa: 17, carroca: 24, bus: 22, micro: 19, escolar: 24, pmpb: 17 };
 /** A tapped vehicle: which horn to play, where to show the reaction, and the bus to board if it is one. */
 export function tapBr(x: number, y: number) {
   for (const v of VS) {
