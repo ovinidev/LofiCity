@@ -1,6 +1,7 @@
 import type { CityId } from '../sky/cities';
 import { acudeVelho } from './acude-velho';
 import { armazemParaiba } from './armazem-paraiba';
+import { avenidaCampo } from './avenida-campo';
 import { caboBranco } from './cabo-branco';
 import { centroAreia } from './centro-areia';
 import { lagoaRemigio } from './lagoa-remigio';
@@ -35,7 +36,7 @@ import { resolveSceneId } from './scene-aliases';
 
 export const SCENES: Record<CityId, Scene[]> = {
   tokyo: [rainCorner, neonAlley, konbini, shrine],
-  esperanca: [praca, ruaComercio, capelinha, pracaCultura, campoRodoviaria, centroTeatro, armazemParaiba, ruaFaustino, ruaJoseBezerra, ruaManoelRodrigues],
+  esperanca: [praca, ruaComercio, capelinha, pracaCultura, campoRodoviaria, centroTeatro, armazemParaiba, ruaFaustino, ruaJoseBezerra, ruaManoelRodrigues, avenidaCampo],
   campina: [acudeVelho, piramide, estacaoVelha, parqueCrianca, partage, partageInterior, partageAlimentacao, cinemaPartage, terminalIntegracao, onibus],
   joaopessoa: [caboBranco],
   areia: [centroAreia],

@@ -83,6 +83,8 @@ export const EGG_SPOTS: Readonly<Record<string, Partial<Record<EggId, EggSpot>>>
   'rua-faustino': { spiderman: { x: 196, y: 36 }, falcon: { x: 140, y: -40, x1: 340, y1: -62 } },
   'rua-jose-bezerra': { falcon: { x: 140, y: -40, x1: 340, y1: -62 } },
   'rua-manoel-rodrigues': { falcon: { x: 140, y: -40, x1: 340, y1: -62 } },
+  // the city-wide fly-by only, over the diagonal wires (no scene-specific egg here)
+  'avenida-campo': { falcon: { x: 140, y: -44, x1: 340, y1: -70 } },
 };
 /** Scenes that host eggs (all in Esperança). */
 export const EGG_SCENES: readonly string[] = Object.keys(EGG_SPOTS);

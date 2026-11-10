@@ -14,7 +14,7 @@ const ids = (city: string) => table.get(city)!.map(sceneId);
 
 test('every Esperança scene has a place story with at least one real source', () => {
   const esp = ids('esperanca');
-  assert.equal(esp.length, 10);
+  assert.equal(esp.length, 11);
   for (const id of esp) {
     const p = placeInfoFor('esperanca', id);
     assert.ok(p, `${id} has an entry`);
@@ -31,7 +31,7 @@ test('every Esperança scene has a place story with at least one real source', (
 });
 
 test('the thin-source places say so instead of inventing a history', () => {
-  for (const id of ['rua-faustino', 'rua-jose-bezerra', 'centro-teatro']) {
+  for (const id of ['rua-faustino', 'rua-jose-bezerra', 'centro-teatro', 'avenida-campo']) {
     const p = PLACE_INFO[id];
     assert.equal(p.thin, true, `${id} marked thin`);
     assert.ok(p.paragraphs.some((t) => /Não encontramos/.test(t)), `${id} admits the missing history`);

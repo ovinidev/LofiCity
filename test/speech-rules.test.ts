@@ -9,7 +9,7 @@ import { PHRASES } from '../src/actors/phrases.ts';
 import { windValue } from '../src/sky/wind-rules.ts';
 
 const SCENES = {
-  esperanca: ['praca-matriz', 'rua-comercio', 'capelinha', 'praca-cultura', 'campo-rodoviaria', 'centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues'],
+  esperanca: ['praca-matriz', 'rua-comercio', 'capelinha', 'praca-cultura', 'campo-rodoviaria', 'centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues', 'avenida-campo'],
   campina: ['acude-velho', 'piramide-parque-do-povo', 'estacao-velha', 'parque-da-crianca', 'partage-shopping', 'partage-interior', 'partage-alimentacao', 'cinema-partage', 'terminal-integracao'],
   joaopessoa: ['cabo-branco'], areia: ['centro-areia'], remigio: ['lagoa-remigio', 'cinema-remigio', 'cinema-facade-remigio'],
   tokyo: ['rain-corner', 'neon-alley', 'konbini', 'shrine'],

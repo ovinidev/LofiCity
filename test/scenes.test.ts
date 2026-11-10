@@ -20,7 +20,7 @@ const sceneId = (name: string) => {
   assert.ok(m && m[1] === name, `${name} declares its id`);
   return m![2];
 };
-const NEW = ['centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues'];
+const NEW = ['centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues', 'avenida-campo'];
 
 test('every scene id in SCENES is unique', () => {
   const ids = [...table.values()].flat().map(sceneId);
@@ -32,7 +32,7 @@ test('Esperança has the new scenes after the existing five', () => {
   const ids = table.get('esperanca')!.map(sceneId);
   assert.deepEqual(ids.slice(0, 5), ['praca-matriz', 'rua-comercio', 'capelinha', 'praca-cultura', 'campo-rodoviaria']);
   for (const id of NEW) assert.ok(ids.includes(id), `${id} registered`);
-  assert.equal(ids.length, 10);
+  assert.equal(ids.length, 11);
   assert.ok(ids.indexOf('rua-manoel-rodrigues') > ids.indexOf('rua-jose-bezerra'), 'Rua Manoel Rodrigues comes after the earlier streets');
 });
 
