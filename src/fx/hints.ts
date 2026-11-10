@@ -20,11 +20,10 @@ function glyph(rows: string[], x0: number, y0: number, color: (ch: string) => nu
 
 /** Draws the hints for the spots given; `since` is seconds since the scene was entered. */
 export function drawHints(spots: HintSpot[], since: number, used: boolean, clock: number) {
-  const a = hintAlpha(since, used), bob = hintBob(clock);
-  if (a <= 0) return;
+  // shown whole for the whole window: a dither during the fade read as a flicker
+  if (hintAlpha(since, used) <= 0) return;
+  const bob = hintBob(clock);
   for (const s of spots) {
-    // partial alpha: the dither-free pixel art way is to blink in/out by thresholds
-    if (a < 1 && ((Math.round(s.x + s.y + clock * 12) & 1) === 0)) continue;
     if (s.kind === 'door') glyph(ARROW, Math.round(s.x) - 3, Math.round(s.y) - 9 + bob, () => WHITE);
     else {
       glyph(BUS, Math.round(s.x) - 4, Math.round(s.y) - 7 - (bob >> 1), (ch) => (ch === 'W' ? WHITE : CYELL));

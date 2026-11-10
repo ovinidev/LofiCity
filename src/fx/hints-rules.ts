@@ -10,7 +10,8 @@ export const HINT_START = 0.8;
 export const HINT_END = 9;
 const FADE = 0.7;
 
-/** 0 (hidden) to 1 (full) for the seconds since the scene was entered. */
+/** 0 (hidden) to 1 (full) for the seconds since the scene was entered. The renderer draws whole for any
+    value above 0 (no flicker), so the ramps only set the window's edges. */
 export function hintAlpha(sinceEnter: number, used: boolean): number {
   if (used || !(sinceEnter >= HINT_START) || sinceEnter >= HINT_END) return 0;
   return Math.min(1, (sinceEnter - HINT_START) / FADE, (HINT_END - sinceEnter) / FADE);

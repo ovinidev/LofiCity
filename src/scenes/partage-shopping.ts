@@ -208,8 +208,6 @@ function entrance() {
   rect(DOOR0 - 1, GLASS_TOP - 1, DOOR1 - DOOR0 - 2, 1, STEEL);
   for (const x of [DOOR0 - 1, DOOR0 + 24, DOOR1 - 4]) rect(x, GLASS_TOP - 1, 2, GROUND - 1 - GLASS_TOP, STEEL);
   rect(DOOR0 + 2, GROUND - 2, DOOR1 - DOOR0 - 8, 1, VOID);
-  // while open, a small chevron pulses under the board, pointing at the doors
-  if (o && Math.floor(S.ms / 600) % 2 === 0) { const cy = by + 11; rect(DX - 2, cy, 5, 1, lit ? LIGHT : CRED); rect(DX - 1, cy + 1, 3, 1, lit ? LIGHT : CRED); put(DX, cy + 2, lit ? LIGHT : CRED); }
 }
 
 /** The parking entrance: dim ramp lights, headlights of a car leaving now and then while open. */
@@ -291,7 +289,7 @@ export const partage: Scene = {
   update,
   render,
   debug() { return `active  people x${peopleCount()}  shopping ${open() ? 'aberto' : 'fechado'}`; },
-  hintSpots() { return doorTap(S.cal.weekday, S.cal.hour).enter ? [{ x: DX, y: GLASS_TOP - 2, kind: 'door' as const }] : []; },
+  hintSpots() { return doorTap(S.cal.weekday, S.cal.hour).enter ? [{ x: DX, y: GLASS_TOP + 4, kind: 'door' as const }] : []; },
   hint() { return open() ? { x: DX, y: GLASS_TOP, text: 'Toque na porta pra entrar no shopping' } : null; },
   tap(x, y) {
     // the main doors: inside while the mall is open (partage-interior, same moment); otherwise when it opens
