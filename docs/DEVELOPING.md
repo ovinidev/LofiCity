@@ -87,11 +87,11 @@ pnpm test       # unit tests for the pure rules in test/ (node --test; Node >= 2
 
 ## Sharing
 
-The address bar always holds the current view: `#city=` and `#scene=` are rewritten (with `history.replaceState`, so no reload and no extra history entries) whenever the city or scene changes, and `#at=` stays there when a moment is pinned. Other options the page was opened with (`#debug`, `#wx=`, `#wind=`, `#car=`, `#police=`) are left alone in the address bar.
+The address bar always holds the current view: `#city=` and `#scene=` are rewritten (with `history.replaceState`, so no reload and no extra history entries) whenever the city or scene changes, and `#at=` stays there when a moment is pinned. Other options the page was opened with (`#debug`, `#wx=`, `#wind=`, `#car=`, `#police=`, `#egg=`) are left alone in the address bar.
 
 The share button under the eye (top-right, visible even with the HUD hidden) opens two actions:
 
-- **Copiar link**: copies the permalink (city, scene and any pinned `#at=`, never `#debug`, `#wx=`, `#wind=`, `#car=`, `#police=` or `#bus=`) and shows "Link copiado". A live view gives a live link: whoever opens it sees the same place at its real time and weather.
+- **Copiar link**: copies the permalink (city, scene and any pinned `#at=`, never `#debug`, `#wx=`, `#wind=`, `#car=`, `#police=`, `#bus=` or `#egg=`) and shows "Link copiado". A live view gives a live link: whoever opens it sees the same place at its real time and weather.
 - **Baixar card**: saves `loficity-<city>-<scene>-<HHMM>.png`, a 1080x1920 story card drawn locally from the scene's framebuffer (rendered once into a portrait frame, through the current palette) with the time, city, scene, date, "LOFI CITY" and the site address.
 
 Nothing is uploaded or posted; the person sends the link or image themselves. The radio and ambience are not touched. Pure rules live in `src/share-rules.ts` (tested in `test/share-rules.test.ts`), the DOM side in `src/share.ts`.
@@ -109,18 +109,40 @@ Nothing is uploaded or posted; the person sends the link or image themselves. Th
 - `#bus=micro`: with `#scene=onibus`, open that bus's interior for previews (`sttp`, `saojose`, `micro`, `escolar`); like `#car=`, never kept in a shared link
 - `#car=bus`: make most Esperança traffic one kind, for previews (`moto`, `hatch`, `sedan`, `suv`, `pickup`, `veraneio`, `kombi`, `som`, `pipa`, `carroca`, `bus`, `micro`, `escolar`, `pmpb`; `pmpb` only in Esperança, side-on roads only)
 - `#police=1`: test override for the PMPB patrols (Esperança only): a patrol enters each street's traffic whenever none is on that road, skipping the cooldown, and the parked viatura with its officer always stands at Praça da Matriz. The HUD's season line adds `teste #police=1`; it stays in the address bar but is never kept in a shared link. E.g. `#city=esperanca&scene=rua-comercio&police=1&at=2026-11-10T21:30`
+- `#egg=batman`: test override that forces an easter egg now in an Esperança scene that places it, looping, bypassing rarity and its night / rain / cloud condition (see Easter eggs below); the HUD season line shows `teste #egg=<id>` and a copied link never keeps it. Ids: `spiderman`, `batman`, `batsignal`, `pacman`, `tardis`, `totoro`, `poke`, `falcon`, and `konami` (plays what the Konami code would unlock in that scene right now). It does not change the weather or the clock, so open night eggs with a night `#at=` and the rain / cloud ones with `#wx=`
 
 ## Keys
 
 The scene changes by itself every 2 minutes (rules in `src/scene-cycle.ts`, unit-tested): the next scene of the city in the list, skipping the bus, the cinema rooms and the mall's inside, which you only ever enter yourself. The timer restarts on any manual scene or city change, never fires while the city map, the place-info dialog or the share menu is open, never pulls you out of the bus, the cinema rooms or the mall, and counts only visible time (a hidden tab does not run it). It starts on, except when the page was opened with `#scene=` or `#cycle=off`; the **Auto** button or A toggles it. The 2 minutes are the owner's choice.
 
-T city map, S scene, A automatic scene change on/off (the **Auto** button), Esc get off the bus, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, I place info (Esperança scenes), Enter fullscreen. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
+T city map, S scene, A automatic scene change on/off (the **Auto** button), Esc get off the bus, R radio, N next track, P switch station (Lo-fi / Neon), M ambient sound, C CRT, H hide/show the panels, I place info (Esperança scenes), Enter fullscreen. The Konami code (↑ ↑ ↓ ↓ ← → ← → B A) unlocks an easter egg (see below); its final A does not toggle Auto. L triggers a lightning strike only in test mode (`#debug` or a `#wx=` override); in normal use it does nothing and lightning comes only from real storm data.
 
 The city map is a pixel map of Paraíba with a pin per city, generated from the city registry; cities outside Paraíba (Tóquio) are listed under it. Esc, the × button or a tap outside closes it without changing the city.
 
 The eye button (top-right) hides the whole HUD, credit included, for a clean view; the choice is remembered. Hiding it does not pause the radio. The radio tries to start by itself on load; browsers block that until the page has had a gesture, so it then starts on the first tap or key press (unless the listener already used the radio controls). Fullscreen is on the button and Enter only (no double-click), so quick taps on the scene never resize it.
 
 The "i" button under the share button (Esperança scenes only; not rendered elsewhere) opens "Sobre este lugar", a modal with the real story of the current scene's place: title, short paragraphs, curiosities and a list of sources with links. Esc, the × button or a tap outside closes it, and focus goes back to the button; it follows the scene if it changes. The texts live in `src/data/place-info.ts`, one entry per Esperança scene id, using only facts from the cited sources (local history blog História Esperancense, Revivendo Esperança, the Prefeitura, g1, Wikipedia); where no history of a street name or shop was found (Rua Faustino Porto, Rua José Bezerra da Costa, Casa de Amigos) the entry says so and only describes the scene. Tested in `test/place-info.test.ts`.
+
+## Easter eggs
+
+Esperança's scenes hide rare, small homages to geek culture, original pixel figures drawn in code like everything else (no assets, no copied sprites). Rules in `src/actors/egg-rules.ts` (tested in `test/egg-rules.test.ts`), drawing and taps in `src/actors/eggs.ts`, hooked once from `src/main.ts` (update, draw after the scene, tap, hover cursor), so no scene file carries egg code and the other cities never show them.
+
+- **Schedule**: like the little moments, a pure function of the clock: Esperança's local time is cut into 40-minute slots; a hash of (scene, slot) gives a 32% chance of one egg in that slot, picked among those the scene places whose hours fit, lasting 12–45 s, with at least 5 quiet minutes before the next slot. So at most one egg at a time, about one every couple of hours of watching a scene (fewer where the conditions cancel some), and the same `#at=` moment always shows the same thing. `#debug` shows the running egg and the next planned one.
+- **Conditions** (hard, can only cancel an egg, never change the weather): night is `S.dayK < 0.2`; rain is `raining()` from `rain-rules.ts` on the gated weather state (or the labelled `#wx=` test); cloudy is `S.cloud >= 0.5` from a genuine reading or the `#wx=` test (`cloudy` gives 0.6, `clear` 0); unknown weather is neither rain nor cloudy.
+- **Taps**: tapping an egg while it shows gives a short pt-BR line in a speech bubble (after animals, people and vehicles, before scene props); the mouse cursor turns into a pointer over it.
+
+| id | scene (`#scene=`) and spot | when | example hash |
+| --- | --- | --- | --- |
+| `spiderman` | `praca-matriz` hanging from the right bay's cornice; `rua-comercio` crawling up the lilac wall; `armazem-paraiba` climbing the red-and-white mast; `rua-faustino` hanging from the near pole | any time | `#city=esperanca&scene=praca-matriz&at=2026-11-10T15:00&egg=spiderman` |
+| `batman` | `praca-matriz` on the left corner pilaster; `capelinha` on the balustrade's corner post | night | `#city=esperanca&scene=praca-matriz&at=2026-11-10T21:30&egg=batman` |
+| `batsignal` | `praca-matriz` sky right of the tower, with its beam | night and cloudy | `#city=esperanca&scene=praca-matriz&at=2026-11-10T21:30&wx=cloudy&egg=batsignal` |
+| `pacman` | `armazem-paraiba` along the orange swoosh under FIADO SÓ AQUI | any time | `#city=esperanca&scene=armazem-paraiba&at=2026-11-10T15:00&egg=pacman` |
+| `tardis` | `centro-teatro` in front of the grey building, fading in and out | any time | `#city=esperanca&scene=centro-teatro&at=2026-11-10T15:00&egg=tardis` |
+| `totoro` | `centro-teatro` under the Casa de Amigos marquise (a shelter) | real rain | `#city=esperanca&scene=centro-teatro&at=2026-11-10T15:00&wx=rain&egg=totoro` |
+| `poke` | `campo-rodoviaria` hopping on the turf above the mural wall | daylight | `#city=esperanca&scene=campo-rodoviaria&at=2026-11-10T10:00&egg=poke` |
+| `falcon` | the sky of every Esperança scene, a short fly-by | night | `#city=esperanca&scene=praca-matriz&at=2026-11-10T21:30&egg=falcon` |
+
+**Konami code**: ↑ ↑ ↓ ↓ ← → ← → B A (ignored while a field or dialog is focused, like the other keys) plays the rarest egg the current scene places whose condition holds right now (bat signal, spirit, vigilante, freighter, police box, dot eater, critter, web-slinger, in that order) for one appearance, with a toast; where nothing fits it says so, and outside Esperança it points there. The matcher is `konamiStep` in `egg-rules.ts` (a typo resets; a stray extra ↑ still counts). `#egg=konami` previews it.
 
 ## Layout
 

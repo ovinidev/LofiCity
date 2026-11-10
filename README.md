@@ -20,6 +20,7 @@ Cenas lo-fi em pixel art de cidades da Paraíba (Esperança, Campina Grande, Jo�
 - A rádio toca álbuns do [Internet Archive](https://archive.org/) sob licenças Creative Commons, com crédito e link de cada faixa.
 - Botão de compartilhar: copia o link exato da cena (`#city=`, `#scene=`) ou baixa um card 1080x1920 para stories. Nada é postado: quem envia é você.
 - Botão "i" (só nas cenas de Esperança): conta a história real do lugar da cena, com curiosidades e links para as fontes (blog História Esperancense, Prefeitura e outras). Nada é inventado: onde não achamos a história de uma rua, o texto diz isso.
+- Olhe com calma: de vez em quando, Esperança esconde pequenas surpresas.
 
 **Ferramentas:** TypeScript, Vite (o build é um único `dist/index.html`), pnpm, Open-Meteo, Internet Archive e Claude Code, com a skill [`create-scenario`](.claude/skills/create-scenario) para criar cenários a partir de fotos de referência.
 

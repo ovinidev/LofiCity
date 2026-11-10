@@ -20,7 +20,7 @@ export function formatHash(pairs: [string, string][]): string {
 
 /**
  * The address-bar hash for the current view: city and scene first (plus #at when a moment is pinned),
- * then every other option the page was opened with (#debug, #wx=, #wind=, #car=, #police=) left as it was.
+ * then every other option the page was opened with (#debug, #wx=, #wind=, #car=, #police=, #egg=) left as it was.
  */
 export function viewHash(current: string, view: View): string {
   const rest = parseHash(current).filter(([k]) => !(VIEW_KEYS as readonly string[]).includes(k));
@@ -31,8 +31,8 @@ export function viewHash(current: string, view: View): string {
 
 /**
  * The link to share: same city, scene and pinned moment, without test and developer options
- * (#debug, #wx= weather override, #wind= wind override, #car=, #police= patrol test), so a shared link never
- * shows a test reading or a forced patrol.
+ * (#debug, #wx= weather override, #wind= wind override, #car=, #police= patrol test, #egg=), so a shared link never
+ * shows a test reading, a forced patrol or a forced easter egg.
  */
 export function shareUrl(base: string, view: View): string {
   return base.replace(/#.*$/, '') + viewHash('', view);
