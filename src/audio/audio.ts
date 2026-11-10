@@ -14,7 +14,7 @@ const A: {
   cicada?: G; cricket?: G; pad?: BiquadFilterNode; padGain?: G; noise?: AudioBuffer; next: number; ci: number;
 } = { ctx: null, on: false, next: 0, ci: 0 };
 /** Ambience level on its own, and while the radio plays. */
-const LEVEL = 0.7, UNDER_RADIO = 0.4;
+const LEVEL = 0.35, UNDER_RADIO = 0.2;
 const level = () => (radio.isOn() ? UNDER_RADIO : LEVEL);
 
 const CHORDS = [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60, 64], [48, 52, 55, 59, 62]];

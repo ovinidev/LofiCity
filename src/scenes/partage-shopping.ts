@@ -1,7 +1,7 @@
 /* PARTAGE SHOPPING (Campina Grande, PB), drawn from Street View captures on Av. Prefeito Severino
    Bezerra Cabral (Dec and Aug 2024; used as reference only, they are not in the repo). On the left
    the tall grey wall stacked with the anchor stores' boards, under the same look-alike names as the
-   shops inside (RIACHINHO, CENTAURA, CELULARES, LEITORA, PERFUMARIA; two more whose lettering is too
+   shops inside (RIACHINHO, CENTAURA, KALANGA, LEITORA, MARIZA; two more whose lettering is too
    small to read, left blank), and under them the parking
    entrance with "ESTACIONAMENTO", "SAÍDA" and "ENTRADA" in big spaced letters. Then the white tiled
    entrance block with the red flower emblem and "PARTAGE SHOPPING / CAMPINA GRANDE", a green hedge
@@ -51,9 +51,9 @@ const BOARDS: Board[] = [
   { x: 8, y: 46, w: 40, h: 14, bg: TILEW, fg: CRED, txt: '', s: 1 }, // the round logo at the top left is not legible
   { x: 54, y: 44, w: 44, h: 16, bg: VOID, fg: WHITE, txt: 'RIACHINHO', s: 1 },
   { x: 104, y: 48, w: 40, h: 14, bg: TILEW, fg: CRED, txt: 'CENTAURA', s: 1 },
-  { x: 54, y: 64, w: 44, h: 13, bg: CNAVY, fg: TILEW, txt: 'CELULARES', s: 1 },
+  { x: 54, y: 64, w: 44, h: 13, bg: CNAVY, fg: TILEW, txt: 'KALANGA', s: 1 },
   { x: 104, y: 66, w: 40, h: 14, bg: WOOD, fg: TILEW, txt: 'LEITORA', s: 1 },
-  { x: 6, y: 70, w: 44, h: 14, bg: FPINK, fg: TILEW, txt: 'PERFUMARIA', s: 1 },
+  { x: 6, y: 70, w: 44, h: 14, bg: FPINK, fg: TILEW, txt: 'MARIZA', s: 1 },
   { x: 54, y: 81, w: 44, h: 10, bg: CORNG, fg: CYELL, txt: '', s: 1 }, // too small to read in the photo
   { x: 104, y: 83, w: 40, h: 10, bg: CBLUE, fg: TILEW, txt: '', s: 1 },
 ];
