@@ -248,6 +248,11 @@ test('HUD text per state (pt-BR)', () => {
   assert.equal(test.temp, '');
   assert.equal(test.badge?.cls, 'test');
   assert.match(test.badge!.text, /teste #wx=rain/);
+  // #wind= alone or with #wx=: still a labelled test, never "ao vivo"
+  const windy = hudWeather({ ...base, kind: 'override', windOverride: 'wind=40' });
+  assert.equal(windy.badge?.cls, 'test');
+  assert.equal(windy.badge?.text, 'teste #wind=40 · não é ao vivo');
+  assert.equal(hudWeather({ ...base, kind: 'override', override: 'clear', windOverride: 'wind=40' }).badge?.text, 'teste #wx=clear #wind=40 · não é ao vivo');
   assert.equal(hudWeather({ ...base, kind: 'live', pinned: true }).badge?.cls, 'test');
   assert.equal(staleLabel(Date.parse('2026-11-08T02:40:00Z'), T0, -3), 'dados de ontem 23:40 · sem atualização');
 });

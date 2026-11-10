@@ -8,6 +8,7 @@ import {
   LEDW, LIGHT, STEEL, STONE, STONEL, TILEW, VOID, WCOOL, WDIM, WHITE, WOOD, WWARM, FPINK, BRIGHT, REFL, BFAR,
 } from '../engine/palette';
 import { S } from '../sky/state';
+import { windDir, windStrength } from '../sky/wind-rules';
 
 const night = () => S.dayK < 0.45 || (S.cloud > 0.9 && S.dayK < 0.65);
 
@@ -219,7 +220,9 @@ export function christmasStar(cx: number, cy: number, s: number) {
 export interface Palm { x: number; ground: number; h: number; lean: number; ph: number; imperial?: boolean }
 
 export function drawPalm(p: Palm) {
-  const t = S.ms / 1000, sway = Math.sin(t * 0.9 + p.ph) * (0.6 + Math.abs(S.wind) * 6);
+  // gentle when calm; strong wind (≥ 30 km/h, wind-rules.ts) bends the crown downwind and sways it faster
+  const t = S.ms / 1000, st = windStrength(S.wind), dir = windDir(S.wind);
+  const sway = Math.sin(t * (0.9 + st * 1.2) + p.ph) * (0.6 + st * 4) + dir * st * 5;
   const tx = (u: number) => p.x + p.lean * u * u + sway * u * u * 0.5;
   for (let y = 0; y < p.h; y++) {
     const u = y / p.h, x = Math.round(tx(u)), yy = p.ground - y;
@@ -229,7 +232,8 @@ export function drawPalm(p: Palm) {
   const cx = tx(1), cy = p.ground - p.h;
   const fronds = [-2.9, -2.4, -1.9, -1.3, -0.7, -0.25, 0.25];
   fronds.forEach((a0, i) => {
-    const a = a0 + Math.sin(t * 1.3 + i + p.ph) * 0.06 * (1 + Math.abs(S.wind) * 5) + S.wind * 0.3, len = 18 + (i % 3) * 3;
+    // fronds stream downwind: the upwind ones fold over, all of them thrash faster in a gale
+    const a = a0 + Math.sin(t * (1.3 + st * 3) + i + p.ph) * 0.06 * (1 + st * 4) + dir * st * 0.55 * (Math.cos(a0) * dir < 0 ? 1.4 : 0.8), len = 18 + (i % 3) * 3;
     for (let k = 1; k <= len; k++) {
       const u = k / len, x = cx + Math.cos(a) * k, y = cy + Math.sin(a) * k + u * u * 9;
       put(x, y, LEAFG);
@@ -241,15 +245,24 @@ export function drawPalm(p: Palm) {
 
 // ---------- festivities ----------
 const FLAG = [CRED, CYELL, CBLUE, CGREEN, WHITE, FPINK];
-/** A string of paper bandeirolas between two points, fluttering in the wind. */
+/** A string of paper bandeirolas between two points, fluttering in the wind: a flick of the tip in a
+    breeze; in strong wind (≥ 30 km/h) the string lifts and swings and the flags stream out downwind. */
 export function bandeirolas(x0: number, y0: number, x1: number, y1: number, sag: number, seed: number) {
-  const n = Math.abs(x1 - x0), t = S.ms / 1000;
+  const n = Math.abs(x1 - x0), t = S.ms / 1000, st = windStrength(S.wind), dir = windDir(S.wind) || 1;
+  const swing = Math.sin(t * (1 + st * 1.5) + seed) * st * 2.5; // the whole string swings, the middle most
   for (let i = 0; i <= n; i++) {
-    const u = i / n, x = Math.round(x0 + (x1 - x0) * u), y = Math.round(y0 + (y1 - y0) * u + sag * 4 * u * (1 - u));
+    const u = i / n, mid = 4 * u * (1 - u);
+    const x = Math.round(x0 + (x1 - x0) * u), y = Math.round(y0 + (y1 - y0) * u + sag * mid * (1 - st * 0.35) + swing * mid);
     put(x, y, BNEAR);
     if (i % 4 === 1) {
-      const c = FLAG[(i / 4 + seed) % FLAG.length | 0], fl = Math.sin(t * 3 + i * 0.7) * Math.abs(S.wind) * 3 > 0.6 ? 1 : 0;
-      rect(x, y + 1, 3, 2, c); put(x + 1 + fl, y + 3, c);
+      const c = FLAG[(i / 4 + seed) % FLAG.length | 0], wave = Math.sin(t * (3 + st * 6) + i * 0.7);
+      if (st < 0.6) { // hanging: the tip flicks sideways now and then
+        const fl = wave * (0.2 + st * 3) > 0.6 ? 1 : 0;
+        rect(x, y + 1, 3, 2, c); put(x + 1 + fl, y + 3, c);
+      } else { // streaming: blown out to the side, flapping up and down
+        const lift = wave > 0.3 ? 1 : 0, bx = dir > 0 ? x : x - 1;
+        rect(bx, y + 1 - lift, 3, 2, c); put(dir > 0 ? x + 3 : x - 2, y + 1 + (wave > -0.2 ? 0 : 1) - lift, c);
+      }
     }
   }
 }

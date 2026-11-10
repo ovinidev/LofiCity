@@ -6,6 +6,7 @@ import {
   remember, timeOfDay, weatherTags,
 } from '../src/actors/speech-rules.ts';
 import { PHRASES } from '../src/actors/phrases.ts';
+import { windValue } from '../src/sky/wind-rules.ts';
 
 const SCENES = {
   esperanca: ['praca-matriz', 'rua-comercio', 'capelinha', 'praca-cultura', 'campo-rodoviaria', 'centro-teatro', 'armazem-paraiba', 'rua-faustino', 'rua-jose-bezerra', 'rua-manoel-rodrigues'],
@@ -230,4 +231,25 @@ test('lifecycle: at most two bubbles, each gone after ~3 s, all cleared on scene
   q.add('d', 5000); q.add('e', 5001);
   assert.deepEqual(q.clear().map((d) => d.item), ['d', 'e']);
   assert.equal(q.list.length, 0);
+});
+
+test('wind phrases only with strong real wind (≥ 30 km/h), never when the weather is unknown', () => {
+  const wind = wxOf('wind');
+  assert.ok(wind.size >= 3);
+  const has = (c: SpeechCtx) => [...texts(c)].some((t) => wind.has(t));
+  for (const kind of KINDS) for (const kmh of [0, 15, 29.9, 30, 45]) for (const sign of [1, -1]) {
+    const got = has(ctx({ wx: { kind, wind: windValue(kmh, sign) } }));
+    assert.equal(got, kind !== 'unavailable' && kmh >= 30, `${kind} ${sign * kmh} km/h`);
+  }
+  assert.equal(has(ctx({ wx: { kind: 'live' } })), false, 'no wind value: calm');
+  assert.ok(weatherTags({ kind: 'live', temp: 25, rain: 0, snow: 0, wind: windValue(40, 1) }, 'esperanca').includes('wind'));
+  assert.deepEqual(weatherTags({ kind: 'unavailable', temp: 25, rain: 0, snow: 0, wind: windValue(40, 1) }, 'esperanca'), []);
+  // outdoor people in Esperança only: not inside the bus, not elsewhere
+  const strong = { kind: 'live', wind: windValue(40, 1) } as const;
+  assert.ok(has(ctx({ scene: 'praca-matriz', wx: strong })));
+  assert.ok(has(ctx({ scene: 'praca-cultura', role: 'player', wx: strong })));
+  assert.ok(has(ctx({ scene: 'rua-jose-bezerra', role: 'vendor', wx: strong })));
+  assert.equal(has(ctx({ scene: 'onibus', role: 'rider', wx: strong })), false);
+  assert.equal(has(ctx({ city: 'campina', scene: 'partage-interior', wx: strong })), false);
+  assert.equal(has(ctx({ city: 'tokyo', scene: 'konbini', wx: strong })), false);
 });

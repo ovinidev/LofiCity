@@ -10,6 +10,7 @@ import { clamp } from '../engine/math';
 import { type City, type MetarStation, cityById } from './cities';
 import { type Obs, pickObs } from './rain-gate';
 import { type Feed, type Sample, createWeatherFeed } from './weather-feed';
+import { windValue } from './wind-rules';
 
 const KEY = 'loficity:wx:', OLD_KEY = 'loficity:live:';
 
@@ -37,7 +38,7 @@ function sample(t: number, code: number, temp: number, precipMm: number, cloudPc
   const dir = -Math.sin((windDir * Math.PI) / 180); // blowing west → east is positive
   return {
     t, temp, rain: c.rain, snow: c.snow, storm: c.storm, fog: c.fog,
-    cloud: clamp(cloudPct / 100, 0, 1), wind: clamp(windKmh / 55, 0, 1.2) * (dir >= 0 ? 1 : -1) * 0.9 + 0.05,
+    cloud: clamp(cloudPct / 100, 0, 1), wind: windValue(windKmh, dir), // clamp(km/h / 55, 0, 1.2) * sign * 0.9 + 0.05 (wind-rules.ts)
     mm: Number.isFinite(precipMm) ? Math.max(0, precipMm) * 3600 / perS : 0, // missing value: dry for the gate
   };
 }
