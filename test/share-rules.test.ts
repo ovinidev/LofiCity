@@ -23,6 +23,14 @@ test('the shared link drops test and developer options', () => {
   assert.ok(!/wx=|wind=|debug|car=|bus=/.test(url));
 });
 
+test('the #egg= test override stays in the address bar but never in a copied link', () => {
+  const view = { city: 'esperanca', scene: 'praca-matriz', at: '2026-11-10T21:30' };
+  assert.equal(viewHash('#egg=batman&at=2026-11-10T21:30', view), '#city=esperanca&scene=praca-matriz&at=2026-11-10T21:30&egg=batman');
+  const url = shareUrl('https://loficity-lac.vercel.app/#city=esperanca&scene=praca-matriz&egg=batsignal&wx=cloudy&at=2026-11-10T21:30', view);
+  assert.equal(url, 'https://loficity-lac.vercel.app/#city=esperanca&scene=praca-matriz&at=2026-11-10T21:30');
+  assert.ok(!/egg=/.test(url));
+});
+
 test('card file name is safe and carries the time', () => {
   assert.equal(cardFileName({ city: 'esperanca', scene: 'praca-matriz' }, 21.5), 'loficity-esperanca-praca-matriz-2130.png');
   assert.equal(cardFileName({ city: 'tokyo', scene: 'rain-corner' }, 7.999), 'loficity-tokyo-rain-corner-0759.png');
