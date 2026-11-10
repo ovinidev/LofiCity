@@ -18,6 +18,8 @@ import { bells } from './audio/bells';
 import { precip, updatePrecip } from './fx/precip';
 import { animalsDebug } from './actors/animals';
 import { ambientDebug } from './actors/ambient';
+import { drawEggs, eggDebug, eggHit, eggOverride, eggSay, setEggOverride, unlockKonami, updateEggs } from './actors/eggs';
+import { konamiStep } from './actors/egg-rules';
 import { brTrafficDebug } from './actors/br-traffic';
 import { fireworksStats, updateSkyEvents, lightning } from './fx/sky-events';
 import { gradePalette } from './sky/grade';
@@ -43,6 +45,8 @@ const $ = (id: string) => document.getElementById(id)!;
 const params = new URLSearchParams(location.hash.slice(1));
 // Automatic scene change every 2 minutes (scene-cycle.ts): off when the URL pins a scene or says #cycle=off. Read before syncHash rewrites the hash.
 let autoCycle = cycleDefault(location.hash), cycleMs = 0;
+// #egg=<id>: labelled test override that forces an easter egg in an Esperança scene (actors/egg-rules.ts).
+setEggOverride(params.get('egg'));
 
 // ---------- clock ----------
 // Always the city's real time. #city=esperanca picks a city; #at=2026-12-24T22:00 (city time)
@@ -159,7 +163,7 @@ function updateHud() {
   const badge = $('live');
   badge.hidden = !h.badge;
   if (h.badge) { badge.textContent = h.badge.text; badge.className = `live ${h.badge.cls}`; }
-  const season = seasonWord();
+  const egg = eggOverride(), season = [seasonWord(), egg && `teste #egg=${egg}`].filter(Boolean).join(' · ');
   $('season').textContent = season;
   $('season').hidden = !season; // sertão dry season has no tag: don't leave an empty HUD row
 }
@@ -279,9 +283,9 @@ for (const [sel, prop] of [['.hud', '--hud-h'], ['.radio', '--radio-h']]) {
 // person sends them on their own. No radio or ambience calls here, so playback is never touched.
 const shareBtn = $('b-share'), shareMenu = $('share-menu'), toastEl = $('toast');
 let toastTimer = 0, shareOpen = false;
-function toast(text: string) {
+function toast(text: string, ms = 1800) {
   toastEl.textContent = text; toastEl.hidden = false;
-  clearTimeout(toastTimer); toastTimer = window.setTimeout(() => { toastEl.hidden = true; }, 1800);
+  clearTimeout(toastTimer); toastTimer = window.setTimeout(() => { toastEl.hidden = true; }, ms);
 }
 function setShareMenu(open: boolean) {
   shareOpen = open; shareMenu.hidden = !open; shareBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -316,9 +320,19 @@ addEventListener('keydown', (e) => {
   if (tag === 'SELECT' || tag === 'INPUT' || (tag === 'BUTTON' && e.key === 'Enter')) return;
   if (cityMap.isOpen() || placeInfo.isOpen()) return; // modal dialogs: no scene shortcuts behind them (Esc closes them natively)
   if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser shortcuts (Ctrl +/-, Ctrl+H...) alone
+  // Konami code (↑↑↓↓←→←→BA): the final A unlocks an easter egg instead of toggling auto-cycle
+  const k = konamiStep(konamiState, e.key);
+  konamiState = k.state;
+  if (k.done) { konamiUnlock(); return; }
   const a = KEYS[e.key.toLowerCase()];
   if (a) actions[a]();
 });
+let konamiState = 0;
+function konamiUnlock() {
+  const esp = city.id === 'esperanca', egg = unlockKonami(scene.id, esp);
+  toast(egg ? '↑↑↓↓←→←→BA · 30 vidas extras! Olha bem a cena…'
+    : esp ? 'Código aceito! Nada por aqui agora… tenta outra cena.' : 'Código aceito! As surpresas moram em Esperança.', 3200);
+}
 // No dblclick-to-fullscreen on the canvas: two quick taps on something that moves fired it and the
 // page seemed to zoom. Fullscreen stays on the button and Enter.
 // People say a short phrase that fits the city, the scene, the hour and the real weather (speech-rules.ts),
@@ -338,7 +352,7 @@ const viewEl = $('view');
 viewEl.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse') return;
   const f = toFrame(e.clientX, e.clientY), x = f.x + G.camX, y = f.y - G.oy;
-  const hit = tapAnimals(x, y, true) || tapPeople(x, y) || tapCars(x, y) || scene.tap?.(x, y);
+  const hit = tapAnimals(x, y, true) || tapPeople(x, y) || tapCars(x, y) || eggHit(x, y) || scene.tap?.(x, y);
   viewEl.style.cursor = hit ? 'pointer' : '';
 });
 // Tap what moves: birds fly off, cats bolt, dogs bark and run, people talk, vehicles honk.
@@ -350,6 +364,8 @@ $('view').addEventListener('pointerdown', (e) => {
   if (p) { if (p.dog) sfx('bark'); speak({ role: 'passerby', track: p.track }, p.x, p.y); return; } // the dog still barks
   const c = tapCars(x, y);
   if (c) { sfx(c.sound); if (c.board) board(c.board); else emote(c.x, c.y, '♪'); return; }
+  const egg = eggHit(x, y); // a rare easter egg (Esperança only): a short line in a bubble
+  if (egg) { say(eggSay(egg.id), egg); return; }
   const prop = scene.tap?.(x, y);
   if (prop?.leave) { leaveBus(); return; } // the SAÍDA sign inside the bus
   // a door (e.g. the cinema in Remígio): the same scene change as the scene button, then the new scene's hint
@@ -394,7 +410,9 @@ function frame(now: number) {
   if (!hadData && S.wxKind !== 'unavailable') { settle(simNow(), city); direct(simNow(), city, 0, scene.id); }
   G.camX = camFor(G.W, scene.focusX?.() ?? null); // portrait: the scene may ask the camera to look elsewhere
   updateSky(dt); updateSkyEvents(dt); updatePrecip(dt); scene.update(dt);
+  updateEggs(scene.id, city.id === 'esperanca');
   scene.render();
+  drawEggs();
   drawEmotes(dt);
   if (!cityMap.isOpen() && !placeInfo.isOpen()) drawHints([...(scene.hintSpots?.() ?? []), ...boardSpots().map((p): HintSpot => ({ ...p, kind: 'bus' }))], sceneMs / 1000, hintsUsed, clock);
   gradePalette();
@@ -424,6 +442,7 @@ drops   ${precip.liveDrops}/${precip.rainCap}  flakes ${precip.liveFlakes}  leav
 fx      ${fireworksStats()}  fireworks ${S.fireworks}   radio ${radio.status()}   bells ${bells.status()}${city.br ? `
 life    ${animalsDebug()}
 ambient ${ambientDebug(scene.id)}
+eggs    ${eggDebug(scene.id)}
 traffic ${brTrafficDebug() || '-'}` : ''}`;
   }
   requestAnimationFrame(frame);
