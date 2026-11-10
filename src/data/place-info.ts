@@ -185,6 +185,17 @@ export const PLACE_INFO: Readonly<Record<string, PlaceInfo>> = {
     sources: [PREFEITURA],
     thin: true,
   },
+
+  'avenida-campo': {
+    title: 'Avenida e Campo',
+    paragraphs: [
+      'Uma vista elevada da borda da cidade: um campo aberto de capim e terra batida, cortado por uma trilha de terra, com cavalos pastando; atrás, uma avenida com postes de luz, casas baixas, alguns prédios de dois ou três andares e um prédio branco ao fundo; no céu, muitos fios de energia cruzando na diagonal.',
+      'Não encontramos o nome confirmado deste lugar nem da avenida, nem uma história documentada do campo; por isso a cena usa um nome neutro e só descreve o que se vê.',
+    ],
+    curiosities: ['Esperança foi elevada a município pela lei estadual 624, de 01/12/1925.'],
+    sources: [PREFEITURA],
+    thin: true,
+  },
 };
 
 /** The place story for a scene, only for Esperança scenes; null elsewhere (the "i" button is not shown). */
