@@ -2,7 +2,8 @@
    Only wetness and snow cover are integrated over time; everything else is a function of now. */
 import { clamp, hashf, ss } from '../engine/math';
 import { type City, CITIES, FESTA_PADROEIRA } from './cities';
-import { weatherView } from './live';
+import { observationFor, weatherView } from './live';
+import { gateRain, usableObs } from './rain-gate';
 import { birdActivity, density } from './rhythm';
 import { type Cal, calendar, doyOf, inDoy, moonElev, moonHourAngle, moonPhase, solarHour, sunElev } from './time';
 import { type WxKind, sampleAt } from './weather-feed';
@@ -98,9 +99,12 @@ function wx(ms: number, city: City): Wx {
   const l = v.kind === 'unavailable' ? null : sampleAt(v.feed, ms, v.kind === 'stale');
   if (!l || v.kind === 'unavailable') { S.wxKind = 'unavailable'; return NEUTRAL; }
   S.wxKind = v.kind;
-  const precip = Math.min(1, l.rain + l.snow);
+  // rain, drizzle and storm only when the forecast rate passes the threshold or a nearby METAR
+  // confirms it (rain-gate.ts); stale readings go through the same gate
+  const g = gateRain(l, usableObs(observationFor(city), ms, Date.now()));
+  const precip = Math.min(1, g.rain + l.snow);
   return {
-    temp: l.temp, rain: l.rain, snow: l.snow, storm: l.storm, cloud: Math.max(l.cloud, precip > 0.05 ? 0.85 : 0), precip,
+    temp: l.temp, rain: g.rain, snow: l.snow, storm: g.storm, cloud: Math.max(l.cloud, precip > 0.05 ? 0.85 : 0), precip,
     fog: l.fog, wind: l.wind,
   };
 }

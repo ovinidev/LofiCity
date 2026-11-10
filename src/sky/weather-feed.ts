@@ -11,8 +11,10 @@
    Readings are stored per city and never shared across cities. Failed fetches are retried a
    bounded number of times with backoff, then on the normal refresh interval until one works. */
 
-/** One moment of weather, already mapped to scene intensities (0..1, wind signed). */
-export interface Sample { t: number; temp: number; rain: number; snow: number; storm: number; cloud: number; fog: number; wind: number }
+/** One moment of weather, already mapped to scene intensities (0..1, wind signed). `mm` is the
+    forecast precipitation rate in mm/h, used by the rain gate (rain-gate.ts); readings cached
+    before it existed have none and are gated as dry. */
+export interface Sample { t: number; temp: number; rain: number; snow: number; storm: number; cloud: number; fog: number; wind: number; mm?: number }
 /** One Open-Meteo answer for a city: the current observation plus the hourly series around it. */
 export interface Feed { city: string; at: number; now: Sample & { code: number; feels: number; humidity: number }; hours: Sample[] }
 export interface Entry { feed: Feed; fetchedAt: number }
@@ -41,7 +43,7 @@ export function decide(entry: Entry | undefined, lastFailed: boolean, now: numbe
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
 const isSample = (s: unknown): s is Sample => {
   const o = s as Record<string, unknown> | null;
-  return !!o && ['t', 'temp', 'rain', 'snow', 'storm', 'cloud', 'fog', 'wind'].every((k) => finite(o[k]));
+  return !!o && ['t', 'temp', 'rain', 'snow', 'storm', 'cloud', 'fog', 'wind'].every((k) => finite(o[k])) && (o.mm === undefined || finite(o.mm));
 };
 /** Shape check for an entry read back from storage; it must belong to `cityId`. */
 export function isEntry(x: unknown, cityId: string): x is Entry {
@@ -54,6 +56,7 @@ export function isEntry(x: unknown, cityId: string): x is Entry {
 const mix = (a: Sample, b: Sample, k: number): Sample => {
   const o = { t: a.t + (b.t - a.t) * k } as Sample;
   for (const key of ['temp', 'rain', 'snow', 'storm', 'cloud', 'fog', 'wind'] as const) o[key] = a[key] + (b[key] - a[key]) * k;
+  if (a.mm !== undefined && b.mm !== undefined) o.mm = a.mm + (b.mm - a.mm) * k;
   return o;
 };
 

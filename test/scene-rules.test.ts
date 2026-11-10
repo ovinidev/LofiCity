@@ -119,9 +119,18 @@ test('nothing outside sky/state.ts assigns weather state (S.rain, S.temp, S.wxKi
 test('only sky/ and main.ts reach the weather feed; no scene, actor or effect fetches weather', () => {
   const others = ALL_SRC.filter((p) => p.endsWith('.ts') && !p.startsWith('src/sky/') && p !== 'src/main.ts');
   none([
-    ...scan(others, /from '[./]*(sky\/)?(live|weather-feed)'/, 'weather feed imported'),
-    ...scan(others, /open-meteo|api\.open-meteo/i, 'weather API outside sky/'),
+    ...scan(others, /from '[./]*(sky\/)?(live|weather-feed|rain-gate)'/, 'weather feed imported'),
+    ...scan(others, /open-meteo|api\.open-meteo|aviationweather|api\/metar/i, 'weather API outside sky/'),
   ], 'Scenes read the weather from S only');
+});
+
+test('rain and storm reach S only through the rain gate, after the #wx= override', () => {
+  const st = codeOf('src/sky/state.ts'), i = st.indexOf('function wx('), body = st.slice(i, st.indexOf('\n}', i));
+  const over = body.indexOf('if (wxOverride)'), gate = body.indexOf('gateRain(');
+  assert.ok(over >= 0 && gate > over, 'wx(): the labelled #wx= test returns first, then the reading goes through gateRain()');
+  assert.match(body, /rain: g\.rain\b/, 'wx(): rain comes from the gate');
+  assert.match(body, /storm: g\.storm\b/, 'wx(): storm comes from the gate');
+  assert.doesNotMatch(body, /\brain: l\.rain|storm: l\.storm/, 'wx(): the ungated forecast never reaches S');
 });
 
 /** Allowed Math.random calls, with the reason. Weather and behaviour must use seeded mulberry32/hashf. */
