@@ -13,6 +13,7 @@ import {
   feiraState, feiraWet, makeShoppers, moving, rowOf, serving, shopperCap, sortZ, spawnShopper, stallsFor, stepShoppers, unloaderAt, vendorPose,
 } from '../actors/feira-rules';
 import { S } from '../sky/state';
+import { windDir, windStrength } from '../sky/wind-rules';
 import { type View, drawCarP, projX, projY, scaleAt } from './persp-kit';
 import type { Speaker } from './types';
 
@@ -138,6 +139,18 @@ function drawStall(s: Stall) {
   quad([X0 - 0.3, 2.15, e0], [X1 + 0.3, 2.15, e0], [Xm, 2.75, e0], [Xm, 2.75, e0], (_u, _w, x, y) => ((x + y) % 3 === 0 ? BNEAR : a1));
   // the valance along the front edge
   quad([X0 - 0.3, 2.2, e0], [X1 + 0.3, 2.2, e0], [X0 - 0.3, 2.05, e0], [X1 + 0.3, 2.05, e0], (u) => (Math.floor(u * 8) % 2 ? a1 : a2));
+  // the valance's loose hem flaps in the wind: a ripple running downwind, clearly in strong wind (wind-rules.ts)
+  const ws = windStrength(S.wind);
+  if (ws > 0.25) {
+    const xa = Math.round(projX(V, X0 - 0.3, e0)), xb = Math.round(projX(V, X1 + 0.3, e0)), yb = Math.round(projY(V, 2.05, e0));
+    const t = S.ms / 1000, dir = windDir(S.wind) || 1, span = Math.max(1, xb - xa);
+    for (let x = xa; x <= xb; x++) {
+      const wave = Math.sin(x * 0.9 - dir * t * (5 + ws * 7) + s.seed * 20);
+      if (wave <= 0.85 - ws * 0.9) continue;
+      const c = Math.floor(((x - xa) / span) * 8) % 2 ? a1 : a2;
+      put(x, yb + 1, c); if (wave > 0.75 && ws > 0.6) put(x, yb + 2, c);
+    }
+  }
 }
 
 // ---------- people ----------

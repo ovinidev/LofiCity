@@ -15,6 +15,7 @@ Cenas lo-fi em pixel art de cidades da Paraíba (Esperança, Campina Grande, Jo�
 - Tudo é desenhado em código num framebuffer indexado com paleta, graduada para dia, pôr do sol, noite e nublado. Nenhuma imagem ou sprite.
 - O clima vem só da API [Open-Meteo](https://open-meteo.com/), sem chave. Nunca é inventado: sem leitura, a tela diz "clima indisponível".
 - Chuva, garoa e tempestade só aparecem quando a previsão passa de 0,5 mm/h ou quando o METAR do aeroporto mais próximo (Campina Grande para Esperança, Campina, Remígio e Areia; João Pessoa para a capital) informa chuva agora. A garoa de 0,1 mm que o modelo costuma prever não molha a tela sozinha.
+- Vento real: em Esperança as copas das árvores, os coqueiros, as bandeirolas e as lonas da feira balançam com o vento da leitura; a partir de 30 km/h, em tempo seco, poeira, folhas secas e papel voam rente ao chão e o povo comenta ("Que ventania!"). Com vento fraco, só um balanço leve.
 - A rádio toca álbuns do [Internet Archive](https://archive.org/) sob licenças Creative Commons, com crédito e link de cada faixa.
 - Botão de compartilhar: copia o link exato da cena (`#city=`, `#scene=`) ou baixa um card 1080x1920 para stories. Nada é postado: quem envia é você.
 - Botão "i" (só nas cenas de Esperança): conta a história real do lugar da cena, com curiosidades e links para as fontes (blog História Esperancense, Prefeitura e outras). Nada é inventado: onde não achamos a história de uma rua, o texto diz isso.
@@ -33,7 +34,7 @@ pnpm build       # dist/index.html
 pnpm shot        # capturas em ./shots (precisa de build)
 ```
 
-Cidades, cenários, opções de URL (`#city=`, `#scene=`, `#at=`, `#wx=`, `#debug`), atalhos de teclado e a organização do código estão em [docs/DEVELOPING.md](docs/DEVELOPING.md). Regras para agentes em [AGENTS.md](AGENTS.md); como contribuir em [CONTRIBUTING.md](CONTRIBUTING.md).
+Cidades, cenários, opções de URL (`#city=`, `#scene=`, `#at=`, `#wx=`, `#wind=`, `#debug`), atalhos de teclado e a organização do código estão em [docs/DEVELOPING.md](docs/DEVELOPING.md). Regras para agentes em [AGENTS.md](AGENTS.md); como contribuir em [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Créditos e licença
 

@@ -16,6 +16,7 @@ import { audio } from './audio/audio';
 import { radio } from './audio/radio';
 import { bells } from './audio/bells';
 import { precip, updatePrecip } from './fx/precip';
+import { debris, updateDebris } from './fx/wind-debris';
 import { animalsDebug } from './actors/animals';
 import { ambientDebug } from './actors/ambient';
 import { drawEggs, eggDebug, eggHit, eggOverride, eggSay, setEggOverride, unlockKonami, updateEggs } from './actors/eggs';
@@ -23,7 +24,8 @@ import { konamiStep } from './actors/egg-rules';
 import { brTrafficDebug } from './actors/br-traffic';
 import { fireworksStats, updateSkyEvents, lightning } from './fx/sky-events';
 import { gradePalette } from './sky/grade';
-import { S, direct, settle, wxOverride } from './sky/state';
+import { S, direct, settle, windOverride, wxOverride } from './sky/state';
+import { debrisOn, strongWind, windKmh } from './sky/wind-rules';
 import { type City, cityById } from './sky/cities';
 import { mountCityMap } from './ui/city-map';
 import { mountPlaceInfo } from './ui/place-info';
@@ -114,6 +116,11 @@ const MONTH = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'o
 const pad2 = (n: number) => String(n | 0).padStart(2, '0');
 
 function weatherWord(): string {
+  const w = weatherWordBase();
+  // strong wind (≥ 30 km/h, wind-rules.ts) from the reading or the labelled #wind= test
+  return S.wxKind !== 'unavailable' && strongWind(S.wind) && S.storm <= 0.45 ? `${w} · ventania` : w;
+}
+function weatherWordBase(): string {
   if (S.storm > 0.45) return S.snow > S.rain ? 'nevasca' : 'tempestade';
   if (S.snow > 0.6) return 'nevasca';
   if (S.snow > 0.25) return 'neve';
@@ -152,10 +159,10 @@ function updateHud() {
   const c = S.cal;
   $('clock').textContent = `${pad2(c.hour)}:${pad2((c.hour % 1) * 60)}`;
   $('date').textContent = `${WEEK[c.weekday]} ${c.day} ${MONTH[c.month]} · ${city.utc < 0 ? 'horário de Brasília' : 'horário de Tóquio'}`;
-  // Weather text comes only from a genuine reading (or the clearly labelled #wx= test override).
+  // Weather text comes only from a genuine reading (or the clearly labelled #wx= / #wind= test overrides).
   const pinned = simOffset !== 0, v = weatherView(city.id), reading = !pinned && v.kind !== 'unavailable' ? v.feed.now : null;
   const h = hudWeather({
-    kind: S.wxKind, word: weatherWord(), now: Date.now(), utc: city.utc, pinned, override: wxOverride ?? undefined,
+    kind: S.wxKind, word: weatherWord(), now: Date.now(), utc: city.utc, pinned, override: wxOverride ?? undefined, windOverride: windOverride ?? undefined,
     temp: reading ? reading.temp : S.temp ?? undefined, feels: reading?.feels, humidity: reading?.humidity, at: reading?.t,
   });
   $('temp').textContent = h.temp;
@@ -341,7 +348,7 @@ let recentPhrases: string[] = [];
 function speak(who: Speaker, x: number, y: number) {
   const text = pickPhrase({
     city: city.id, scene: scene.id, hour: S.cal.hour, role: who.role,
-    wx: { kind: S.wxKind, temp: S.temp, rain: S.rain, snow: S.snow },
+    wx: { kind: S.wxKind, temp: S.temp, rain: S.rain, snow: S.snow, wind: S.wind },
   }, recentPhrases, Math.random);
   if (!text) return;
   recentPhrases = remember(recentPhrases, text);
@@ -409,7 +416,10 @@ function frame(now: number) {
   // the first genuine reading arrived: rebuild wet streets / snow cover from its past hours
   if (!hadData && S.wxKind !== 'unavailable') { settle(simNow(), city); direct(simNow(), city, 0, scene.id); }
   G.camX = camFor(G.W, scene.focusX?.() ?? null); // portrait: the scene may ask the camera to look elsewhere
-  updateSky(dt); updateSkyEvents(dt); updatePrecip(dt); scene.update(dt);
+  updateSky(dt); updateSkyEvents(dt); updatePrecip(dt);
+  // dust / dry leaves / paper: strong dry wind, Esperança, outdoor scenes only (indoor ones grade themselves)
+  updateDebris(dt, !scene.grade && debrisOn({ city: city.id, kind: S.wxKind, wind: S.wind, rain: S.rain, snow: S.snow, wet: S.wet }));
+  scene.update(dt);
   updateEggs(scene.id, city.id === 'esperanca');
   scene.render();
   drawEggs();
@@ -425,6 +435,7 @@ function frame(now: number) {
   if (fpsT >= 1) {
     fps = Math.round(frames / fpsT); frames = 0; fpsT = 0;
     if (workMs > 9 && precip.rainCap > 200) precip.rainCap -= 40; else if (workMs < 4 && precip.rainCap < 850) precip.rainCap += 15;
+    debris.cap = workMs > 9 ? 8 : workMs < 6 ? 18 : debris.cap; // the same budget idea as rainCap
   }
   if (uiT >= 0.25) {
     uiT = 0; updateHud();
@@ -433,12 +444,12 @@ function frame(now: number) {
 time    ${new Date(simNow()).toISOString().slice(0, 16)}Z   ${city.id}   weather ${S.wxKind}
 sun     ${S.sunElev.toFixed(1)}°  day ${S.dayK.toFixed(2)}  gold ${S.golden.toFixed(2)}  moon ${S.moonPhase.toFixed(2)}
 wx      rain ${S.rain.toFixed(2)} snow ${S.snow.toFixed(2)} storm ${S.storm.toFixed(2)} cloud ${S.cloud.toFixed(2)}
-        fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp === null ? 'unknown' : S.temp.toFixed(1)}
+        fog ${S.fog.toFixed(2)} wind ${S.wind.toFixed(2)} (${windKmh(S.wind).toFixed(0)} km/h${strongWind(S.wind) ? ' forte' : ''}) wet ${S.wet.toFixed(2)} cover ${S.snowCover.toFixed(2)} temp ${S.temp === null ? 'unknown' : S.temp.toFixed(1)}
 people  ${rainDebug()}
 busy    ${S.busy.toFixed(2)}  traffic ${S.traffic.toFixed(2)}  birds ${S.birds.toFixed(2)}   tree d${S.tree.density.toFixed(2)} p${S.tree.pink.toFixed(2)} r${S.tree.red.toFixed(2)}
 ${scene.debug()}
 fps     ${fps}   work ${workMs.toFixed(1)} ms   ${backend()}
-drops   ${precip.liveDrops}/${precip.rainCap}  flakes ${precip.liveFlakes}  leaves ${precip.liveLeaves}
+drops   ${precip.liveDrops}/${precip.rainCap}  flakes ${precip.liveFlakes}  leaves ${precip.liveLeaves}  debris ${debris.live}/${debris.cap}
 fx      ${fireworksStats()}  fireworks ${S.fireworks}   radio ${radio.status()}   bells ${bells.status()}${city.br ? `
 life    ${animalsDebug()}
 ambient ${ambientDebug(scene.id)}
