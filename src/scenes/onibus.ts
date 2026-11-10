@@ -382,7 +382,6 @@ export const onibus: Scene = {
     const s = state;
     return `ônibus  ${skin}  ${running() ? (s.atStop ? 'parado no ponto' : `rodando ${Math.round(s.speed * 100)}%`) : 'recolhido'}  parada ${s.stop}  sentados ${s.seated}  em pé ${s.standing}  carga ${Math.round(s.load * 100)}%  luz ${light.k.toFixed(2)}`;
   },
-  hint() { return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y + EXIT.h, text: 'Toque na SAÍDA pra descer' }; },
   tap(x, y) {
     if (onExit(x, y)) return { x: EXIT.x + (EXIT.w >> 1), y: EXIT.y, leave: true };
     for (let i = boxes.length - 1; i >= 0; i--) {
