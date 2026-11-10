@@ -6,11 +6,13 @@
    right, R. Manoel Rodrigues de Oliveira (the road toward Campina Grande) runs past the church behind
    a yellow-painted curb, with shops, poles and wires on its far side. The road is drawn in
    perspective, receding toward the church, and all traffic stays on it. It is one-way here: every
-   vehicle drives up it, away from the viewer, tail lights showing; nothing comes the other way. */
+   vehicle drives up it, away from the viewer, tail lights showing; nothing comes the other way.
+   Now and then a PMPB patrol car is one of them (police-rules.ts), and on rare clock slots a parked
+   viatura and an officer stand on the plaza pavers left of the road, clear of it and of the zebra. */
 import { G, L, Lp, WW, blitLayer, getW, newLayer, put, rect, sx, sy } from '../engine/gfx';
 import { bay, hashf, mulberry32 } from '../engine/math';
 import {
-  AMB, AMBD, ASPH, BARK, BFAR, BMID, BNEAR, CBLUE, CHURCH, CHURCHD, CHURCHL, CYELL, GOLD, HAIR1, HAIR2, HAIR3, LIGHT, MANTO,
+  AMB, AMBD, ASPH, BARK, BFAR, BMID, BNEAR, CBLUE, CNAVY, CHURCH, CHURCHD, CHURCHL, CYELL, GOLD, HAIR1, HAIR2, HAIR3, LIGHT, MANTO,
   SKIN1, SKIN2, SKIN3, SKIN4, STEEL, STONE, STONEL, CBEIGE, MAGD, WDIM,
   TILEW, VOID, WHITE, WOOD, WWARM, WCOOL, FBLUE, FGREEN, FPINK, MAG, CRED, UMB,
 } from '../engine/palette';
@@ -19,8 +21,11 @@ import { configure, drawFarPrecip, drawNearPrecip, drawRipples, precip } from '.
 import { drawFireworks, drawLightning } from '../fx/sky-events';
 import { drawAnimalsGround, drawAnimalsPerched, drawAnimalsSky, setupAnimals, updateAnimals } from '../actors/animals';
 import { anyoneBetween, bikeCount, cocoNow, drawPeople, peopleCount, setCocoStand, setLanes, tickSpawns, updatePeople } from '../actors/people';
-import { CROSS0, CROSS1, ROAD_VY, STOP_ROW, spawnAway, stepRoad } from '../actors/matriz-road';
+import { CROSS0, CROSS1, ROAD_VY, STOP_ROW, curbL, curbR, spawnAway, stepRoad } from '../actors/matriz-road';
 import { setCarLanes } from '../actors/cars';
+import { drawPmpbSide } from '../actors/br-traffic';
+import { MATRIZ_PARK, PATROL, officerLine, parkedAt, patrolDue, patrolSpawned, policeForced, tickPatrol } from '../actors/police-rules';
+import { pmpbDepth } from '../actors/pmpb-draw';
 import { type Tree, drawTree, makeTree } from '../actors/trees';
 import { type MassState, massState } from '../sky/rhythm';
 import { S } from '../sky/state';
@@ -44,7 +49,7 @@ const hotelWins: TowerWin[] = [];
 
 // The road, in perspective: its left (plaza) curb and right (shops) curb converge just past the church's
 // right corner. Row 140 is the foot of the façade; the road is 28 px wide there and widens to the bottom.
-const xl = (y: number) => 316 - 1.35 * (y - 140), xr = (y: number) => 344 + 3.25 * (y - 140);
+const xl = curbL, xr = curbR;
 const laneX = (y: number, u: number) => xl(y) + u * (xr(y) - xl(y));
 /** Ground at world (x, y) from row 134 down: plaza pavers, yellow curbs, asphalt with paint, sidewalk. */
 function groundAt(x: number, y: number): number {
@@ -317,7 +322,7 @@ function drawFiel(f: Fiel) {
 // road, away from the viewer, toward the church and on past it, tail lights showing. It keeps to the
 // lane left of the dashed parking strip. Each vehicle is a rear view scaled by its row; they stop
 // for anyone on the zebra.
-type RKind = 'moto' | 'car' | 'pickup' | 'bus';
+type RKind = 'moto' | 'car' | 'pickup' | 'bus' | 'pmpb';
 interface RCar { on: boolean; y: number; sp: number; kind: RKind; body: number; rider: number; helmet: number }
 const rr = mulberry32(0x7a11);
 const NO_HELMET = 255; // rider without a helmet (never a palette index)
@@ -335,10 +340,33 @@ function spawnCar() {
   c.kind = k < 0.45 ? 'moto' : k < 0.85 ? 'car' : k < 0.95 || h < 6 || h > 22 ? 'pickup' : 'bus';
   c.body = c.kind === 'bus' ? TILEW : c.kind === 'moto' ? rpick([CRED, CRED, VOID, CBLUE, STONEL]) : rpick([TILEW, TILEW, TILEW, STONEL, STONEL, VOID, CRED, CBLUE, STONE]);
   c.rider = rpick([CRED, CBLUE, VOID, CYELL, TILEW, FGREEN]); c.helmet = rpick([VOID, VOID, VOID, TILEW, CRED, CBLUE, NO_HELMET]); // most wear one
-  c.sp = (c.kind === 'moto' ? 1.2 : c.kind === 'bus' ? 0.8 : 1) * (0.85 + rr() * 0.3);
+  // the shared PMPB cooldown (police-rules.ts): same road, same one-way and zebra rules (matriz-road.ts)
+  if (patrolDue(PATROL, { city: S.city.id, forced: policeForced(location.hash) }, RC.some((o) => o !== c && o.on && o.kind === 'pmpb'))) {
+    c.kind = 'pmpb'; c.body = TILEW; patrolSpawned(PATROL, h);
+  }
+  c.sp = (c.kind === 'moto' ? 1.2 : c.kind === 'bus' ? 0.8 : c.kind === 'pmpb' ? 0.9 : 1) * (0.85 + rr() * 0.3);
+}
+
+/** The parked viatura and its officer (rare clock slots, or the #police=1 test). */
+const parkedNow = () => parkedAt(S.ms, S.cal.hour, S.city.id, policeForced(location.hash));
+/** An officer in a plain navy uniform and cap, standing by the car and facing the street. */
+function drawOfficer(x: number, yF: number) {
+  const X = x + 1;
+  for (let j = 0; j < 5; j++) { const c = j === 4 ? VOID : CNAVY; put(X - 1, yF - 4 + j, c); put(X, yF - 4 + j, c); }
+  rect(X - 2, yF - 10, 4, 6, CNAVY); rect(X - 2, yF - 5, 4, 1, VOID); // shirt, belt
+  put(X + 1, yF - 9, GOLD); put(X - 2, yF - 9, CRED); // badge, shoulder patch
+  put(X - 3, yF - 9, CNAVY); put(X - 3, yF - 8, CNAVY); put(X - 3, yF - 7, SKIN3); // arm at the side
+  rect(X - 1, yF - 13, 3, 3, SKIN3); put(X + 1, yF - 12, VOID); // face, eye toward the road
+  rect(X - 2, yF - 14, 4, 1, CNAVY); put(X + 2, yF - 14, VOID); // cap and its peak
+}
+function drawParked() {
+  const p = MATRIZ_PARK;
+  drawPmpbSide(p.x, p.y, p.dir, true); // parked: lights off, the bar dark
+  drawOfficer(p.officerX, p.y);
 }
 
 function updateTraffic(dt: number) {
+  tickPatrol(PATROL, dt, S.city.id);
   rcT -= dt * (0.04 + 0.95 * S.traffic); // builds up with the day (rhythm.ts)
   if (rcT <= 0) { rcT = 0.6 + rr() * 2; spawnCar(); }
   const crossing = anyoneBetween(xl(144) - 4, xr(144) + 4) || FIEIS.some((f) => f.on && f.x > xl(141) - 4 && f.x < xr(141) + 4);
@@ -371,6 +399,7 @@ function drawRoadCar(c: RCar) {
     R(-hw, hw, 3, 2, STEEL); // bumper
     R(-2, 2, 5, 3.4, TILEW); // number plate
     R(-hw + 0.5, -hw + 3, 6.5, 5, tail); R(hw - 3, hw - 0.5, 6.5, 5, tail);
+    if (c.kind === 'pmpb') pmpbDepth(R, hw, H, 8, false, n);
   }
   if (!n) return; // red tail-light glow on the road just behind it
   for (let j = 1; j <= Math.round(3 * k); j++) for (let x = X(-8); x <= X(8); x++) if (bay(sx(x), sy(gy + j)) < 0.12) put(x, gy + j, MAGD);
@@ -378,7 +407,12 @@ function drawRoadCar(c: RCar) {
 
 function drawTraffic(near: boolean) {
   const list = RC.filter((c) => c.on && (c.y >= STREET) === near).sort((a, b) => a.y - b.y);
-  for (const c of list) drawRoadCar(c);
+  let parked = near && parkedNow(); // in depth order with the near traffic
+  for (const c of list) {
+    if (parked && c.y > MATRIZ_PARK.y) { drawParked(); parked = false; }
+    drawRoadCar(c);
+  }
+  if (parked) drawParked();
 }
 
 function update(dt: number) {
@@ -431,6 +465,11 @@ export const praca: Scene = {
   debug() { return `active  people x${peopleCount()}  bici x${bikeCount()}  road x${RC.filter((c) => c.on).length} held ${held} oncoming ${towardViewer}  fiéis x${FIEIS.filter((f) => f.on).length}  mass ${mass.active ? 'on' : mass.doorsOpen ? 'doors' : 'off'}  festa ${S.festa} procissão ${S.procissao} natal ${S.natal}`; },
   // tap a vehicle and it honks; tap the church (façade, tower or spire) and the bell strikes once
   tap(x, y) {
+    // the parked viatura or its officer: a greeting for the hour (no siren, no sound)
+    const p = MATRIZ_PARK;
+    if (parkedNow() && x >= p.x - 1 && x <= p.officerX + 4 && y >= p.y - 17 && y <= p.y + 1) {
+      return { x: p.officerX + 1, y: p.y - 15, say: officerLine(S.cal.hour, Math.floor(S.ms / 5000)) }; // tap() also serves the hover cursor: keep it free of state
+    }
     for (const c of RC) {
       if (!c.on) continue;
       const k = scaleAt(c.y), cx = laneX(c.y, LANE_U), hw = (c.kind === 'bus' ? 11 : c.kind === 'moto' ? 3 : 9) * k + 2;

@@ -38,6 +38,7 @@ import type { BusSkin } from './scenes/onibus-rules';
 import type { Scene } from './scenes/types';
 import { cardFileName, shareUrl, viewHash } from './share-rules';
 import { copyText, downloadCanvas, drawCard } from './share';
+import { POLICE_LABEL, policeCity, policeForced } from './actors/police-rules';
 import { inject, pageview } from '@vercel/analytics';
 import { injectSpeedInsights } from '@vercel/speed-insights';
 
@@ -166,7 +167,8 @@ function updateHud() {
   const badge = $('live');
   badge.hidden = !h.badge;
   if (h.badge) { badge.textContent = h.badge.text; badge.className = `live ${h.badge.cls}`; }
-  const season = seasonWord();
+  // the #police=1 test (police-rules.ts) is labelled, like the weather tests; only Esperança has patrols
+  const season = [seasonWord(), policeForced(location.hash) && policeCity(city.id) ? POLICE_LABEL : ''].filter(Boolean).join(' · ');
   $('season').textContent = season;
   $('season').hidden = !season; // sertão dry season has no tag: don't leave an empty HUD row
 }
